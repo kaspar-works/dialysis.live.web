@@ -50,10 +50,27 @@ export function clearAuthTokens() {
   localStorage.removeItem('refresh_token');
 }
 
+// Check if user is authenticated
+export function isAuthenticated(): boolean {
+  return !!getAuthToken();
+}
+
+// Logout - clear all auth data and redirect
+export function logout() {
+  clearAuthTokens();
+  localStorage.removeItem('dialysis_profile');
+  window.location.href = '/#/login';
+}
+
 // Refresh access token using refresh token
 export async function refreshAccessToken(): Promise<AuthTokens | null> {
   const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
+  if (!refreshToken) {
+    console.log('No refresh token available');
+    return null;
+  }
+
+  console.log('Attempting token refresh...');
 
   try {
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -64,27 +81,63 @@ export async function refreshAccessToken(): Promise<AuthTokens | null> {
       body: JSON.stringify({ refreshToken })
     });
 
-    if (!response.ok) {
-      clearAuthTokens();
+    const result = await response.json();
+    console.log('Refresh response:', result.success, result.message);
+
+    // Check for success in response body (API might return 200 with success: false)
+    if (result.success === false) {
+      console.log('Refresh failed:', result.message);
       return null;
     }
 
-    const result = await response.json();
-    if (result.data?.tokens) {
-      setAuthTokens(result.data.tokens);
-      return result.data.tokens;
+    if (!response.ok) {
+      console.log('Refresh HTTP error:', response.status);
+      return null;
     }
+
+    // Handle different response structures
+    const tokens = result.data?.tokens || result.tokens || result.data;
+    if (tokens?.accessToken && tokens?.refreshToken) {
+      console.log('Token refresh successful');
+      setAuthTokens(tokens);
+      return tokens;
+    }
+
+    console.log('No tokens in refresh response');
     return null;
   } catch (error) {
-    console.error('Token refresh failed:', error);
-    clearAuthTokens();
+    console.error('Token refresh error:', error);
     return null;
   }
+}
+
+// Check if error indicates invalid/expired token
+function isTokenError(message?: string): boolean {
+  if (!message) return false;
+  const lowerMsg = message.toLowerCase();
+  return lowerMsg.includes('invalid') && lowerMsg.includes('token') ||
+         lowerMsg.includes('expired') && lowerMsg.includes('token') ||
+         lowerMsg.includes('unauthorized') ||
+         lowerMsg.includes('jwt');
+}
+
+// Handle auth failure - clear tokens and redirect
+function handleAuthFailure(): never {
+  clearAuthTokens();
+  // Clear any stored profile data
+  localStorage.removeItem('dialysis_profile');
+  window.location.href = '/#/login';
+  throw new Error('Session expired. Please login again.');
 }
 
 // Authenticated fetch with auto token refresh
 export async function authFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
   let token = getAuthToken();
+
+  // If no token, redirect to login immediately
+  if (!token) {
+    handleAuthFailure();
+  }
 
   const makeRequest = async (authToken: string | null) => {
     return fetch(`${API_BASE_URL}${endpoint}`, {
@@ -99,25 +152,60 @@ export async function authFetch(endpoint: string, options: RequestInit = {}): Pr
 
   let response = await makeRequest(token);
 
-  // If 401, try refreshing the token
-  if (response.status === 401) {
+  // If 401 or 403, try refreshing the token
+  if (response.status === 401 || response.status === 403) {
     const newTokens = await refreshAccessToken();
     if (newTokens) {
       response = await makeRequest(newTokens.accessToken);
     } else {
-      // Refresh failed, clear auth and redirect to login
-      clearAuthTokens();
-      window.location.href = '/#/login';
-      throw new Error('Session expired. Please login again.');
+      handleAuthFailure();
     }
   }
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `Request failed: ${response.status}`);
+  // Parse response
+  let result: any;
+  try {
+    result = await response.json();
+  } catch {
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status}`);
+    }
+    return {};
   }
 
-  return response.json();
+  // Check for token errors in response body (some APIs return 200 with success: false)
+  if (result.success === false && isTokenError(result.message)) {
+    // Try to refresh token
+    const newTokens = await refreshAccessToken();
+    if (newTokens) {
+      // Retry the request with new token
+      const retryResponse = await makeRequest(newTokens.accessToken);
+      try {
+        const retryResult = await retryResponse.json();
+        if (retryResult.success === false && isTokenError(retryResult.message)) {
+          handleAuthFailure();
+        }
+        if (!retryResponse.ok && retryResult.success === false) {
+          throw new Error(retryResult.message || `Request failed: ${retryResponse.status}`);
+        }
+        return retryResult;
+      } catch (e) {
+        if (!retryResponse.ok) {
+          throw new Error(`Request failed: ${retryResponse.status}`);
+        }
+        throw e;
+      }
+    } else {
+      handleAuthFailure();
+    }
+  }
+
+  // Handle other errors
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || `Request failed: ${response.status}`);
+  }
+
+  return result;
 }
 
 // Firebase Auth - handles both Google and Email/Password sign-in

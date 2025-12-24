@@ -3,8 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { DialysisType } from '../types';
 import { exportDataAsJSON } from '../services/export';
-import { getMe, getSettings } from '../services/user';
-import { getAuthToken } from '../services/auth';
+import { getMe } from '../services/user';
+import { getAuthToken, logout } from '../services/auth';
 
 const Profile: React.FC = () => {
   const { profile, setProfile, sessions, weights, fluids, vitals, medications } = useStore();
@@ -163,7 +163,7 @@ const Profile: React.FC = () => {
           <div className="bg-slate-900 p-8 rounded-[3rem] text-white shadow-xl">
             <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-6">Security & Privacy</h4>
             <div className="space-y-4">
-              <button 
+              <button
                 onClick={handleExport}
                 className="w-full text-left p-4 rounded-2xl bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 transition-colors flex justify-between items-center"
               >
@@ -174,6 +174,15 @@ const Profile: React.FC = () => {
                 Erase All Session Data
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
               </button>
+              {apiUser && (
+                <button
+                  onClick={() => { if(confirm('Are you sure you want to logout?')) logout(); }}
+                  className="w-full text-left p-4 rounded-2xl bg-rose-500/20 border border-rose-500/30 text-xs font-bold hover:bg-rose-500/30 transition-colors flex justify-between items-center text-rose-400"
+                >
+                  Logout
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </button>
+              )}
             </div>
           </div>
         </div>
