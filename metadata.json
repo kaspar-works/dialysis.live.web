@@ -1,0 +1,7 @@
+{
+  "name": "dialysis.live",
+  "description": "Modern day/night kidney care platform featuring AI nutrition scanning, precision treatment tracking, and clinical biometric monitoring for renal patients.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

@@ -1,0 +1,33 @@
+
+# Dependencies
+/node_modules
+
+# Build artifacts (compiled .js and .js.map files)
+# The specific directory depends on your tsconfig.json "outDir" setting, 
+# which is commonly 'dist', 'build', or 'out'
+/dist
+/build
+/out
+/*.js
+/*.js.map
+
+# Testing and coverage
+/coverage
+
+# Environment variables
+.env
+.env.local
+
+# IDE and OS files
+.DS_Store           # macOS
+.vscode             # VS Code settings and launch configs (optional, depends on team preference)
+npm-debug.log*      # npm debug logs
+yarn-debug.log*     # yarn debug logs
+yarn-error.log*     # yarn error logs
+pnpm-debug.log*     # pnpm debug logs
+lerna-debug.log*    # lerna debug logs
+
+# Optional: if you don't want to commit lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
