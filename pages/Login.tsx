@@ -3,28 +3,28 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import Logo from '../components/Logo';
 import ComingSoon from '../components/ComingSoon';
-import { signInWithEmail, signInWithGoogle, getIdToken, handleGoogleRedirect } from '../services/firebase';
+import { signInWithEmail, signInWithGoogle, getIdToken, handleGoogleRedirect, isGoogleRedirectPending } from '../services/firebase';
 import { firebaseAuth } from '../services/auth';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(isGoogleRedirectPending());
   const { login, setProfile, profile } = useStore();
   const navigate = useNavigate();
 
-  // Handle Google redirect result on mount
+  // Handle Google redirect result only if we're returning from a redirect
   useEffect(() => {
+    if (!isGoogleRedirectPending()) return;
+
     const checkRedirectResult = async () => {
       try {
-        setIsLoading(true);
         const user = await handleGoogleRedirect();
         if (user) {
           let onboardingCompleted = false;
           let apiProfile: any = null;
 
-          // Authenticate with backend to get tokens
           try {
             const idToken = await getIdToken();
             const authResult = await firebaseAuth(idToken);
@@ -36,7 +36,6 @@ const Login: React.FC = () => {
             console.log('Backend auth failed, continuing with local auth:', apiErr);
           }
 
-          // Update profile with Firebase/API user data
           const updatedProfile = {
             ...profile,
             name: apiProfile?.fullName || user.displayName || profile.name,
@@ -44,7 +43,6 @@ const Login: React.FC = () => {
             isOnboarded: onboardingCompleted || profile.isOnboarded,
           };
 
-          // Save to localStorage
           const storageData = localStorage.getItem('renalcare_data');
           const data = storageData ? JSON.parse(storageData) : {};
           data.profile = { ...data.profile, ...updatedProfile };
@@ -119,10 +117,10 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // This will redirect to Google, then back to this page
-      // The useEffect above will handle the result
+      // This will redirect to Google - the useEffect will handle the result on return
       await signInWithGoogle();
     } catch (err: any) {
+      console.error('Google login error:', err);
       setError(err.message || 'Google login failed');
       setIsLoading(false);
     }

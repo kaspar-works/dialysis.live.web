@@ -15,6 +15,7 @@ import Subscription from './pages/Subscription';
 import SubscriptionDetail from './pages/SubscriptionDetail';
 import Reports from './pages/Reports';
 import NutritionScan from './pages/NutritionScan';
+import Symptoms from './pages/Symptoms';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -55,6 +56,10 @@ const App: React.FC = () => {
         <Route
           path="/vitals"
           element={isAuthenticated ? <Layout><SEO title="Vital Signs Ledger" /><Vitals /></Layout> : <Navigate to="/" />}
+        />
+        <Route
+          path="/symptoms"
+          element={isAuthenticated ? <Layout><SEO title="Symptom Tracker" /><Symptoms /></Layout> : <Navigate to="/" />}
         />
         <Route
           path="/weight"

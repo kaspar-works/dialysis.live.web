@@ -27,6 +27,22 @@ export enum WeightContext {
   POST_DIALYSIS = 'post_dialysis'
 }
 
+export enum SymptomType {
+  CRAMPING = 'cramping',
+  NAUSEA = 'nausea',
+  HEADACHE = 'headache',
+  DIZZINESS = 'dizziness',
+  FATIGUE = 'fatigue',
+  SHORTNESS_OF_BREATH = 'shortness_of_breath',
+  ITCHING = 'itching',
+  CHEST_PAIN = 'chest_pain',
+  LOW_BP = 'low_bp',
+  MUSCLE_WEAKNESS = 'muscle_weakness',
+  RESTLESS_LEGS = 'restless_legs',
+  INSOMNIA = 'insomnia',
+  OTHER = 'other'
+}
+
 export enum SubscriptionPlan {
   FREE = 'Free',
   BASIC = 'Basic',

@@ -2,11 +2,12 @@
 // Set to true to enable coming soon mode for that page
 
 export const underConstructionPages = {
-  dashboard: true,
-  login: true,
-  register: true,
+  dashboard: false,
+  login: false,
+  register: false,
   sessions: false,
   vitals: false,
+  symptoms: false,
   fluidLog: false,
   weightLog: false,
   medications: false,
