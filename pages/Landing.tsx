@@ -145,16 +145,16 @@ const Landing: React.FC = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 sm:pt-48 md:pt-72 pb-24 md:pb-40 px-6 md:px-20 max-w-[1440px] mx-auto">
+      <section className="relative pt-28 sm:pt-32 md:pt-32 pb-24 md:pb-40 px-6 md:px-20 max-w-[1440px] mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20 items-center">
           <div className="lg:col-span-7 space-y-8 md:space-y-12 text-center lg:text-left animate-in fade-in slide-in-from-bottom-10 duration-1000">
             <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-[9px] md:text-xs font-black uppercase tracking-[0.3em] md:tracking-[0.4em] backdrop-blur-xl">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
               All-in-One Dialysis Management
             </div>
-            <h1 className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl xl:text-[10rem] font-black tracking-tighter leading-[0.85] md:leading-[0.78] text-white">
-              Your <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-pink-400 to-orange-400">Renal</span> <br/>
+            <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-black tracking-tighter leading-[0.9] text-white">
+              Your<br/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-pink-400 to-orange-400">Renal</span><br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-sky-400">Companion.</span>
             </h1>
             <p className="text-white/40 text-lg md:text-2xl lg:text-3xl font-medium max-w-2xl leading-relaxed mx-auto lg:mx-0">
@@ -342,7 +342,7 @@ const Landing: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer className="py-24 md:py-32 px-6 md:px-20 border-t border-white/5 bg-black">
+      <footer className="py-24 md:py-32 px-6 md:px-20 border-t border-white/5 bg-[#020617]">
         <div className="max-w-[1440px] mx-auto space-y-20">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
             <div className="lg:col-span-4 space-y-8 text-center lg:text-left">
