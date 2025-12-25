@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import Logo from '../components/Logo';
-import { signUpWithEmail, signInWithGoogle, getIdToken } from '../services/firebase';
+import { signUpWithEmail, signInWithGoogle, getIdToken, handleGoogleRedirect } from '../services/firebase';
 import { firebaseAuth } from '../services/auth';
 
 const Register: React.FC = () => {
@@ -14,6 +14,57 @@ const Register: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login, setProfile, profile } = useStore();
   const navigate = useNavigate();
+
+  // Handle Google redirect result on mount
+  useEffect(() => {
+    const checkRedirectResult = async () => {
+      try {
+        setIsLoading(true);
+        const user = await handleGoogleRedirect();
+        if (user) {
+          let onboardingCompleted = false;
+          let apiProfile: any = null;
+
+          // Authenticate with backend to get tokens
+          try {
+            const idToken = await getIdToken();
+            const authResult = await firebaseAuth(idToken);
+            if (authResult.data) {
+              onboardingCompleted = authResult.data.user?.onboardingCompleted || false;
+              apiProfile = authResult.data.profile;
+            }
+          } catch (apiErr) {
+            console.log('Backend auth failed, continuing with local auth:', apiErr);
+          }
+
+          // Update profile with Firebase/API user data
+          const updatedProfile = {
+            ...profile,
+            name: apiProfile?.fullName || user.displayName || profile.name,
+            email: user.email || '',
+            isOnboarded: onboardingCompleted || profile.isOnboarded,
+          };
+
+          // Save to localStorage
+          const storageData = localStorage.getItem('renalcare_data');
+          const data = storageData ? JSON.parse(storageData) : {};
+          data.profile = { ...data.profile, ...updatedProfile };
+          localStorage.setItem('renalcare_data', JSON.stringify(data));
+
+          setProfile(updatedProfile);
+          login();
+          navigate('/dashboard');
+        }
+      } catch (err: any) {
+        console.error('Redirect error:', err);
+        setError(err.message || 'Google registration failed');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkRedirectResult();
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,45 +110,11 @@ const Register: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const user = await signInWithGoogle();
-
-      let onboardingCompleted = false;
-      let apiProfile: any = null;
-
-      // Authenticate with backend to get tokens
-      try {
-        const idToken = await getIdToken();
-        const authResult = await firebaseAuth(idToken);
-
-        // Check if onboarding is already completed on backend
-        if (authResult.data) {
-          onboardingCompleted = authResult.data.user?.onboardingCompleted || false;
-          apiProfile = authResult.data.profile;
-        }
-      } catch (apiErr) {
-        console.log('Backend auth failed, continuing with local auth:', apiErr);
-      }
-
-      // Update profile with Firebase/API user data
-      const updatedProfile = {
-        ...profile,
-        name: apiProfile?.fullName || user.displayName || profile.name,
-        email: user.email || '',
-        isOnboarded: onboardingCompleted || profile.isOnboarded,
-      };
-
-      // Save to localStorage directly to ensure it persists
-      const storageData = localStorage.getItem('renalcare_data');
-      const data = storageData ? JSON.parse(storageData) : {};
-      data.profile = { ...data.profile, ...updatedProfile };
-      localStorage.setItem('renalcare_data', JSON.stringify(data));
-
-      setProfile(updatedProfile);
-      login();
-      navigate('/dashboard');
+      // This will redirect to Google, then back to this page
+      // The useEffect above will handle the result
+      await signInWithGoogle();
     } catch (err: any) {
       setError(err.message || 'Google registration failed');
-    } finally {
       setIsLoading(false);
     }
   };
