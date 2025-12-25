@@ -21,6 +21,12 @@ export enum VitalType {
   SPO2 = 'Oxygen Saturation'
 }
 
+export enum WeightContext {
+  MORNING = 'morning',
+  PRE_DIALYSIS = 'pre_dialysis',
+  POST_DIALYSIS = 'post_dialysis'
+}
+
 export enum SubscriptionPlan {
   FREE = 'Free',
   BASIC = 'Basic',

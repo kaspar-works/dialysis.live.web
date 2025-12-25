@@ -4,8 +4,9 @@ import { DialysisType } from '../types';
 import { ICONS } from '../constants';
 import Logo from './Logo';
 import { completeOnboarding as completeOnboardingApi } from '../services/onboarding';
-import { getAuthToken } from '../services/auth';
-import { getMe } from '../services/user';
+import { getAuthToken, firebaseAuth } from '../services/auth';
+import { getMe, getSettings } from '../services/user';
+import { auth, getIdToken } from '../services/firebase';
 
 const OnboardingModal: React.FC = () => {
   const { profile, completeOnboarding } = useStore();
@@ -23,22 +24,90 @@ const OnboardingModal: React.FC = () => {
 
   // Check backend for onboarding status on mount
   useEffect(() => {
+    let isMounted = true;
+
     const checkOnboardingStatus = async () => {
-      const token = getAuthToken();
+      let token = getAuthToken();
+      console.log('[Onboarding] Checking status, backend token exists:', !!token);
+
+      // If no backend token, check if Firebase user exists and exchange for backend token
       if (!token) {
-        setCheckingStatus(false);
+        console.log('[Onboarding] No backend token, checking Firebase auth...');
+        const firebaseUser = auth.currentUser;
+        console.log('[Onboarding] Firebase user:', firebaseUser?.email);
+
+        if (firebaseUser) {
+          try {
+            console.log('[Onboarding] Firebase user found, exchanging for backend token...');
+            const idToken = await getIdToken();
+            const authResult = await firebaseAuth(idToken);
+            console.log('[Onboarding] Backend auth result:', authResult.success);
+
+            if (authResult.data?.user?.onboardingCompleted) {
+              console.log('[Onboarding] User already onboarded (from auth response)');
+              setIsOnboardedApi(true);
+              completeOnboarding({
+                name: authResult.data.profile?.fullName || profile.name,
+                dailyFluidLimit: authResult.data.profile?.dailyFluidLimitMl || profile.dailyFluidLimit,
+                weightGoal: authResult.data.profile?.dryWeightKg || profile.weightGoal,
+              });
+              if (isMounted) setCheckingStatus(false);
+              return;
+            }
+
+            // Token should now be stored, get it again
+            token = getAuthToken();
+          } catch (firebaseErr) {
+            console.error('[Onboarding] Firebase token exchange failed:', firebaseErr);
+          }
+        }
+      }
+
+      // Still no token after Firebase check
+      if (!token) {
+        console.log('[Onboarding] No token available, showing onboarding');
+        if (isMounted) setCheckingStatus(false);
         return;
       }
 
       try {
+        // Fetch user data and settings
+        console.log('[Onboarding] Fetching user data from /auth/me...');
+
         const userData = await getMe();
-        if (userData.user?.onboardingCompleted) {
+        console.log('[Onboarding] User data received:', userData.user?.onboardingCompleted);
+
+        if (!isMounted) return;
+
+        let settings = null;
+        try {
+          console.log('[Onboarding] Fetching settings from /settings...');
+          settings = await getSettings();
+          console.log('[Onboarding] Settings received:', settings);
+        } catch (settingsErr) {
+          console.log('[Onboarding] Settings fetch failed (may not exist yet):', settingsErr);
+        }
+
+        if (!isMounted) return;
+
+        // Consider onboarding complete if:
+        // 1. User has onboardingCompleted flag set, OR
+        // 2. Settings have been configured (dailyFluidLimitMl or dryWeightKg is set)
+        const hasConfiguredSettings = settings && (
+          settings.dailyFluidLimitMl !== undefined ||
+          settings.dryWeightKg !== undefined
+        );
+
+        const isOnboarded = userData.user?.onboardingCompleted || hasConfiguredSettings;
+        console.log('[Onboarding] Is onboarded:', isOnboarded, '(user flag:', userData.user?.onboardingCompleted, ', has settings:', hasConfiguredSettings, ')');
+
+        if (isOnboarded) {
           setIsOnboardedApi(true);
-          // Also update local profile
+          // Also update local profile with data from API
           completeOnboarding({
             name: userData.profile?.fullName || profile.name,
-            dailyFluidLimit: userData.settings?.dailyFluidLimitMl || profile.dailyFluidLimit,
-            weightGoal: userData.settings?.dryWeightKg || profile.weightGoal,
+            dailyFluidLimit: settings?.dailyFluidLimitMl || userData.settings?.dailyFluidLimitMl || profile.dailyFluidLimit,
+            weightGoal: settings?.dryWeightKg || userData.settings?.dryWeightKg || profile.weightGoal,
           });
         }
         // Update form with API data
@@ -46,13 +115,22 @@ const OnboardingModal: React.FC = () => {
           setFormData(prev => ({ ...prev, name: userData.profile.fullName }));
         }
       } catch (err) {
-        console.log('Failed to check onboarding status:', err);
+        console.error('[Onboarding] Failed to check onboarding status:', err);
       } finally {
-        setCheckingStatus(false);
+        if (isMounted) setCheckingStatus(false);
       }
     };
 
-    checkOnboardingStatus();
+    // Wait for Firebase auth to initialize before checking
+    const unsubscribe = auth.onAuthStateChanged(() => {
+      checkOnboardingStatus();
+      unsubscribe(); // Only run once
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   // Update form data when profile name changes (e.g., from Firebase auth)

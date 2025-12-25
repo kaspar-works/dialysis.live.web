@@ -1,292 +1,661 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
-import { ICONS, COLORS } from '../constants';
-import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ICONS } from '../constants';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { createWeightLog, getWeightLogs, deleteWeightLog, WeightLog as WeightLogApi, WeightContext } from '../services/weight';
+import { isAuthenticated } from '../services/auth';
+import { useNavigate } from 'react-router-dom';
+
+// Map frontend display types to backend API values
+const typeToApi: Record<string, WeightContext> = {
+  'morning': 'morning',
+  'pre-dialysis': 'pre_dialysis',
+  'post-dialysis': 'post_dialysis',
+};
+
+// Map backend API values to frontend display types
+const apiToType: Record<WeightContext, string> = {
+  'morning': 'morning',
+  'pre_dialysis': 'pre-dialysis',
+  'post_dialysis': 'post-dialysis',
+};
+
+const contextConfig = {
+  'morning': { label: 'Morning', icon: '🌅', color: 'amber' },
+  'pre-dialysis': { label: 'Pre-Dialysis', icon: '🏥', color: 'sky' },
+  'post-dialysis': { label: 'Post-Dialysis', icon: '✅', color: 'emerald' },
+};
+
+const ITEMS_PER_PAGE = 10;
 
 const WeightLog: React.FC = () => {
-  const { weights, addWeight, profile, sessions } = useStore();
-  const [newValue, setNewValue] = useState('75.0');
+  const { profile } = useStore();
+  const navigate = useNavigate();
+  const [weights, setWeights] = useState<WeightLogApi[]>([]);
+  const [newValue, setNewValue] = useState(profile.weightGoal?.toString() || '75.0');
   const [newType, setNewType] = useState<'morning' | 'pre-dialysis' | 'post-dialysis'>('morning');
-  const [timeRange, setTimeRange] = useState<'10' | '30' | '180'>('10');
+  const [timeRange, setTimeRange] = useState<'7' | '30' | '90'>('30');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const currentWeight = weights[0]?.value || profile.weightGoal;
-  const previousWeight = weights[1]?.value || currentWeight;
-  const weightDiff = currentWeight - previousWeight;
-  
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newValue) return;
-    addWeight({
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      value: parseFloat(newValue),
-      type: newType
-    });
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [isTableLoading, setIsTableLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // All weights for charts (fetched separately)
+  const [allWeights, setAllWeights] = useState<WeightLogApi[]>([]);
+
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      navigate('/login');
+      return;
+    }
+    fetchAllData();
+  }, [navigate]);
+
+  const fetchAllData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Fetch paginated data for table
+      const tableResponse = await getWeightLogs({ limit: ITEMS_PER_PAGE, offset: 0 });
+      setWeights(tableResponse.logs);
+      setTotalItems(tableResponse.pagination.total);
+      setCurrentPage(1);
+
+      // Fetch more data for charts (last 100 entries)
+      const chartResponse = await getWeightLogs({ limit: 100 });
+      setAllWeights(chartResponse.logs);
+    } catch (err) {
+      console.error('Failed to fetch weights:', err);
+      setError('Failed to load weight data');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  const fetchTablePage = async (page: number) => {
+    setIsTableLoading(true);
+    try {
+      const offset = (page - 1) * ITEMS_PER_PAGE;
+      const response = await getWeightLogs({ limit: ITEMS_PER_PAGE, offset });
+      setWeights(response.logs);
+      setTotalItems(response.pagination.total);
+      setCurrentPage(page);
+    } catch (err) {
+      console.error('Failed to fetch weights:', err);
+      setError('Failed to load weight data');
+    } finally {
+      setIsTableLoading(false);
+    }
+  };
+
+  const handleDeleteWeight = async (logId: string) => {
+    if (deletingId) return;
+    setDeletingId(logId);
+    try {
+      await deleteWeightLog(logId);
+      await fetchAllData();
+    } catch (err) {
+      console.error('Failed to delete weight:', err);
+      setError('Failed to delete weight entry');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages || page === currentPage) return;
+    fetchTablePage(page);
+  };
+
+  // Stats calculations
+  const currentWeight = allWeights[0]?.weightKg || profile.weightGoal;
+  const previousWeight = allWeights[1]?.weightKg || currentWeight;
+  const weightChange = currentWeight - previousWeight;
+  const targetDiff = currentWeight - profile.weightGoal;
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newValue || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const savedWeight = parseFloat(newValue);
+      const context = contextConfig[newType];
+      await createWeightLog({
+        weightKg: savedWeight,
+        context: typeToApi[newType],
+        loggedAt: new Date().toISOString(),
+      });
+      await fetchAllData();
+
+      // Show success notification
+      setSuccessMessage(`${context.icon} ${savedWeight.toFixed(1)} kg saved!`);
+
+      // Auto-hide after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Failed to add weight:', err);
+      setError('Failed to save weight');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Chart data
   const chartData = useMemo(() => {
     const days = parseInt(timeRange);
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
 
-    return [...weights]
-      .filter(w => new Date(w.date) >= cutoff)
+    return [...allWeights]
+      .filter(w => new Date(w.loggedAt) >= cutoff)
       .reverse()
       .map(w => ({
-        date: new Date(w.date).toLocaleDateString(undefined, { 
-          month: 'short', 
-          day: 'numeric'
-        }),
-        value: w.value,
-        type: w.type
+        date: new Date(w.loggedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        weight: w.weightKg,
+        context: apiToType[w.context],
       }));
-  }, [weights, timeRange]);
+  }, [allWeights, timeRange]);
 
-  // NEW: Specialized 7-Day Weekly Velocity Data
-  const weeklyData = useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 7);
+  // Weight range for chart
+  const weightRange = useMemo(() => {
+    if (chartData.length === 0) return { min: 70, max: 80 };
+    const values = chartData.map(d => d.weight);
+    const min = Math.min(...values, profile.weightGoal);
+    const max = Math.max(...values, profile.weightGoal);
+    const padding = (max - min) * 0.2 || 2;
+    return { min: Math.floor(min - padding), max: Math.ceil(max + padding) };
+  }, [chartData, profile.weightGoal]);
 
-    return [...weights]
-      .filter(w => new Date(w.date) >= cutoff)
-      .reverse()
-      .map(w => ({
-        date: new Date(w.date).toLocaleDateString(undefined, { weekday: 'short' }),
-        weight: w.value
-      }));
-  }, [weights]);
+  // Confidence calculation
+  const confidence = useMemo(() => {
+    const postWeights = allWeights.filter(w => w.context === 'post_dialysis').slice(0, 5);
+    if (postWeights.length < 3) return { status: 'Calibrating', color: 'slate', percent: 0 };
 
-  const goalProgress = Math.min(Math.max(((profile.weightGoal - 10) / (currentWeight - 10)) * 100, 0), 100);
-
-  // DRY WEIGHT CONFIDENCE LOGIC
-  const confidenceData = useMemo(() => {
-    const postWeights = weights
-      .filter(w => w.type === 'post-dialysis')
-      .slice(0, 5);
-    
-    if (postWeights.length < 3) return { status: 'Calibrating', level: 'Pending Data', color: 'text-slate-400', bg: 'bg-slate-50 dark:bg-white/5', icon: '⏳', desc: 'Add 3+ post-dialysis weights to initialize meter.' };
-
-    const avg = postWeights.reduce((acc, w) => acc + w.value, 0) / postWeights.length;
+    const avg = postWeights.reduce((acc, w) => acc + w.weightKg, 0) / postWeights.length;
     const deviation = Math.abs(avg - profile.weightGoal);
 
-    if (deviation <= 0.5) {
-      return { 
-        status: 'Stable', 
-        level: 'Clinical High', 
-        color: 'text-emerald-500', 
-        bg: 'bg-emerald-50/50 dark:bg-emerald-500/10',
-        border: 'border-emerald-100 dark:border-emerald-500/20', 
-        icon: '✅', 
-        desc: 'Weight targets are being met with high longitudinal precision.' 
-      };
-    } else if (deviation <= 1.2) {
-      return { 
-        status: 'Needs Review', 
-        level: 'Moderate Drift', 
-        color: 'text-amber-500', 
-        bg: 'bg-amber-50/50 dark:bg-amber-500/10',
-        border: 'border-amber-100 dark:border-amber-500/20', 
-        icon: '🟡', 
-        desc: 'Average post-weight varies from target. Consult your clinic.' 
-      };
-    } else {
-      return { 
-        status: 'Likely Off', 
-        level: 'Significant Variance', 
-        color: 'text-rose-500', 
-        bg: 'bg-rose-50/50 dark:bg-rose-500/10',
-        border: 'border-rose-100 dark:border-rose-500/20', 
-        icon: '🔴', 
-        desc: 'Significant clinical drift detected. Urgent review suggested.' 
-      };
-    }
-  }, [weights, profile.weightGoal]);
+    if (deviation <= 0.5) return { status: 'Excellent', color: 'emerald', percent: 95 };
+    if (deviation <= 1.0) return { status: 'Good', color: 'sky', percent: 75 };
+    if (deviation <= 1.5) return { status: 'Fair', color: 'amber', percent: 50 };
+    return { status: 'Review Needed', color: 'rose', percent: 25 };
+  }, [allWeights, profile.weightGoal]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-pink-500/20 border-t-pink-500 rounded-full animate-spin mx-auto" />
+          <p className="text-slate-400 text-sm font-medium">Loading weight data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8 md:space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700 pb-20 transition-colors duration-500">
-      {/* Header */}
-      <section className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
-        <div className="space-y-2 text-left">
-          <div className="flex items-center gap-3">
-             <span className="px-3 py-1 bg-white dark:bg-white/5 text-slate-500 dark:text-slate-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-slate-100 dark:border-white/10 shadow-sm transition-colors">Biometric Analytics</span>
-          </div>
-          <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">Weight Analysis</h2>
-          <p className="text-slate-500 dark:text-slate-500 max-w-md font-medium text-base md:text-lg">Monitor dry weight accuracy and inter-dialytic variation.</p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 px-6 md:px-8 py-4 md:py-5 rounded-2xl md:rounded-[1.5rem] border border-slate-100 dark:border-white/10 shadow-sm flex items-center gap-4 md:gap-5 transition-colors">
-           <div className="w-10 h-10 md:w-12 md:h-12 bg-pink-50 dark:bg-pink-500/10 text-pink-500 rounded-xl md:rounded-2xl flex items-center justify-center transition-colors">
-              <ICONS.Scale className="w-5 h-5 md:w-6 md:h-6" />
-           </div>
-           <div>
-              <p className="text-[8px] md:text-[9px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest transition-colors">Dry Weight</p>
-              <p className="text-lg md:text-xl font-black text-slate-900 dark:text-white transition-colors">{profile.weightGoal} <span className="text-[10px] opacity-30 font-bold uppercase">kg</span></p>
-           </div>
-        </div>
-      </section>
-
-      {/* Stats Summary Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
-        <div className={`p-8 md:p-10 rounded-[3.5rem] border transition-all duration-700 flex flex-col justify-between group overflow-hidden relative ${confidenceData.bg} ${confidenceData.border || 'border-slate-100 dark:border-white/5'}`}>
-           <div className="absolute top-[-20px] right-[-20px] text-6xl opacity-10 group-hover:scale-125 transition-transform duration-700">{confidenceData.icon}</div>
-           <div>
-              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Clinical Confidence</p>
-              <h4 className={`text-3xl font-black tracking-tight ${confidenceData.color}`}>{confidenceData.status}</h4>
-              <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-2 uppercase tracking-tighter">{confidenceData.level}</p>
-           </div>
-           <p className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-relaxed mt-4 italic transition-colors">
-              "{confidenceData.desc}"
-           </p>
-        </div>
-
-        <div className="bg-slate-900 dark:bg-slate-900 p-8 md:p-10 rounded-3xl md:rounded-[3.5rem] text-white shadow-xl relative overflow-hidden group border border-white/5 transition-colors">
-           <p className="text-[9px] md:text-[10px] font-black text-orange-400 uppercase tracking-widest mb-4 transition-colors">Current weight</p>
-           <div className="flex items-baseline gap-2">
-              <span className="text-5xl md:text-6xl font-black tabular-nums transition-colors">{currentWeight}</span>
-              <span className="text-lg md:text-xl font-bold opacity-30 uppercase transition-colors">kg</span>
-           </div>
-           <div className="mt-6 flex items-center gap-3">
-              <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${weightDiff <= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-pink-500/20 text-pink-400'}`}>
-                {weightDiff > 0 ? '↑' : '↓'} {Math.abs(weightDiff).toFixed(1)} kg
-              </span>
-           </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-3xl md:rounded-[3.5rem] border border-slate-100 dark:border-white/10 shadow-sm flex flex-col justify-between transition-colors">
-           <div className="flex justify-between items-start mb-6 md:mb-8">
-              <div>
-                 <h4 className="font-black text-slate-900 dark:text-white uppercase text-[10px] md:text-xs tracking-widest mb-1 px-1 transition-colors">Longitudinal Accuracy</h4>
-                 <p className="text-slate-400 dark:text-slate-600 text-xs md:text-sm font-medium px-1 transition-colors">Proximity to Dry Target</p>
-              </div>
-           </div>
-           <div className="space-y-6">
-              <div className="h-4 bg-slate-50 dark:bg-white/5 rounded-full border border-slate-100 dark:border-white/5 overflow-hidden p-1 relative transition-colors">
-                 <div 
-                   className="h-full bg-gradient-to-r from-orange-400 via-pink-500 to-sky-500 rounded-full transition-all duration-1000 shadow-lg" 
-                   style={{ width: `${goalProgress}%` }}
-                 ></div>
-              </div>
-              <div className="flex justify-between px-2">
-                 <span className="text-[8px] md:text-[10px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-widest transition-colors">Calibrated</span>
-                 <span className="text-[8px] md:text-[10px] font-black text-sky-400 dark:text-sky-500 uppercase tracking-widest transition-colors">{currentWeight} kg</span>
-              </div>
-           </div>
-        </div>
-      </section>
-
-      {/* Inputs & Trends Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 md:gap-10">
-        <div className="xl:col-span-4 space-y-8">
-          {/* Record Input Card */}
-          <div className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-3xl md:rounded-[4rem] border border-slate-100 dark:border-white/10 shadow-sm transition-colors">
-             <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-8 transition-colors">Record Weight</h3>
-             <form onSubmit={handleAdd} className="space-y-8 md:space-y-10">
-                <div className="p-8 md:p-10 bg-slate-50 dark:bg-white/5 rounded-3xl md:rounded-[3rem] border border-slate-100 dark:border-white/10 text-center transition-colors">
-                   <div className="flex items-center justify-center gap-4 md:gap-6">
-                      <button type="button" onClick={() => setNewValue((prev) => (parseFloat(prev) - 0.1).toFixed(1))} className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-white/10 text-slate-300 dark:text-slate-600 font-black text-2xl shadow-sm transition-all hover:text-sky-500 focus:outline-none">-</button>
-                      <input type="number" step="0.1" value={newValue} onChange={(e) => setNewValue(e.target.value)} className="w-24 md:w-32 bg-transparent text-4xl md:text-5xl font-black text-slate-900 dark:text-white outline-none text-center tabular-nums transition-colors" />
-                      <button type="button" onClick={() => setNewValue((prev) => (parseFloat(prev) + 0.1).toFixed(1))} className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-white/10 text-slate-300 dark:text-slate-600 font-black text-2xl shadow-sm transition-all hover:text-sky-500 focus:outline-none">+</button>
-                   </div>
-                   <p className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 dark:text-slate-600 mt-4 tracking-widest transition-colors">recorded mass (kg)</p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2">
-                   {(['morning', 'pre-dialysis', 'post-dialysis'] as const).map((type) => (
-                      <button key={type} type="button" onClick={() => setNewType(type)} className={`p-4 md:p-5 rounded-xl md:rounded-2xl text-left border transition-all flex items-center justify-between group ${newType === type ? 'bg-slate-900 dark:bg-white border-slate-900 dark:border-white text-white dark:text-slate-950 shadow-lg' : 'bg-white dark:bg-slate-800/50 border-slate-100 dark:border-white/10 text-slate-500 dark:text-slate-500 hover:border-pink-200 dark:hover:border-pink-500/50'}`}>
-                         <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest ${newType === type ? 'text-white dark:text-slate-950' : 'text-slate-500'}`}>{type.replace('-', ' ')}</span>
-                         <ICONS.Scale className={`w-4 h-4 transition-colors ${newType === type ? 'text-pink-400' : 'text-slate-200 dark:text-slate-800'}`} />
-                      </button>
-                   ))}
-                </div>
-
-                <button type="submit" className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-950 py-5 md:py-6 rounded-2xl md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-widest shadow-xl hover:bg-pink-600 dark:hover:bg-pink-500 dark:hover:text-white transition-all active:scale-95 transition-colors">Commit to Ledger</button>
-             </form>
-          </div>
-
-          {/* NEW: Weekly Velocity Node (LineChart) */}
-          <div className="bg-slate-950 dark:bg-slate-900 p-8 rounded-[3.5rem] text-white shadow-2xl border border-white/5 overflow-hidden group">
-            <div className="flex justify-between items-center mb-6">
-               <h4 className="text-[10px] font-black text-sky-400 uppercase tracking-[0.4em]">Velocity Node</h4>
-               <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">7-Day Precision</span>
+    <div className="max-w-6xl mx-auto space-y-6 pb-24 px-4 animate-in fade-in duration-500">
+      {/* Success Notification - Toast */}
+      {successMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top fade-in duration-300">
+          <div className="bg-emerald-500 text-white px-6 py-3 rounded-2xl shadow-xl flex items-center gap-3">
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
             </div>
-            <div className="h-[150px] w-full">
-              {weeklyData.length >= 2 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={weeklyData}>
-                    <CartesianGrid strokeDasharray="10 10" vertical={false} stroke="rgba(255,255,255,0.03)" />
-                    <XAxis dataKey="date" hide />
-                    <YAxis hide domain={['dataMin - 0.5', 'dataMax + 0.5']} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: '#020617', color: '#fff', fontSize: '10px', fontWeight: 900 }} 
-                      itemStyle={{ color: '#0EA5E9' }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="weight" 
-                      stroke="#0EA5E9" 
-                      strokeWidth={4} 
-                      dot={{ r: 4, fill: '#0EA5E9', strokeWidth: 0 }} 
-                      activeDot={{ r: 6, strokeWidth: 0 }}
-                      animationDuration={2000}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-[10px] font-black text-white/10 uppercase tracking-widest">Awaiting Calibration</div>
-              )}
-            </div>
+            <span className="font-bold">{successMessage}</span>
           </div>
         </div>
+      )}
 
-        <div className="xl:col-span-8 bg-white dark:bg-slate-900 p-8 md:p-12 rounded-3xl md:rounded-[4rem] border border-slate-100 dark:border-white/10 shadow-sm flex flex-col min-h-[400px] transition-colors">
-           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8 md:mb-12 px-2">
-              <div>
-                 <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight transition-colors">Biometric Trends</h3>
-                 <p className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest mt-1 transition-colors">Weight stability trajectory</p>
+      {/* Error Display */}
+      {error && (
+        <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 flex items-center justify-between">
+          <p className="text-rose-500 font-medium">{error}</p>
+          <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-600">
+            <ICONS.X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
+      {/* Add Weight Card - Always Visible */}
+      <div className="bg-gradient-to-br from-pink-500 to-rose-500 rounded-3xl p-6 shadow-xl">
+        <form onSubmit={handleAdd}>
+          {/* Top Row - Title & Context */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <ICONS.Scale className="w-5 h-5 text-white" />
               </div>
-              
-              <div className="flex bg-slate-50 dark:bg-white/5 p-1 rounded-xl md:rounded-2xl border border-slate-100 dark:border-white/5 transition-colors">
-                {[
-                  { id: '10', label: '10D' },
-                  { id: '30', label: '30D' },
-                  { id: '180', label: '6M' }
-                ].map(range => (
-                  <button 
-                    key={range.id}
-                    onClick={() => setTimeRange(range.id as any)}
-                    className={`px-4 md:px-6 py-2 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${timeRange === range.id ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md scale-105' : 'text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400'}`}
+              <div>
+                <h2 className="text-white font-bold text-lg">Log Weight</h2>
+                <p className="text-white/60 text-xs">Target: {profile.weightGoal} kg</p>
+              </div>
+            </div>
+
+            {/* Context Pills */}
+            <div className="flex gap-1 bg-white/10 p-1 rounded-xl">
+              {(['morning', 'pre-dialysis', 'post-dialysis'] as const).map((type) => {
+                const config = contextConfig[type];
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setNewType(type)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      newType === type
+                        ? 'bg-white text-pink-500 shadow'
+                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                    }`}
                   >
-                    {range.label}
+                    {config.icon} {config.label.split('-')[0]}
                   </button>
-                ))}
-              </div>
-           </div>
+                );
+              })}
+            </div>
+          </div>
 
-           <div className="flex-1 w-full h-[300px] md:h-auto">
-              {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="weightBrand" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#EC4899" stopOpacity={0.2}/>
-                            <stop offset="95%" stopColor="#EC4899" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="6 6" vertical={false} stroke="currentColor" className="text-slate-100 dark:text-white/5" />
-                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 9, fontWeight: 900}} dy={15} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 9, fontWeight: 900}} domain={['dataMin - 1', 'dataMax + 1']} />
-                      <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', backgroundColor: '#020617', color: '#fff', boxShadow: '0 25px 50px -12px rgba(236,72,153,0.15)', padding: '12px', fontWeight: 900, fontSize: '10px' }} />
-                      <Area type="monotone" dataKey="value" stroke="#EC4899" strokeWidth={5} fillOpacity={1} fill="url(#weightBrand)" dot={chartData.length < 20 ? { r: 5, fill: '#fff', strokeWidth: 3, stroke: '#EC4899' } : false} activeDot={{ r: 8, fill: '#EC4899', strokeWidth: 0 }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center opacity-20 text-center space-y-4 transition-opacity">
-                  <ICONS.Scale className="w-12 h-12 dark:text-slate-400" />
-                  <p className="text-xs font-black uppercase tracking-widest dark:text-slate-600">Not enough data points</p>
-                </div>
-              )}
-           </div>
+          {/* Weight Input - Large & Central */}
+          <div className="bg-white/10 backdrop-blur rounded-2xl p-6 mb-4">
+            <div className="flex items-center justify-center gap-4">
+              {/* Decrease Buttons */}
+              <div className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => setNewValue((prev) => (parseFloat(prev) - 1).toFixed(1))}
+                  className="w-12 h-10 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-lg transition-all active:scale-95"
+                >
+                  -1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewValue((prev) => (parseFloat(prev) - 0.1).toFixed(1))}
+                  className="w-12 h-10 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 font-bold text-sm transition-all active:scale-95"
+                >
+                  -0.1
+                </button>
+              </div>
+
+              {/* Main Input */}
+              <div className="text-center">
+                <input
+                  type="number"
+                  step="0.1"
+                  value={newValue}
+                  onChange={(e) => setNewValue(e.target.value)}
+                  className="w-36 bg-transparent text-6xl font-black text-white text-center outline-none"
+                  style={{ caretColor: 'white' }}
+                />
+                <p className="text-white/50 text-sm font-medium mt-1">kilograms</p>
+              </div>
+
+              {/* Increase Buttons */}
+              <div className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => setNewValue((prev) => (parseFloat(prev) + 1).toFixed(1))}
+                  className="w-12 h-10 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-lg transition-all active:scale-95"
+                >
+                  +1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewValue((prev) => (parseFloat(prev) + 0.1).toFixed(1))}
+                  className="w-12 h-10 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 font-bold text-sm transition-all active:scale-95"
+                >
+                  +0.1
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex justify-center gap-2 mt-4 pt-4 border-t border-white/10">
+              {[profile.weightGoal - 1, profile.weightGoal, profile.weightGoal + 1, profile.weightGoal + 2].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setNewValue(preset.toFixed(1))}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    parseFloat(newValue) === preset
+                      ? 'bg-white text-pink-500'
+                      : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                  }`}
+                >
+                  {preset.toFixed(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isSubmitting || !newValue}
+            className="w-full py-4 rounded-2xl font-bold text-pink-500 bg-white hover:bg-white/90 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98]"
+          >
+            {isSubmitting ? (
+              <div className="w-5 h-5 border-2 border-pink-500/30 border-t-pink-500 rounded-full animate-spin" />
+            ) : (
+              <>
+                <ICONS.Plus className="w-5 h-5" />
+                Save Weight
+              </>
+            )}
+          </button>
+        </form>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Current Weight */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current</p>
+          <p className="text-3xl font-black text-slate-900 dark:text-white mt-1">{currentWeight.toFixed(1)}</p>
+          <p className="text-xs text-slate-400">kg</p>
         </div>
+
+        {/* Change */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Change</p>
+          <p className={`text-3xl font-black mt-1 ${weightChange <= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+            {weightChange > 0 ? '+' : ''}{weightChange.toFixed(1)}
+          </p>
+          <p className="text-xs text-slate-400">vs last entry</p>
+        </div>
+
+        {/* From Target */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">From Target</p>
+          <p className={`text-3xl font-black mt-1 ${Math.abs(targetDiff) <= 0.5 ? 'text-emerald-500' : Math.abs(targetDiff) <= 1.5 ? 'text-amber-500' : 'text-rose-500'}`}>
+            {targetDiff > 0 ? '+' : ''}{targetDiff.toFixed(1)}
+          </p>
+          <p className="text-xs text-slate-400">kg from {profile.weightGoal}</p>
+        </div>
+
+        {/* Confidence */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dry Weight Accuracy</p>
+          <p className={`text-2xl font-black mt-1 text-${confidence.color}-500`}>{confidence.status}</p>
+          <div className="mt-2 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div className={`h-full bg-${confidence.color}-500 transition-all duration-500`} style={{ width: `${confidence.percent}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Chart */}
+      <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white">Weight Trend</h2>
+            <p className="text-sm text-slate-400">Track your progress over time</p>
+          </div>
+
+          {/* Time Range Selector */}
+          <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+            {[
+              { id: '7', label: '7 Days' },
+              { id: '30', label: '30 Days' },
+              { id: '90', label: '90 Days' },
+            ].map((range) => (
+              <button
+                key={range.id}
+                onClick={() => setTimeRange(range.id as any)}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  timeRange === range.id
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow'
+                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div className="h-[300px]">
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="date"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  dy={10}
+                />
+                <YAxis
+                  domain={[weightRange.min, weightRange.max]}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  width={40}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: '12px',
+                    border: 'none',
+                    backgroundColor: '#1e293b',
+                    color: '#fff',
+                    fontSize: '12px',
+                    padding: '12px',
+                  }}
+                  formatter={(value: number) => [`${value.toFixed(1)} kg`, 'Weight']}
+                />
+                <ReferenceLine
+                  y={profile.weightGoal}
+                  stroke="#10b981"
+                  strokeDasharray="5 5"
+                  strokeWidth={2}
+                  label={{
+                    value: `Target: ${profile.weightGoal}`,
+                    position: 'right',
+                    fill: '#10b981',
+                    fontSize: 11,
+                    fontWeight: 'bold',
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="weight"
+                  stroke="#ec4899"
+                  strokeWidth={3}
+                  fill="url(#weightGradient)"
+                  dot={{ r: 4, fill: '#ec4899', strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: '#ec4899', strokeWidth: 2, stroke: '#fff' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400">
+              <ICONS.Scale className="w-12 h-12 mb-3 opacity-30" />
+              <p className="font-medium">No data for this period</p>
+              <p className="text-sm">Log your weight to see trends</p>
+            </div>
+          )}
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-pink-500" />
+            <span className="text-xs text-slate-500">Weight</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-0.5 bg-emerald-500" style={{ borderStyle: 'dashed' }} />
+            <span className="text-xs text-slate-500">Target ({profile.weightGoal} kg)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* History Table */}
+      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-700">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">History</h2>
+              <p className="text-sm text-slate-400">{totalItems} total entries</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50 dark:bg-slate-900/50">
+                <th className="px-6 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date & Time</th>
+                <th className="px-6 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Weight</th>
+                <th className="px-6 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Context</th>
+                <th className="px-6 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">vs Target</th>
+                <th className="px-6 py-3 text-right text-[10px] font-bold text-slate-400 uppercase tracking-wider"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+              {isTableLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center">
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="w-5 h-5 border-2 border-pink-500/30 border-t-pink-500 rounded-full animate-spin" />
+                      <span className="text-slate-400 text-sm">Loading...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : weights.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center">
+                    <ICONS.Scale className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                    <p className="text-slate-400">No weight entries yet</p>
+                  </td>
+                </tr>
+              ) : (
+                weights.map((weight) => {
+                  const displayType = apiToType[weight.context] || weight.context;
+                  const config = contextConfig[displayType as keyof typeof contextConfig];
+                  const diff = weight.weightKg - profile.weightGoal;
+
+                  return (
+                    <tr key={weight._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-slate-900 dark:text-white">
+                          {new Date(weight.loggedAt).toLocaleDateString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {new Date(weight.loggedAt).toLocaleTimeString(undefined, {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xl font-black text-slate-900 dark:text-white">
+                          {weight.weightKg.toFixed(1)}
+                        </span>
+                        <span className="text-sm text-slate-400 ml-1">kg</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-${config?.color || 'slate'}-100 dark:bg-${config?.color || 'slate'}-500/20 text-${config?.color || 'slate'}-600 dark:text-${config?.color || 'slate'}-400`}>
+                          <span>{config?.icon}</span>
+                          {config?.label || displayType}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`font-bold ${Math.abs(diff) <= 0.5 ? 'text-emerald-500' : Math.abs(diff) <= 1.5 ? 'text-amber-500' : 'text-rose-500'}`}>
+                          {diff > 0 ? '+' : ''}{diff.toFixed(1)} kg
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => handleDeleteWeight(weight._id)}
+                          disabled={deletingId === weight._id}
+                          className="p-2 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                        >
+                          {deletingId === weight._id ? (
+                            <div className="w-4 h-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                          ) : (
+                            <ICONS.Trash className="w-4 h-4" />
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+            <p className="text-xs text-slate-400">
+              Page {currentPage} of {totalPages}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || isTableLoading}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let page: number;
+                if (totalPages <= 5) {
+                  page = i + 1;
+                } else if (currentPage <= 3) {
+                  page = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  page = totalPages - 4 + i;
+                } else {
+                  page = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    disabled={isTableLoading}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${
+                      currentPage === page
+                        ? 'bg-pink-500 text-white'
+                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages || isTableLoading}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
