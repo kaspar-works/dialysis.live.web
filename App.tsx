@@ -22,6 +22,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Features from './pages/Features';
+import Pricing from './pages/Pricing';
 import SEO from './components/SEO';
 import { useStore } from './store';
 
@@ -40,6 +41,7 @@ const App: React.FC = () => {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/features" element={<Features />} />
+        <Route path="/pricing" element={<Pricing />} />
 
         {/* Private Application Routes - Redirect to home if not logged in */}
         <Route
