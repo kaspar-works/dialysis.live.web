@@ -342,57 +342,67 @@ const Landing: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer className="py-24 md:py-32 px-6 md:px-20 border-t border-white/5 bg-[#020617]">
-        <div className="max-w-[1440px] mx-auto space-y-20">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
-            <div className="lg:col-span-4 space-y-8 text-center lg:text-left">
-              <div className="flex items-center gap-4 justify-center lg:justify-start">
-                <Logo className="w-10 h-10" />
-                <span className="font-black text-xl tracking-tighter">dialysis.live</span>
-              </div>
-              <p className="text-white/30 text-base md:text-lg font-medium max-w-sm leading-relaxed mx-auto lg:mx-0">
-                The modern standard for renal care management. Built for patients, by healthcare innovators.
+      <footer className="relative pt-20 pb-12 px-6 md:px-20 overflow-hidden">
+        {/* Gradient accent line */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-500/50 to-transparent"></div>
+
+        <div className="max-w-[1440px] mx-auto">
+          {/* Main footer content */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-8 md:gap-12 pb-16">
+            {/* Brand */}
+            <div className="col-span-2 space-y-4">
+              <Link to="/" className="inline-flex items-center gap-3">
+                <Logo className="w-8 h-8" />
+                <span className="font-black text-lg tracking-tighter text-white">dialysis.live</span>
+              </Link>
+              <p className="text-white/40 text-sm leading-relaxed max-w-xs">
+                Clinical-grade dialysis management for modern patients.
               </p>
             </div>
-            <div className="lg:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
-              <div className="space-y-6">
-                <h5 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-white">Features</h5>
-                <div className="flex flex-col gap-3 text-xs md:text-sm font-bold text-white/40">
-                  <Link to="/features" className="hover:text-white transition-colors">All Features</Link>
-                  <Link to="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-                  <Link to="/sessions" className="hover:text-white transition-colors">Sessions</Link>
-                  <Link to="/nutri-scan" className="hover:text-white transition-colors">Nutri-Scan AI</Link>
-                </div>
+
+            {/* Features */}
+            <div className="space-y-4">
+              <h5 className="text-xs font-bold text-white/60 uppercase tracking-wider">Features</h5>
+              <div className="flex flex-col gap-2.5 text-sm text-white/40">
+                <Link to="/features" className="hover:text-white transition-colors">Overview</Link>
+                <Link to="/sessions" className="hover:text-white transition-colors">Sessions</Link>
+                <Link to="/nutri-scan" className="hover:text-white transition-colors">Nutri-Scan</Link>
               </div>
-              <div className="space-y-6">
-                <h5 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-white">Tracking</h5>
-                <div className="flex flex-col gap-3 text-xs md:text-sm font-bold text-white/40">
-                  <Link to="/vitals" className="hover:text-white transition-colors">Vitals</Link>
-                  <Link to="/weight" className="hover:text-white transition-colors">Biometrics</Link>
-                  <Link to="/fluid" className="hover:text-white transition-colors">Fluids</Link>
-                  <Link to="/meds" className="hover:text-white transition-colors">Medications</Link>
-                </div>
+            </div>
+
+            {/* Tracking */}
+            <div className="space-y-4">
+              <h5 className="text-xs font-bold text-white/60 uppercase tracking-wider">Tracking</h5>
+              <div className="flex flex-col gap-2.5 text-sm text-white/40">
+                <Link to="/vitals" className="hover:text-white transition-colors">Vitals</Link>
+                <Link to="/fluid" className="hover:text-white transition-colors">Fluids</Link>
+                <Link to="/meds" className="hover:text-white transition-colors">Medications</Link>
               </div>
-              <div className="space-y-6">
-                <h5 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-white">Resources</h5>
-                <div className="flex flex-col gap-3 text-xs md:text-sm font-bold text-white/40">
-                  <Link to="/edu" className="hover:text-white transition-colors">Education</Link>
-                  <Link to="/reports" className="hover:text-white transition-colors">Reports</Link>
-                  <Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link>
-                </div>
+            </div>
+
+            {/* Resources */}
+            <div className="space-y-4">
+              <h5 className="text-xs font-bold text-white/60 uppercase tracking-wider">Resources</h5>
+              <div className="flex flex-col gap-2.5 text-sm text-white/40">
+                <Link to="/edu" className="hover:text-white transition-colors">Education</Link>
+                <Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link>
               </div>
-              <div className="space-y-6">
-                <h5 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-white">Legal</h5>
-                <div className="flex flex-col gap-3 text-xs md:text-sm font-bold text-white/40">
-                  <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-                  <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
-                </div>
+            </div>
+
+            {/* Legal */}
+            <div className="space-y-4">
+              <h5 className="text-xs font-bold text-white/60 uppercase tracking-wider">Legal</h5>
+              <div className="flex flex-col gap-2.5 text-sm text-white/40">
+                <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+                <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
               </div>
             </div>
           </div>
-          <div className="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 text-center">
-            <p className="text-xs text-white/20 font-medium">© 2025 dialysis.live. All rights reserved.</p>
-            <p className="text-xs text-white/20 font-medium">Made with care for the dialysis community.</p>
+
+          {/* Bottom bar */}
+          <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p className="text-xs text-white/30">© 2025 dialysis.live</p>
+            <p className="text-xs text-white/30">Made with care for the dialysis community</p>
           </div>
         </div>
       </footer>
