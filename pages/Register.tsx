@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import Logo from '../components/Logo';
+import ComingSoon from '../components/ComingSoon';
 import { signUpWithEmail, signInWithGoogle, getIdToken, handleGoogleRedirect } from '../services/firebase';
 import { firebaseAuth } from '../services/auth';
 
@@ -120,6 +120,7 @@ const Register: React.FC = () => {
   };
 
   return (
+    <ComingSoon page="register" title="Register">
     <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col lg:flex-row animate-in fade-in duration-700 transition-colors">
       {/* Form Side */}
       <div className="flex-1 p-12 lg:p-24 flex items-center justify-center order-2 lg:order-1 relative">
@@ -269,6 +270,7 @@ const Register: React.FC = () => {
         </div>
       </div>
     </div>
+    </ComingSoon>
   );
 };
 

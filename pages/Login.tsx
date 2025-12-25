@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import Logo from '../components/Logo';
+import ComingSoon from '../components/ComingSoon';
 import { signInWithEmail, signInWithGoogle, getIdToken, handleGoogleRedirect } from '../services/firebase';
 import { firebaseAuth } from '../services/auth';
 
@@ -129,6 +129,7 @@ const Login: React.FC = () => {
   };
 
   return (
+    <ComingSoon page="login" title="Login">
     <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col lg:flex-row animate-in fade-in duration-700 transition-colors">
       {/* Visual Branding Side */}
       <div className="lg:w-1/2 bg-slate-900 p-12 lg:p-24 flex flex-col justify-between relative overflow-hidden">
@@ -250,6 +251,7 @@ const Login: React.FC = () => {
         </div>
       </div>
     </div>
+    </ComingSoon>
   );
 };
 

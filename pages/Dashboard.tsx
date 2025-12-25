@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
@@ -6,6 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Link } from 'react-router-dom';
 import { MoodType, VitalType, FluidEntry, WeightEntry, VitalEntry } from '../types';
 import OnboardingModal from '../components/OnboardingModal';
+import ComingSoon from '../components/ComingSoon';
 
 const Dashboard: React.FC = () => {
   const { weights, fluids, profile, vitals, moods, addFluid } = useStore();
@@ -49,6 +49,7 @@ const Dashboard: React.FC = () => {
   const strokeDashoffset = circumference - (stabilityScore / 100) * circumference;
 
   return (
+    <ComingSoon page="dashboard" title="Dashboard">
     <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-700 pb-24 px-4">
 
       {!profile.isOnboarded && <OnboardingModal />}
@@ -317,6 +318,7 @@ const Dashboard: React.FC = () => {
         </Link>
       </div>
     </div>
+    </ComingSoon>
   );
 };
 
