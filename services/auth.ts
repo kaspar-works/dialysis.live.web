@@ -12,15 +12,37 @@ export interface AuthUser {
   authProvider: string;
   status: string;
   onboardingCompleted: boolean;
+  createdAt?: string;
+}
+
+export interface AuthProfile {
+  fullName?: string;
+  photoUrl?: string;
+  timezone?: string;
+  units?: string;
+  dryWeightKg?: number;
+  heightCm?: number;
+  dialysisStartDate?: string;
+  clinicName?: string;
+  nephrologistName?: string;
+}
+
+export interface AuthSettings {
+  dailyFluidLimitMl?: number;
+  dryWeightKg?: number;
+  dialysisType?: string;
+  timezone?: string;
+  language?: string;
 }
 
 export interface AuthResponse {
   success: boolean;
   data?: {
     user: AuthUser;
-    profile: any;
-    tokens: AuthTokens;
-    isNewUser: boolean;
+    profile: AuthProfile | null;
+    settings?: AuthSettings | null;
+    tokens?: AuthTokens;
+    isNewUser?: boolean;
   };
   message?: string;
 }
@@ -28,7 +50,12 @@ export interface AuthResponse {
 export interface RegisterData {
   email: string;
   password: string;
-  fullName?: string;
+  fullName: string;
+}
+
+export interface LoginData {
+  email: string;
+  password: string;
 }
 
 // Token storage
@@ -55,10 +82,120 @@ export function isAuthenticated(): boolean {
   return !!getAuthToken();
 }
 
-// Logout - clear all auth data and redirect
+// Register with email/password
+export async function register(data: RegisterData): Promise<AuthResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result.success === false) {
+      throw new Error(result.message || 'Registration failed');
+    }
+
+    // Store tokens if received
+    if (result.data?.tokens) {
+      setAuthTokens(result.data.tokens);
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Register error:', error);
+    throw error;
+  }
+}
+
+// Login with email/password
+export async function login(data: LoginData): Promise<AuthResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result.success === false) {
+      throw new Error(result.message || 'Login failed');
+    }
+
+    // Store tokens if received
+    if (result.data?.tokens) {
+      setAuthTokens(result.data.tokens);
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Login error:', error);
+    throw error;
+  }
+}
+
+// Google OAuth - send Google ID token to backend
+export async function googleAuth(idToken: string): Promise<AuthResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/google`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ idToken })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result.success === false) {
+      throw new Error(result.message || 'Google authentication failed');
+    }
+
+    // Store tokens if received
+    if (result.data?.tokens) {
+      setAuthTokens(result.data.tokens);
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Google auth error:', error);
+    throw error;
+  }
+}
+
+// Logout - call backend and clear local data
+export async function logoutApi(): Promise<void> {
+  const refreshToken = getRefreshToken();
+
+  try {
+    if (refreshToken) {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refreshToken })
+      });
+    }
+  } catch (error) {
+    console.error('Logout API error:', error);
+  } finally {
+    // Always clear local tokens
+    clearAuthTokens();
+    localStorage.removeItem('renalcare_data');
+  }
+}
+
+// Legacy logout function for compatibility
 export function logout() {
   clearAuthTokens();
-  localStorage.removeItem('dialysis_profile');
+  localStorage.removeItem('renalcare_data');
   window.location.href = '/#/login';
 }
 
@@ -70,8 +207,6 @@ export async function refreshAccessToken(): Promise<AuthTokens | null> {
     return null;
   }
 
-  console.log('Attempting token refresh...');
-
   try {
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
@@ -82,33 +217,28 @@ export async function refreshAccessToken(): Promise<AuthTokens | null> {
     });
 
     const result = await response.json();
-    console.log('Refresh response:', result.success, result.message);
 
-    // Check for success in response body (API might return 200 with success: false)
-    if (result.success === false) {
+    if (result.success === false || !response.ok) {
       console.log('Refresh failed:', result.message);
       return null;
     }
 
-    if (!response.ok) {
-      console.log('Refresh HTTP error:', response.status);
-      return null;
-    }
-
-    // Handle different response structures
     const tokens = result.data?.tokens || result.tokens || result.data;
     if (tokens?.accessToken && tokens?.refreshToken) {
-      console.log('Token refresh successful');
       setAuthTokens(tokens);
       return tokens;
     }
 
-    console.log('No tokens in refresh response');
     return null;
   } catch (error) {
     console.error('Token refresh error:', error);
     return null;
   }
+}
+
+// Get current user from /auth/me
+export async function getMe(): Promise<AuthResponse> {
+  return authFetch('/auth/me');
 }
 
 // Check if error indicates invalid/expired token
@@ -124,8 +254,7 @@ function isTokenError(message?: string): boolean {
 // Handle auth failure - clear tokens and redirect
 function handleAuthFailure(): never {
   clearAuthTokens();
-  // Clear any stored profile data
-  localStorage.removeItem('dialysis_profile');
+  localStorage.removeItem('renalcare_data');
   window.location.href = '/#/login';
   throw new Error('Session expired. Please login again.');
 }
@@ -134,7 +263,6 @@ function handleAuthFailure(): never {
 export async function authFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
   let token = getAuthToken();
 
-  // If no token, redirect to login immediately
   if (!token) {
     handleAuthFailure();
   }
@@ -162,7 +290,6 @@ export async function authFetch(endpoint: string, options: RequestInit = {}): Pr
     }
   }
 
-  // Parse response
   let result: any;
   try {
     result = await response.json();
@@ -173,12 +300,10 @@ export async function authFetch(endpoint: string, options: RequestInit = {}): Pr
     return {};
   }
 
-  // Check for token errors in response body (some APIs return 200 with success: false)
+  // Check for token errors in response body
   if (result.success === false && isTokenError(result.message)) {
-    // Try to refresh token
     const newTokens = await refreshAccessToken();
     if (newTokens) {
-      // Retry the request with new token
       const retryResponse = await makeRequest(newTokens.accessToken);
       try {
         const retryResult = await retryResponse.json();
@@ -200,72 +325,9 @@ export async function authFetch(endpoint: string, options: RequestInit = {}): Pr
     }
   }
 
-  // Handle other errors
   if (!response.ok || result.success === false) {
     throw new Error(result.message || `Request failed: ${response.status}`);
   }
 
   return result;
-}
-
-// Firebase Auth - handles both Google and Email/Password sign-in
-// Client authenticates with Firebase, then sends the ID token to this endpoint
-export async function firebaseAuth(idToken: string): Promise<AuthResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/firebase`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${idToken}`
-      }
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Authentication failed');
-    }
-
-    const result = await response.json();
-
-    // Store tokens if received
-    if (result.data?.tokens) {
-      setAuthTokens(result.data.tokens);
-    }
-
-    return result;
-  } catch (error) {
-    console.error('Firebase auth error:', error);
-    throw error;
-  }
-}
-
-// Firebase Register with Email/Password
-// Creates user in Firebase first, then links to our database
-export async function firebaseRegister(data: RegisterData): Promise<AuthResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/firebase/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Registration failed');
-    }
-
-    const result = await response.json();
-
-    // Store tokens if received
-    if (result.data?.tokens) {
-      setAuthTokens(result.data.tokens);
-    }
-
-    return result;
-  } catch (error) {
-    console.error('Firebase register error:', error);
-    throw error;
-  }
 }

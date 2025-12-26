@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
-import { clearAuthTokens } from '../services/auth';
-import { logOut } from '../services/firebase';
+import { logoutApi } from '../services/auth';
+import { resetProfileSync } from '../components/ProfileSync';
 import Logo from '../components/Logo';
 
 const Logout: React.FC = () => {
@@ -14,17 +14,15 @@ const Logout: React.FC = () => {
   useEffect(() => {
     const performLogout = async () => {
       try {
-        // Sign out from Firebase
-        await logOut();
+        // Call backend logout API
+        await logoutApi();
       } catch (err) {
-        console.error('Firebase sign out error:', err);
+        console.error('Logout API error:', err);
       }
 
-      // Clear auth tokens
-      clearAuthTokens();
-
-      // Clear local auth state
+      // Clear local auth state and reset profile sync flag
       logout();
+      resetProfileSync();
 
       // Short delay for animation
       setTimeout(() => {

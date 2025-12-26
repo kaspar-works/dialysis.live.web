@@ -85,7 +85,7 @@ const Symptoms: React.FC = () => {
 
   const topSymptoms = useMemo(() => {
     return Object.entries(symptomCounts)
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => (b[1] as number) - (a[1] as number))
       .slice(0, 4)
       .map(([type]) => type as SymptomType);
   }, [symptomCounts]);

@@ -1,9 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import Logo from '../components/Logo';
-import { signUpWithEmail, signInWithGoogle, getIdToken } from '../services/firebase';
-import { firebaseAuth } from '../services/auth';
+import { register as apiRegister, googleAuth } from '../services/auth';
+
+// Google Client ID from environment
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: any) => void;
+          renderButton: (element: HTMLElement, config: any) => void;
+          prompt: () => void;
+          disableAutoSelect: () => void;
+        };
+        oauth2: {
+          initCodeClient: (config: any) => any;
+          initTokenClient: (config: any) => any;
+        };
+      };
+    };
+  }
+}
 
 const Register: React.FC = () => {
   const [name, setName] = useState('');
@@ -12,117 +33,140 @@ const Register: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
   const { login, setProfile, profile } = useStore();
   const navigate = useNavigate();
+  const googleButtonRef = useRef<HTMLDivElement>(null);
+
+  // Load Google Sign-In script
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) {
+      console.warn('Google Client ID not configured');
+      return;
+    }
+
+    // Check if script already exists
+    if (document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
+      setGoogleLoaded(true);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      setGoogleLoaded(true);
+    };
+    document.body.appendChild(script);
+  }, []);
+
+  // Initialize Google Sign-In when script is loaded
+  useEffect(() => {
+    if (!googleLoaded || !window.google || !GOOGLE_CLIENT_ID) return;
+
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCallback,
+      ux_mode: 'popup',
+      use_fedcm_for_prompt: false, // Disable FedCM to avoid issues
+    });
+
+    // Render the hidden Google button
+    if (googleButtonRef.current) {
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        width: 400,
+      });
+    }
+  }, [googleLoaded]);
+
+  const handleGoogleCallback = async (response: any) => {
+    setError('');
+    setIsGoogleLoading(true);
+
+    try {
+      const idToken = response.credential;
+      if (!idToken) {
+        throw new Error('No credential received from Google');
+      }
+
+      const authResult = await googleAuth(idToken);
+
+      if (authResult.data) {
+        const updatedProfile = {
+          ...profile,
+          name: authResult.data.profile?.fullName || profile.name,
+          email: authResult.data.user?.email || '',
+          isOnboarded: authResult.data.user?.onboardingCompleted || profile.isOnboarded,
+        };
+
+        const storageData = localStorage.getItem('renalcare_data');
+        const data = storageData ? JSON.parse(storageData) : {};
+        data.profile = { ...data.profile, ...updatedProfile };
+        localStorage.setItem('renalcare_data', JSON.stringify(data));
+
+        setProfile(updatedProfile);
+        login();
+        navigate('/dashboard');
+      }
+    } catch (err: any) {
+      console.error('Google registration error:', err);
+      setError(err.message || 'Google sign-up failed. Please try again.');
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
+    // Validate password length
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const user = await signUpWithEmail(email, password);
+      const authResult = await apiRegister({
+        email,
+        password,
+        fullName: name,
+      });
 
-      // Authenticate with backend to get tokens
-      try {
-        const idToken = await getIdToken();
-        await firebaseAuth(idToken);
-      } catch (apiErr: any) {
-        console.error('Backend auth failed:', apiErr);
-        setError(apiErr.message || 'Backend authentication failed');
-        setIsLoading(false);
-        return;
+      if (authResult.data) {
+        const updatedProfile = {
+          ...profile,
+          name: authResult.data.profile?.fullName || name || profile.name,
+          email: authResult.data.user?.email || email,
+          isOnboarded: authResult.data.user?.onboardingCompleted || false,
+        };
+
+        const storageData = localStorage.getItem('renalcare_data');
+        const data = storageData ? JSON.parse(storageData) : {};
+        data.profile = { ...data.profile, ...updatedProfile };
+        localStorage.setItem('renalcare_data', JSON.stringify(data));
+
+        setProfile(updatedProfile);
+        login();
+        navigate('/dashboard');
       }
-
-      // Set name and email from form input
-      const updatedProfile = {
-        ...profile,
-        name: name || profile.name,
-        email: user.email || email,
-        isOnboarded: false,
-      };
-
-      const storageData = localStorage.getItem('renalcare_data');
-      const data = storageData ? JSON.parse(storageData) : {};
-      data.profile = { ...data.profile, ...updatedProfile };
-      localStorage.setItem('renalcare_data', JSON.stringify(data));
-
-      setProfile(updatedProfile);
-      login();
-      navigate('/dashboard');
     } catch (err: any) {
       console.error('Registration error:', err);
-      if (err.code === 'auth/email-already-in-use') {
+      if (err.message?.includes('already') || err.message?.includes('exists')) {
         setError('This email is already registered. Please sign in instead.');
-      } else if (err.code === 'auth/weak-password') {
-        setError('Password should be at least 6 characters.');
+      } else if (err.message?.includes('password')) {
+        setError('Password must be at least 8 characters.');
       } else {
         setError(err.message || 'Registration failed. Please try again.');
       }
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleGoogleRegister = async () => {
-    setError('');
-    setIsGoogleLoading(true);
-
-    try {
-      const user = await signInWithGoogle();
-
-      if (!user) {
-        setError('Google sign-up was cancelled');
-        setIsGoogleLoading(false);
-        return;
-      }
-
-      let onboardingCompleted = false;
-      let apiProfile: any = null;
-
-      // Authenticate with backend
-      try {
-        const idToken = await getIdToken();
-        const authResult = await firebaseAuth(idToken);
-
-        if (authResult.data) {
-          onboardingCompleted = authResult.data.user?.onboardingCompleted || false;
-          apiProfile = authResult.data.profile;
-        }
-      } catch (apiErr: any) {
-        console.error('Backend auth failed:', apiErr);
-        setError(apiErr.message || 'Backend authentication failed. Please try again.');
-        setIsGoogleLoading(false);
-        return;
-      }
-
-      const updatedProfile = {
-        ...profile,
-        name: apiProfile?.fullName || user.displayName || profile.name,
-        email: user.email || '',
-        isOnboarded: onboardingCompleted || profile.isOnboarded,
-      };
-
-      const storageData = localStorage.getItem('renalcare_data');
-      const data = storageData ? JSON.parse(storageData) : {};
-      data.profile = { ...data.profile, ...updatedProfile };
-      localStorage.setItem('renalcare_data', JSON.stringify(data));
-
-      setProfile(updatedProfile);
-      login();
-      navigate('/dashboard');
-    } catch (err: any) {
-      console.error('Google registration error:', err);
-
-      if (err.code === 'auth/popup-closed-by-user') {
-        setError('Sign-up popup was closed. Please try again.');
-      } else if (err.code === 'auth/popup-blocked') {
-        setError('Popup was blocked. Please allow popups for this site.');
-      } else {
-        setError(err.message || 'Google sign-up failed. Please try again.');
-      }
-    } finally {
-      setIsGoogleLoading(false);
     }
   };
 
@@ -159,38 +203,37 @@ const Register: React.FC = () => {
            )}
 
            <div className="space-y-6">
-              {/* Google Register Button */}
-              <button
-                onClick={handleGoogleRegister}
-                disabled={isGoogleLoading || isLoading}
-                className="w-full py-5 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl flex items-center justify-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-              >
-                 {isGoogleLoading ? (
-                   <>
-                     <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div>
-                     <span className="font-bold text-sm text-slate-600 dark:text-slate-300">Creating account...</span>
-                   </>
-                 ) : (
-                   <>
-                     <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                     </svg>
-                     <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Continue with Google</span>
-                   </>
-                 )}
-              </button>
+              {/* Google Sign-In Button Container */}
+              {GOOGLE_CLIENT_ID && (
+                <div className="relative">
+                  {isGoogleLoading && (
+                    <div className="absolute inset-0 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center z-10">
+                      <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin mr-2"></div>
+                      <span className="font-bold text-sm text-slate-600 dark:text-slate-300">Creating account...</span>
+                    </div>
+                  )}
+                  <div
+                    ref={googleButtonRef}
+                    className="flex justify-center [&>div]:w-full [&_iframe]:!w-full"
+                  />
+                  {!googleLoaded && (
+                    <div className="w-full py-5 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center">
+                      <span className="text-sm text-slate-400">Loading Google Sign-In...</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
-              <div className="relative py-2">
-                 <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-100 dark:border-slate-800"></div>
-                 </div>
-                 <div className="relative flex justify-center text-xs font-medium">
-                    <span className="bg-white dark:bg-slate-950 px-4 text-slate-400">or register with email</span>
-                 </div>
-              </div>
+              {GOOGLE_CLIENT_ID && (
+                <div className="relative py-2">
+                   <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-100 dark:border-slate-800"></div>
+                   </div>
+                   <div className="relative flex justify-center text-xs font-medium">
+                      <span className="bg-white dark:bg-slate-950 px-4 text-slate-400">or register with email</span>
+                   </div>
+                </div>
+              )}
 
               <form onSubmit={handleRegister} className="space-y-4">
                 <div className="space-y-2">
@@ -226,7 +269,7 @@ const Register: React.FC = () => {
                      value={password}
                      onChange={e => setPassword(e.target.value)}
                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all outline-none"
-                     placeholder="Min. 6 characters"
+                     placeholder="Min. 8 characters"
                      required
                      disabled={isLoading || isGoogleLoading}
                    />

@@ -4,7 +4,7 @@ import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line } from 'recharts';
 import { Link } from 'react-router-dom';
-import { MoodType, VitalType, FluidEntry, VitalEntry } from '../types';
+import { MoodType, VitalType, FluidIntake, VitalLog } from '../types';
 import OnboardingModal from '../components/OnboardingModal';
 
 const Dashboard: React.FC = () => {
@@ -14,16 +14,16 @@ const Dashboard: React.FC = () => {
   // Current data
   const currentWeight = weights[0]?.value || profile.weightGoal;
   const weightChange = weights.length >= 2 ? (weights[0].value - weights[1].value).toFixed(1) : '0.0';
-  const todayFluid = fluids.reduce((acc: number, f: FluidEntry) => acc + f.amount, 0);
+  const todayFluid = fluids.reduce((acc: number, f: FluidIntake) => acc + f.amount, 0);
   const fluidPercentage = Math.min(Math.round((todayFluid / profile.dailyFluidLimit) * 100), 100);
   const fluidRemaining = Math.max(profile.dailyFluidLimit - todayFluid, 0);
   const latestMood = moods[0]?.type || 'Good';
 
   // Vitals
-  const latestBP = useMemo(() => vitals.find((v: VitalEntry) => v.type === VitalType.BLOOD_PRESSURE), [vitals]);
-  const latestHR = useMemo(() => vitals.find((v: VitalEntry) => v.type === VitalType.HEART_RATE), [vitals]);
-  const latestTemp = useMemo(() => vitals.find((v: VitalEntry) => v.type === VitalType.TEMPERATURE), [vitals]);
-  const latestO2 = useMemo(() => vitals.find((v: VitalEntry) => v.type === VitalType.OXYGEN_SATURATION), [vitals]);
+  const latestBP = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.BLOOD_PRESSURE), [vitals]);
+  const latestHR = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.HEART_RATE), [vitals]);
+  const latestTemp = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.TEMPERATURE), [vitals]);
+  const latestO2 = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.SPO2), [vitals]);
 
   // Chart data - Weight (7 days)
   const weightData = useMemo(() => {
@@ -50,7 +50,7 @@ const Dashboard: React.FC = () => {
       label: i === 0 ? '12am' : i === 12 ? '12pm' : i < 12 ? `${i}am` : `${i - 12}pm`,
       amount: 0
     }));
-    fluids.forEach((f: FluidEntry) => {
+    fluids.forEach((f: FluidIntake) => {
       const hour = new Date(f.time).getHours();
       hours[hour].amount += f.amount;
     });
