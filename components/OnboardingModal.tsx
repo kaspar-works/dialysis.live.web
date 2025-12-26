@@ -4,27 +4,15 @@ import { DialysisType } from '../types';
 import Logo from './Logo';
 import { completeOnboarding as completeOnboardingApi } from '../services/onboarding';
 import { getAuthToken } from '../services/auth';
-import { isProfileSyncComplete, onProfileSyncComplete } from './ProfileSync';
 
-// Check localStorage directly for onboarding status
-function isOnboardedInStorage(): boolean {
-  try {
-    const storageData = localStorage.getItem('renalcare_data');
-    if (storageData) {
-      const data = JSON.parse(storageData);
-      return data.profile?.isOnboarded === true;
-    }
-  } catch (err) {
-    console.error('Failed to check localStorage:', err);
-  }
-  return false;
-}
+const API_BASE_URL = 'https://api.dialysis.live/api/v1';
 
 const OnboardingModal: React.FC = () => {
   const { profile, completeOnboarding } = useStore();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [waitingForSync, setWaitingForSync] = useState(!isProfileSyncComplete());
+  const [checking, setChecking] = useState(true);
+  const [isOnboarded, setIsOnboarded] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     name: profile.name || '',
@@ -33,30 +21,46 @@ const OnboardingModal: React.FC = () => {
     weightGoal: profile.weightGoal || 75.0,
   });
 
-  // Wait for initial ProfileSync to complete
+  // Check API for onboarding status
   useEffect(() => {
-    if (!isProfileSyncComplete()) {
-      onProfileSyncComplete(() => {
-        setWaitingForSync(false);
-      });
-    }
+    const checkOnboarding = async () => {
+      const token = getAuthToken();
+      console.log('[Onboarding] Token:', token ? 'exists' : 'missing');
+
+      if (!token) {
+        // No token = not logged in, don't show modal
+        setIsOnboarded(true); // Treat as onboarded to hide modal
+        setChecking(false);
+        return;
+      }
+
+      try {
+        console.log('[Onboarding] Calling /auth/me...');
+        const res = await fetch(`${API_BASE_URL}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        console.log('[Onboarding] Response status:', res.status);
+
+        if (res.ok) {
+          const data = await res.json();
+          const completed = data.data?.user?.onboardingCompleted === true;
+          console.log('[Onboarding] onboardingCompleted:', completed);
+          setIsOnboarded(completed);
+        }
+      } catch (err) {
+        console.error('[Onboarding] Failed to check:', err);
+      }
+      setChecking(false);
+    };
+
+    checkOnboarding();
   }, []);
 
-  // Update form data when profile changes
-  useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      name: profile.name || prev.name,
-      dailyFluidLimit: profile.dailyFluidLimit || prev.dailyFluidLimit,
-      weightGoal: profile.weightGoal || prev.weightGoal,
-    }));
-  }, [profile.name, profile.dailyFluidLimit, profile.weightGoal]);
+  // Wait while checking
+  if (checking) return null;
 
-  // Wait for initial sync before deciding to show
-  if (waitingForSync) return null;
-
-  // Don't show if already onboarded (check both store and localStorage)
-  if (profile.isOnboarded || isOnboardedInStorage()) return null;
+  // Don't show if onboarded
+  if (isOnboarded) return null;
 
   const totalSteps = 4;
 

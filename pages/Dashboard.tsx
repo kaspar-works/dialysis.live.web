@@ -102,7 +102,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="w-full space-y-6 pb-24 px-4 animate-in fade-in duration-500">
-      {!profile.isOnboarded && <OnboardingModal />}
+      <OnboardingModal />
 
       {/* Header */}
       <header className="flex items-center justify-between pt-2">

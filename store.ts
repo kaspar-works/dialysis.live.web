@@ -1,7 +1,7 @@
 
-import { useState, useEffect } from 'react';
-import { 
-  DialysisSession, WeightLog, FluidIntake, Medication, UserProfile, 
+import { useState, useEffect, useRef } from 'react';
+import {
+  DialysisSession, WeightLog, FluidIntake, Medication, UserProfile,
   DialysisType, VitalLog, SubscriptionPlan, SubscriptionStatus, BillingInterval,
   CustomReportConfig, MealLog, MoodLog
 } from './types';
@@ -79,19 +79,71 @@ const DEFAULT_PROFILE: UserProfile = {
   }
 };
 
+// Load initial data from localStorage synchronously
+function getInitialData() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (data) {
+      const parsed = JSON.parse(data);
+      const savedTheme = (localStorage.getItem(THEME_KEY) as 'light' | 'dark') || 'dark';
+      return {
+        sessions: parsed.sessions || [],
+        weights: parsed.weights || [],
+        fluids: parsed.fluids || [],
+        medications: parsed.medications || [],
+        vitals: parsed.vitals || [],
+        meals: parsed.meals || [],
+        moods: parsed.moods || [],
+        savedReports: parsed.savedReports || [],
+        profile: {
+          ...DEFAULT_PROFILE,
+          ...parsed.profile,
+          subscription: {
+            ...DEFAULT_PROFILE.subscription,
+            ...parsed.profile?.subscription
+          },
+          settings: {
+            ...DEFAULT_PROFILE.settings,
+            ...parsed.profile?.settings,
+            display: {
+              ...DEFAULT_PROFILE.settings.display,
+              ...parsed.profile?.settings?.display,
+              theme: savedTheme
+            },
+            customReminders: {
+              ...DEFAULT_PROFILE.settings.customReminders,
+              ...parsed.profile?.settings?.customReminders
+            },
+            bpThresholds: {
+              ...DEFAULT_PROFILE.settings.bpThresholds,
+              ...parsed.profile?.settings?.bpThresholds
+            }
+          }
+        }
+      };
+    }
+  } catch (err) {
+    console.error('Failed to load from localStorage:', err);
+  }
+  return null;
+}
+
+const initialData = getInitialData();
+
 export function useStore() {
-  const [sessions, setSessions] = useState<DialysisSession[]>([]);
-  const [weights, setWeights] = useState<WeightLog[]>([]);
-  const [fluids, setFluids] = useState<FluidIntake[]>([]);
-  const [medications, setMedications] = useState<Medication[]>([]);
-  const [vitals, setVitals] = useState<VitalLog[]>([]);
-  const [meals, setMeals] = useState<MealLog[]>([]);
-  const [moods, setMoods] = useState<MoodLog[]>([]);
-  const [savedReports, setSavedReports] = useState<CustomReportConfig[]>([]);
-  const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
+  const [sessions, setSessions] = useState<DialysisSession[]>(initialData?.sessions || []);
+  const [weights, setWeights] = useState<WeightLog[]>(initialData?.weights || []);
+  const [fluids, setFluids] = useState<FluidIntake[]>(initialData?.fluids || []);
+  const [medications, setMedications] = useState<Medication[]>(initialData?.medications || []);
+  const [vitals, setVitals] = useState<VitalLog[]>(initialData?.vitals || []);
+  const [meals, setMeals] = useState<MealLog[]>(initialData?.meals || []);
+  const [moods, setMoods] = useState<MoodLog[]>(initialData?.moods || []);
+  const [savedReports, setSavedReports] = useState<CustomReportConfig[]>(initialData?.savedReports || []);
+  const [profile, setProfile] = useState<UserProfile>(initialData?.profile || DEFAULT_PROFILE);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem('lifeondialysis_auth') === 'true';
   });
+  const hasLoadedFromStorage = useRef(true); // Already loaded synchronously
 
   // Sync theme with HTML class
   useEffect(() => {
@@ -107,48 +159,9 @@ export function useStore() {
     applyTheme(profile.settings.display.theme);
   }, [profile.settings.display.theme]);
 
+  // Set default medications for new users (no localStorage data)
   useEffect(() => {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      const parsed = JSON.parse(data);
-      setSessions(parsed.sessions || []);
-      setWeights(parsed.weights || []);
-      setFluids(parsed.fluids || []);
-      setMedications(parsed.medications || []);
-      setVitals(parsed.vitals || []);
-      setMeals(parsed.meals || []);
-      setMoods(parsed.moods || []);
-      setSavedReports(parsed.savedReports || []);
-      
-      const savedTheme = (localStorage.getItem(THEME_KEY) as 'light' | 'dark') || 'dark';
-
-      const mergedProfile = {
-        ...DEFAULT_PROFILE,
-        ...parsed.profile,
-        subscription: {
-            ...DEFAULT_PROFILE.subscription,
-            ...parsed.profile?.subscription
-        },
-        settings: {
-          ...DEFAULT_PROFILE.settings,
-          ...parsed.profile?.settings,
-          display: {
-            ...DEFAULT_PROFILE.settings.display,
-            ...parsed.profile?.settings?.display,
-            theme: savedTheme
-          },
-          customReminders: {
-            ...DEFAULT_PROFILE.settings.customReminders,
-            ...parsed.profile?.settings?.customReminders
-          },
-          bpThresholds: {
-            ...DEFAULT_PROFILE.settings.bpThresholds,
-            ...parsed.profile?.settings?.bpThresholds
-          }
-        }
-      };
-      setProfile(mergedProfile);
-    } else {
+    if (!initialData) {
       setMedications([
         { id: '1', name: 'Phosphate Binder', dosage: '800mg', frequency: 'With meals', onDialysisDays: true, onNonDialysisDays: true },
         { id: '2', name: 'Vitamin D', dosage: '1mcg', frequency: 'Daily', onDialysisDays: true, onNonDialysisDays: true },
@@ -158,6 +171,8 @@ export function useStore() {
   }, []);
 
   useEffect(() => {
+    // Don't save until we've loaded from storage first
+    if (!hasLoadedFromStorage.current) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessions, weights, fluids, medications, vitals, meals, moods, savedReports, profile }));
   }, [sessions, weights, fluids, medications, vitals, meals, moods, savedReports, profile]);
 
