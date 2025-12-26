@@ -4,21 +4,22 @@ import { authFetch } from './auth';
 // Enums matching backend
 export enum DialysisMode {
   HOME = 'home',
-  IN_CENTER = 'in_center',
-  HOSPITAL = 'hospital',
+  CLINIC = 'clinic',
 }
 
 export enum DialysisType {
-  HD = 'hd',
-  HDF = 'hdf',
+  IN_CENTER_HD = 'in_center_hd',
+  HOME_HD = 'home_hd',
   PD_CAPD = 'pd_capd',
   PD_APD = 'pd_apd',
+  PRE_DIALYSIS = 'pre_dialysis',
 }
 
 export enum SessionStatus {
   STARTED = 'started',
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
+  STOPPED = 'stopped',
   CANCELLED = 'cancelled',
 }
 

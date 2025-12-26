@@ -30,7 +30,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Symptoms', path: '/symptoms', icon: (props: any) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
     )},
-    { name: 'Biometrics', path: '/weight', icon: ICONS.Scale },
+    { name: 'Weight', path: '/weight', icon: ICONS.Scale },
     { name: 'Hydration', path: '/fluid', icon: ICONS.Droplet },
     { name: 'Nutri-Scan', path: '/nutri-scan', icon: (props: any) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>

@@ -1,11 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { VitalType } from '../types';
 import { ICONS } from '../constants';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { createVitalLog, getVitalLogs, VitalLog as VitalLogApi } from '../services/vitals';
-import { isAuthenticated } from '../services/auth';
-import { useNavigate } from 'react-router-dom';
 
 // Map frontend VitalType enum to backend API values
 const typeToApi: Record<VitalType, string> = {
@@ -25,7 +23,6 @@ const apiToType: Record<string, VitalType> = {
 
 const Vitals: React.FC = () => {
   const { profile } = useStore();
-  const navigate = useNavigate();
   const [selectedType, setSelectedType] = useState<VitalType>(VitalType.BLOOD_PRESSURE);
   const [val1, setVal1] = useState<string>('120');
   const [val2, setVal2] = useState<string>('80');
@@ -34,6 +31,7 @@ const Vitals: React.FC = () => {
   const [vitals, setVitals] = useState<VitalLogApi[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasFetched = useRef(false);
 
   const vitalConfig = {
     [VitalType.BLOOD_PRESSURE]: {
@@ -71,14 +69,12 @@ const Vitals: React.FC = () => {
     },
   };
 
-  // Check auth and fetch vitals on mount
+  // Fetch vitals on mount
   useEffect(() => {
-    if (!isAuthenticated()) {
-      navigate('/login');
-      return;
-    }
+    if (hasFetched.current) return;
+    hasFetched.current = true;
     fetchVitals();
-  }, [navigate]);
+  }, []);
 
   const fetchVitals = async () => {
     setIsLoading(true);

@@ -1,10 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { createWeightLog, getWeightLogs, deleteWeightLog, WeightLog as WeightLogApi, WeightContext } from '../services/weight';
-import { isAuthenticated } from '../services/auth';
-import { useNavigate } from 'react-router-dom';
+import { createWeightLog, getWeightLogs, deleteWeightLog, deleteAllWeightLogs, analyzeWeightLogs, exportWeightLogs, WeightLog as WeightLogApi, WeightContext, WeightAnalysis } from '../services/weight';
 
 // Map frontend display types to backend API values
 const typeToApi: Record<string, WeightContext> = {
@@ -30,7 +28,6 @@ const ITEMS_PER_PAGE = 10;
 
 const WeightLog: React.FC = () => {
   const { profile } = useStore();
-  const navigate = useNavigate();
   const [weights, setWeights] = useState<WeightLogApi[]>([]);
   const [newValue, setNewValue] = useState(profile.weightGoal?.toString() || '75.0');
   const [newType, setNewType] = useState<'morning' | 'pre-dialysis' | 'post-dialysis'>('morning');
@@ -48,16 +45,25 @@ const WeightLog: React.FC = () => {
 
   // All weights for charts (fetched separately)
   const [allWeights, setAllWeights] = useState<WeightLogApi[]>([]);
+  const hasFetched = useRef(false);
+
+  // New feature states
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [showAnalyzeModal, setShowAnalyzeModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<WeightAnalysis | null>(null);
+  const [analysisDays, setAnalysisDays] = useState('30');
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      navigate('/login');
-      return;
-    }
+    if (hasFetched.current) return;
+    hasFetched.current = true;
     fetchAllData();
-  }, [navigate]);
+  }, []);
 
   const fetchAllData = async () => {
     setIsLoading(true);
@@ -113,6 +119,63 @@ const WeightLog: React.FC = () => {
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages || page === currentPage) return;
     fetchTablePage(page);
+  };
+
+  // Delete all weights
+  const handleDeleteAll = async () => {
+    setIsDeleting(true);
+    try {
+      const result = await deleteAllWeightLogs();
+      setSuccessMessage(`Deleted ${result.deletedCount} weight entries`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+      setShowDeleteAllModal(false);
+      await fetchAllData();
+    } catch (err) {
+      console.error('Failed to delete all weights:', err);
+      setError('Failed to delete weight entries');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Analyze weights with AI
+  const handleAnalyze = async () => {
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+    try {
+      const result = await analyzeWeightLogs(parseInt(analysisDays));
+      setAnalysisResult(result);
+    } catch (err: any) {
+      console.error('Failed to analyze weights:', err);
+      setError(err.message || 'Failed to analyze weight data');
+      setShowAnalyzeModal(false);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // Export weights
+  const handleExport = async (format: 'json' | 'csv') => {
+    setIsExporting(true);
+    try {
+      const blob = await exportWeightLogs({ format });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `weight-logs-${Date.now()}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setShowExportModal(false);
+      setSuccessMessage(`Exported as ${format.toUpperCase()}`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Failed to export weights:', err);
+      setError('Failed to export weight data');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Stats calculations
@@ -508,10 +571,37 @@ const WeightLog: React.FC = () => {
       {/* History Table */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-100 dark:border-slate-700">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h2 className="text-xl font-black text-slate-900 dark:text-white">History</h2>
               <p className="text-sm text-slate-400">{totalItems} total entries</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAnalyzeModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl text-xs font-bold transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI Analyze
+              </button>
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export
+              </button>
+              <button
+                onClick={() => setShowDeleteAllModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all"
+              >
+                <ICONS.Trash className="w-4 h-4" />
+                Delete All
+              </button>
             </div>
           </div>
         </div>
@@ -657,6 +747,209 @@ const WeightLog: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Delete All Modal */}
+      {showDeleteAllModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-rose-100 dark:bg-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ICONS.Trash className="w-8 h-8 text-rose-500" />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">Delete All Weights?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mt-2">
+                This will permanently delete all {totalItems} weight entries. This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteAllModal(false)}
+                className="flex-1 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAll}
+                disabled={isDeleting}
+                className="flex-1 py-3 rounded-xl font-bold text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+              >
+                {isDeleting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Delete All'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Analyze Modal */}
+      {showAnalyzeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-2xl w-full shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">AI Weight Analysis</h3>
+                <p className="text-sm text-slate-400">Get insights from your weight data</p>
+              </div>
+              <button
+                onClick={() => { setShowAnalyzeModal(false); setAnalysisResult(null); }}
+                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+              >
+                <ICONS.X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!analysisResult ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Analysis Period</label>
+                  <div className="flex gap-2">
+                    {['7', '30', '60', '90'].map((days) => (
+                      <button
+                        key={days}
+                        onClick={() => setAnalysisDays(days)}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                          analysisDays === days
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                        }`}
+                      >
+                        {days} Days
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={handleAnalyze}
+                  disabled={isAnalyzing}
+                  className="w-full py-4 rounded-xl font-bold text-white bg-purple-500 hover:bg-purple-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      Analyze with AI
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Statistics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4">
+                    <p className="text-xs text-slate-400">Average</p>
+                    <p className="text-xl font-black text-slate-900 dark:text-white">{analysisResult.statistics.averageWeight} kg</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4">
+                    <p className="text-xs text-slate-400">Min/Max</p>
+                    <p className="text-xl font-black text-slate-900 dark:text-white">{analysisResult.statistics.minWeight}-{analysisResult.statistics.maxWeight}</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4">
+                    <p className="text-xs text-slate-400">Change</p>
+                    <p className={`text-xl font-black ${analysisResult.statistics.weightChange <= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {analysisResult.statistics.weightChange > 0 ? '+' : ''}{analysisResult.statistics.weightChange} kg
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4">
+                    <p className="text-xs text-slate-400">Entries</p>
+                    <p className="text-xl font-black text-slate-900 dark:text-white">{analysisResult.statistics.totalEntries}</p>
+                  </div>
+                </div>
+
+                {/* AI Analysis */}
+                <div className="bg-purple-50 dark:bg-purple-500/10 rounded-2xl p-5 border border-purple-100 dark:border-purple-500/20">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg className="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <span className="font-bold text-purple-700 dark:text-purple-300">AI Insights</span>
+                  </div>
+                  <div className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">
+                    {analysisResult.analysis}
+                  </div>
+                </div>
+
+                {/* Disclaimer */}
+                <div className="text-xs text-slate-400 bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                  {analysisResult.disclaimer}
+                </div>
+
+                <button
+                  onClick={() => setAnalysisResult(null)}
+                  className="w-full py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
+                >
+                  Analyze Again
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">Export Weight Data</h3>
+                <p className="text-sm text-slate-400">Download your weight logs</p>
+              </div>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+              >
+                <ICONS.X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => handleExport('csv')}
+                disabled={isExporting}
+                className="w-full p-4 rounded-2xl border-2 border-slate-100 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all flex items-center gap-4 group"
+              >
+                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <span className="text-2xl">📊</span>
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-bold text-slate-900 dark:text-white">CSV Format</p>
+                  <p className="text-xs text-slate-400">Spreadsheet compatible</p>
+                </div>
+                {isExporting && (
+                  <div className="w-5 h-5 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+                )}
+              </button>
+
+              <button
+                onClick={() => handleExport('json')}
+                disabled={isExporting}
+                className="w-full p-4 rounded-2xl border-2 border-slate-100 dark:border-slate-700 hover:border-sky-500 dark:hover:border-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-all flex items-center gap-4 group"
+              >
+                <div className="w-12 h-12 bg-sky-100 dark:bg-sky-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <span className="text-2xl">{ }</span>
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-bold text-slate-900 dark:text-white">JSON Format</p>
+                  <p className="text-xs text-slate-400">Developer friendly</p>
+                </div>
+                {isExporting && (
+                  <div className="w-5 h-5 border-2 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

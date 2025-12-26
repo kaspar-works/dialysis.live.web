@@ -1,10 +1,8 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { createFluidLog, getTodayFluidIntake, getFluidLogs, deleteFluidLog, FluidLog as FluidLogType, FluidSource } from '../services/fluid';
-import { isAuthenticated as checkAuth } from '../services/auth';
-import { useNavigate } from 'react-router-dom';
 
 const beverages: { name: string; source: FluidSource; icon: string; color: string; bg: string }[] = [
   { name: 'Water', source: 'water', icon: '💧', color: 'bg-sky-500', bg: 'bg-sky-500/20' },
@@ -16,7 +14,6 @@ const beverages: { name: string; source: FluidSource; icon: string; color: strin
 
 const FluidLog: React.FC = () => {
   const { profile } = useStore();
-  const navigate = useNavigate();
   const [selectedBeverage, setSelectedBeverage] = useState(beverages[0]);
   const [customAmount, setCustomAmount] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -24,14 +21,13 @@ const FluidLog: React.FC = () => {
   const [totalToday, setTotalToday] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
-    if (!checkAuth()) {
-      navigate('/login');
-      return;
-    }
+    if (hasFetched.current) return;
+    hasFetched.current = true;
     fetchFluidData();
-  }, [navigate]);
+  }, []);
 
   const fetchFluidData = async () => {
     setIsLoading(true);

@@ -1,30 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { getSettings, updateSettings, UserSettings, defaultSettings } from '../services/settings';
-import { isAuthenticated } from '../services/auth';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const Settings: React.FC = () => {
   const { profile } = useStore();
-  const navigate = useNavigate();
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const [activeSection, setActiveSection] = useState<string>('dialysis');
+  const hasFetched = useRef(false);
 
   const sub = profile.subscription;
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      navigate('/login');
-      return;
-    }
+    if (hasFetched.current) return;
+    hasFetched.current = true;
     fetchSettings();
-  }, [navigate]);
+  }, []);
 
   const fetchSettings = async () => {
     setIsLoading(true);

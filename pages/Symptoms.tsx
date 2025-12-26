@@ -1,9 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ICONS } from '../constants';
 import { SymptomType } from '../types';
 import { createSymptomLog, getSymptomLogs, SymptomLog } from '../services/symptoms';
-import { isAuthenticated } from '../services/auth';
-import { useNavigate } from 'react-router-dom';
 
 const symptomConfig: Record<SymptomType, { label: string; icon: string; color: string }> = {
   [SymptomType.CRAMPING]: { label: 'Cramping', icon: '💪', color: '#f43f5e' },
@@ -22,21 +20,19 @@ const symptomConfig: Record<SymptomType, { label: string; icon: string; color: s
 };
 
 const Symptoms: React.FC = () => {
-  const navigate = useNavigate();
   const [symptoms, setSymptoms] = useState<SymptomLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSymptom, setSelectedSymptom] = useState<SymptomType | null>(null);
   const [severity, setSeverity] = useState(3);
   const [isLogging, setIsLogging] = useState(false);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      navigate('/login');
-      return;
-    }
+    if (hasFetched.current) return;
+    hasFetched.current = true;
     fetchSymptoms();
-  }, [navigate]);
+  }, []);
 
   const fetchSymptoms = async () => {
     setIsLoading(true);

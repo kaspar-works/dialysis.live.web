@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { getAuthToken } from '../services/auth';
@@ -20,6 +20,7 @@ import {
   getRatingColor,
   SessionEvent,
 } from '../services/dialysis';
+import { createVitalLog, VitalType } from '../services/vitals';
 
 type ViewMode = 'list' | 'create' | 'active' | 'end' | 'detail';
 
@@ -38,7 +39,7 @@ const Sessions: React.FC = () => {
   // Form states for new session
   const [newSession, setNewSession] = useState({
     mode: DialysisMode.HOME,
-    type: DialysisType.HD,
+    type: DialysisType.HOME_HD,
     plannedDurationMin: 240,
     locationName: '',
     machineName: '',
@@ -65,8 +66,25 @@ const Sessions: React.FC = () => {
     complications: [] as string[],
   });
 
+  // Quick vitals during session
+  const [showVitalsForm, setShowVitalsForm] = useState(false);
+  const [vitalsData, setVitalsData] = useState({
+    bpSystolic: '',
+    bpDiastolic: '',
+    heartRate: '',
+    spo2: '',
+    temperature: '',
+  });
+  const [isLoggingVitals, setIsLoggingVitals] = useState(false);
+  const [vitalsSuccess, setVitalsSuccess] = useState('');
+
+  const hasFetched = useRef(false);
+
   // Fetch sessions on mount
   useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
     const fetchData = async () => {
       const token = getAuthToken();
       if (!token) {
@@ -118,7 +136,16 @@ const Sessions: React.FC = () => {
   const handleCreateSession = async () => {
     setIsSubmitting(true);
     try {
-      const session = await createSession(newSession);
+      // Build payload without empty optional fields
+      const createData: any = {
+        mode: newSession.mode,
+        type: newSession.type,
+        plannedDurationMin: newSession.plannedDurationMin,
+      };
+      if (newSession.locationName?.trim()) createData.locationName = newSession.locationName.trim();
+      if (newSession.machineName?.trim()) createData.machineName = newSession.machineName.trim();
+
+      const session = await createSession(createData);
 
       // Update with pre-session data if provided
       if (preData.preWeightKg || preData.targetUfMl || preData.preBpSystolic || preData.preHeartRate) {
@@ -190,13 +217,84 @@ const Sessions: React.FC = () => {
   const resetForms = () => {
     setNewSession({
       mode: DialysisMode.HOME,
-      type: DialysisType.HD,
+      type: DialysisType.HOME_HD,
       plannedDurationMin: 240,
       locationName: '',
       machineName: '',
     });
     setPreData({ preWeightKg: '', targetUfMl: '', preBpSystolic: '', preBpDiastolic: '', preHeartRate: '' });
     setPostData({ postWeightKg: '', actualUfMl: '', postBpSystolic: '', postBpDiastolic: '', postHeartRate: '', sessionRating: '', notes: '', complications: [] });
+  };
+
+  // Log vitals during session
+  const handleLogVitals = async () => {
+    if (!activeSession) return;
+    setIsLoggingVitals(true);
+    setVitalsSuccess('');
+
+    try {
+      const promises = [];
+
+      // Log BP if provided
+      if (vitalsData.bpSystolic && vitalsData.bpDiastolic) {
+        promises.push(createVitalLog({
+          type: 'blood_pressure',
+          value1: parseFloat(vitalsData.bpSystolic),
+          value2: parseFloat(vitalsData.bpDiastolic),
+          unit: 'mmHg',
+          sessionId: activeSession._id,
+          loggedAt: new Date().toISOString(),
+        }));
+      }
+
+      // Log heart rate if provided
+      if (vitalsData.heartRate) {
+        promises.push(createVitalLog({
+          type: 'heart_rate',
+          value1: parseFloat(vitalsData.heartRate),
+          unit: 'bpm',
+          sessionId: activeSession._id,
+          loggedAt: new Date().toISOString(),
+        }));
+      }
+
+      // Log SpO2 if provided
+      if (vitalsData.spo2) {
+        promises.push(createVitalLog({
+          type: 'spo2',
+          value1: parseFloat(vitalsData.spo2),
+          unit: '%',
+          sessionId: activeSession._id,
+          loggedAt: new Date().toISOString(),
+        }));
+      }
+
+      // Log temperature if provided
+      if (vitalsData.temperature) {
+        promises.push(createVitalLog({
+          type: 'temperature',
+          value1: parseFloat(vitalsData.temperature),
+          unit: '°C',
+          sessionId: activeSession._id,
+          loggedAt: new Date().toISOString(),
+        }));
+      }
+
+      if (promises.length === 0) {
+        alert('Please enter at least one vital sign');
+        return;
+      }
+
+      await Promise.all(promises);
+      setVitalsSuccess(`${promises.length} vital(s) logged!`);
+      setVitalsData({ bpSystolic: '', bpDiastolic: '', heartRate: '', spo2: '', temperature: '' });
+      setTimeout(() => setVitalsSuccess(''), 3000);
+    } catch (err) {
+      console.error('Failed to log vitals:', err);
+      alert('Failed to log vitals');
+    } finally {
+      setIsLoggingVitals(false);
+    }
   };
 
   const completedSessions = useMemo(() =>
@@ -336,10 +434,11 @@ const Sessions: React.FC = () => {
                 onChange={e => setNewSession({ ...newSession, type: e.target.value as DialysisType })}
                 className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
               >
-                <option value={DialysisType.HD}>Hemodialysis (HD)</option>
-                <option value={DialysisType.HDF}>Hemodiafiltration (HDF)</option>
+                <option value={DialysisType.HOME_HD}>Home HD</option>
+                <option value={DialysisType.IN_CENTER_HD}>In-Center HD</option>
                 <option value={DialysisType.PD_CAPD}>PD - CAPD</option>
                 <option value={DialysisType.PD_APD}>PD - APD</option>
+                <option value={DialysisType.PRE_DIALYSIS}>Pre-Dialysis</option>
               </select>
             </div>
 
@@ -352,8 +451,7 @@ const Sessions: React.FC = () => {
                 className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
               >
                 <option value={DialysisMode.HOME}>Home</option>
-                <option value={DialysisMode.IN_CENTER}>In-Center</option>
-                <option value={DialysisMode.HOSPITAL}>Hospital</option>
+                <option value={DialysisMode.CLINIC}>Clinic</option>
               </select>
             </div>
 
@@ -482,13 +580,119 @@ const Sessions: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => setViewMode('end')}
-              className="px-12 py-4 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition-all"
-            >
-              End Session
-            </button>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => setShowVitalsForm(!showVitalsForm)}
+                className="px-8 py-4 bg-rose-500 text-white rounded-xl font-bold hover:bg-rose-600 transition-all flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                Log Vitals
+              </button>
+              <button
+                onClick={() => setViewMode('end')}
+                className="px-12 py-4 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition-all"
+              >
+                End Session
+              </button>
+            </div>
           </div>
+
+          {/* Quick Vitals Form */}
+          {showVitalsForm && (
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 animate-in slide-in-from-top duration-300">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Log Vitals</h3>
+                  <p className="text-sm text-slate-400">Record vitals during session</p>
+                </div>
+                {vitalsSuccess && (
+                  <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 text-sm font-bold rounded-full animate-in fade-in">
+                    {vitalsSuccess}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                {/* BP */}
+                <div className="col-span-2">
+                  <label className="text-xs font-bold text-rose-500 uppercase tracking-wider mb-2 block">Blood Pressure</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={vitalsData.bpSystolic}
+                      onChange={e => setVitalsData({ ...vitalsData, bpSystolic: e.target.value })}
+                      placeholder="Sys"
+                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm"
+                    />
+                    <span className="text-slate-400 self-center">/</span>
+                    <input
+                      type="number"
+                      value={vitalsData.bpDiastolic}
+                      onChange={e => setVitalsData({ ...vitalsData, bpDiastolic: e.target.value })}
+                      placeholder="Dia"
+                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Heart Rate */}
+                <div>
+                  <label className="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2 block">Heart Rate</label>
+                  <input
+                    type="number"
+                    value={vitalsData.heartRate}
+                    onChange={e => setVitalsData({ ...vitalsData, heartRate: e.target.value })}
+                    placeholder="bpm"
+                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm"
+                  />
+                </div>
+
+                {/* SpO2 */}
+                <div>
+                  <label className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-2 block">SpO2</label>
+                  <input
+                    type="number"
+                    value={vitalsData.spo2}
+                    onChange={e => setVitalsData({ ...vitalsData, spo2: e.target.value })}
+                    placeholder="%"
+                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm"
+                  />
+                </div>
+
+                {/* Temperature */}
+                <div>
+                  <label className="text-xs font-bold text-purple-500 uppercase tracking-wider mb-2 block">Temp</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={vitalsData.temperature}
+                    onChange={e => setVitalsData({ ...vitalsData, temperature: e.target.value })}
+                    placeholder="°C"
+                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogVitals}
+                disabled={isLoggingVitals}
+                className="w-full py-3 bg-rose-500 text-white rounded-xl font-bold hover:bg-rose-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+              >
+                {isLoggingVitals ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save Vitals
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

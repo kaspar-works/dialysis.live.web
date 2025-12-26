@@ -68,3 +68,82 @@ export async function deleteWeightLog(logId: string): Promise<void> {
     method: 'DELETE',
   });
 }
+
+export interface DeleteAllParams {
+  from?: string;
+  to?: string;
+  context?: WeightContext;
+}
+
+export interface DeleteAllResponse {
+  deletedCount: number;
+}
+
+export async function deleteAllWeightLogs(params: DeleteAllParams = {}): Promise<DeleteAllResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (params.from) searchParams.append('from', params.from);
+  if (params.to) searchParams.append('to', params.to);
+  if (params.context) searchParams.append('context', params.context);
+
+  const queryString = searchParams.toString();
+  const endpoint = queryString ? `/weights?${queryString}` : '/weights';
+
+  const result = await authFetch(endpoint, {
+    method: 'DELETE',
+  });
+  return result.data;
+}
+
+export interface WeightAnalysis {
+  statistics: {
+    period: string;
+    totalEntries: number;
+    averageWeight: number;
+    minWeight: number;
+    maxWeight: number;
+    weightChange: number;
+    avgPreDialysisWeight: number | null;
+    avgPostDialysisWeight: number | null;
+    avgFluidRemoval: number | null;
+  };
+  analysis: string;
+  disclaimer: string;
+}
+
+export async function analyzeWeightLogs(days: number = 30): Promise<WeightAnalysis> {
+  const result = await authFetch(`/weights/analyze?days=${days}`);
+  return result.data;
+}
+
+export interface ExportParams {
+  from?: string;
+  to?: string;
+  format?: 'json' | 'csv';
+  context?: WeightContext;
+}
+
+export async function exportWeightLogs(params: ExportParams = {}): Promise<Blob> {
+  const searchParams = new URLSearchParams();
+
+  if (params.from) searchParams.append('from', params.from);
+  if (params.to) searchParams.append('to', params.to);
+  if (params.format) searchParams.append('format', params.format);
+  if (params.context) searchParams.append('context', params.context);
+
+  const queryString = searchParams.toString();
+  const endpoint = queryString ? `/weights/export?${queryString}` : '/weights/export';
+
+  const token = localStorage.getItem('auth_token');
+  const response = await fetch(`https://api.dialysis.live/api/v1${endpoint}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Export failed');
+  }
+
+  return response.blob();
+}

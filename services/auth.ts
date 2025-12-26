@@ -186,9 +186,10 @@ export async function logoutApi(): Promise<void> {
   } catch (error) {
     console.error('Logout API error:', error);
   } finally {
-    // Always clear local tokens
+    // Always clear local tokens and auth state
     clearAuthTokens();
     localStorage.removeItem('renalcare_data');
+    localStorage.removeItem('lifeondialysis_auth');
   }
 }
 
@@ -196,7 +197,8 @@ export async function logoutApi(): Promise<void> {
 export function logout() {
   clearAuthTokens();
   localStorage.removeItem('renalcare_data');
-  window.location.href = '/#/login';
+  localStorage.removeItem('lifeondialysis_auth');
+  window.location.href = '/#/logout';
 }
 
 // Refresh access token using refresh token
@@ -255,7 +257,8 @@ function isTokenError(message?: string): boolean {
 function handleAuthFailure(): never {
   clearAuthTokens();
   localStorage.removeItem('renalcare_data');
-  window.location.href = '/#/login';
+  localStorage.removeItem('lifeondialysis_auth');
+  window.location.href = '/#/logout';
   throw new Error('Session expired. Please login again.');
 }
 

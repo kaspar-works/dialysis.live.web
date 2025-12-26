@@ -25,30 +25,66 @@ const OnboardingModal: React.FC = () => {
   useEffect(() => {
     const checkOnboarding = async () => {
       const token = getAuthToken();
-      console.log('[Onboarding] Token:', token ? 'exists' : 'missing');
 
       if (!token) {
-        // No token = not logged in, don't show modal
-        setIsOnboarded(true); // Treat as onboarded to hide modal
+        setIsOnboarded(true);
         setChecking(false);
         return;
       }
 
       try {
-        console.log('[Onboarding] Calling /auth/me...');
-        const res = await fetch(`${API_BASE_URL}/auth/me`, {
+        let res = await fetch(`${API_BASE_URL}/auth/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        console.log('[Onboarding] Response status:', res.status);
+        let data = await res.json();
 
-        if (res.ok) {
-          const data = await res.json();
-          const completed = data.data?.user?.onboardingCompleted === true;
-          console.log('[Onboarding] onboardingCompleted:', completed);
-          setIsOnboarded(completed);
+        // If token expired, try refresh
+        if (!res.ok || data.success === false) {
+          console.log('[Onboarding] Token invalid, trying refresh...');
+          const refreshToken = localStorage.getItem('refresh_token');
+          console.log('[Onboarding] Refresh token:', refreshToken ? 'exists' : 'missing');
+
+          if (refreshToken) {
+            console.log('[Onboarding] Calling /auth/refresh...');
+            const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refreshToken })
+            });
+            const refreshData = await refreshRes.json();
+            console.log('[Onboarding] Refresh response:', refreshRes.status, refreshData);
+
+            if (refreshRes.ok && refreshData.data?.tokens) {
+              // Save new tokens
+              localStorage.setItem('auth_token', refreshData.data.tokens.accessToken);
+              localStorage.setItem('refresh_token', refreshData.data.tokens.refreshToken);
+              console.log('[Onboarding] New tokens saved, retrying /auth/me...');
+
+              // Retry with new token
+              res = await fetch(`${API_BASE_URL}/auth/me`, {
+                headers: { 'Authorization': `Bearer ${refreshData.data.tokens.accessToken}` }
+              });
+              data = await res.json();
+              console.log('[Onboarding] Retry response:', res.status, data);
+            } else {
+              // Refresh failed, redirect to logout
+              console.log('[Onboarding] Refresh failed, redirecting to logout');
+              window.location.href = '/#/logout';
+              return;
+            }
+          } else {
+            // No refresh token, redirect to logout
+            console.log('[Onboarding] No refresh token, redirecting to logout');
+            window.location.href = '/#/logout';
+            return;
+          }
+        }
+
+        if (data.success !== false && data.data?.user) {
+          setIsOnboarded(data.data.user.onboardingCompleted === true);
         }
       } catch (err) {
-        console.error('[Onboarding] Failed to check:', err);
+        console.error('Failed to check onboarding:', err);
       }
       setChecking(false);
     };
