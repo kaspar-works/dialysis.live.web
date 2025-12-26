@@ -11,13 +11,12 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const { logout, profile, setTheme } = useStore();
+  const { profile, setTheme } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    logout();
-    navigate('/');
+    navigate('/logout');
   };
 
   const toggleTheme = () => {
@@ -156,20 +155,23 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             {children}
           </div>
 
-          <footer className="p-6 lg:p-12 pt-10 max-w-7xl mx-auto w-full group transition-all">
+          <footer className="p-6 lg:p-12 pt-10 max-w-7xl mx-auto w-full">
              <div className="border-t border-slate-100 dark:border-white/5 pt-8 space-y-6">
-                <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 opacity-40 group-hover:opacity-100 transition-opacity">
-                  <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-white/5 flex items-center justify-center shrink-0">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="text-slate-400 dark:text-slate-600"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <div className="flex items-start gap-4 p-4 bg-amber-50 dark:bg-amber-500/10 rounded-2xl border border-amber-100 dark:border-amber-500/20">
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-amber-600 dark:text-amber-400"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                   </div>
-                  <p className="text-[10px] md:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] leading-relaxed text-center md:text-left">
-                    Important: This platform is intended for tracking and informational purposes only. It is not medical advice and should not be used as a substitute for professional clinical judgment. Always talk to your doctor or nephrologist for all medical decisions, diagnoses, or treatments.
-                  </p>
+                  <div>
+                    <p className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">Important</p>
+                    <p className="text-xs text-amber-700 dark:text-amber-400/80 leading-relaxed">
+                      This platform is intended for tracking and informational purposes only. It is not medical advice and should not be used as a substitute for professional clinical judgment. Always talk to your doctor or nephrologist for all medical decisions, diagnoses, or treatments.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 opacity-30 group-hover:opacity-100 transition-opacity">
-                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-widest">© 2025 dialysis.live</p>
-                   <p className="text-[10px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-widest">
-                     Website developed by <a href="https://kaspar.works/" target="_blank" rel="noopener noreferrer" className="text-sky-500 hover:text-pink-500 transition-colors underline decoration-dotted underline-offset-4">kaspar.works</a>
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
+                   <p className="text-xs font-bold text-slate-400 dark:text-slate-600">© 2025 dialysis.live</p>
+                   <p className="text-xs text-slate-400 dark:text-slate-600">
+                     Website developed by <a href="https://kaspar.works/" target="_blank" rel="noopener noreferrer" className="font-bold text-sky-500 hover:text-pink-500 transition-colors">kaspar.works</a>
                    </p>
                 </div>
              </div>

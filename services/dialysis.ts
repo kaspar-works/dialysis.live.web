@@ -92,6 +92,7 @@ export interface UpdateSessionData {
   targetUfMl?: number;
   preBpSystolic?: number;
   preBpDiastolic?: number;
+  preHeartRate?: number;
   notes?: string;
   locationName?: string;
   machineName?: string;
@@ -102,8 +103,10 @@ export interface EndSessionData {
   actualUfMl?: number;
   postBpSystolic?: number;
   postBpDiastolic?: number;
+  postHeartRate?: number;
   sessionRating?: SessionRating;
   notes?: string;
+  complications?: string[];
 }
 
 export interface AddEventData {

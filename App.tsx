@@ -20,11 +20,13 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
+import Logout from './pages/Logout';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
 import SEO from './components/SEO';
+import ProfileSync from './components/ProfileSync';
 import { useStore } from './store';
 
 const App: React.FC = () => {
@@ -33,12 +35,14 @@ const App: React.FC = () => {
   return (
     <Router>
       <SEO />
+      {isAuthenticated && <ProfileSync />}
       <Routes>
         {/* Public Marketing Routes */}
         <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Landing />} />
         <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} />
         <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/logout" element={<Logout />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/features" element={<Features />} />

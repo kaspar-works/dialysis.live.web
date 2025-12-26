@@ -3,8 +3,7 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
@@ -26,8 +25,6 @@ export const auth = getAuth(app);
 
 const googleProvider = new GoogleAuthProvider();
 
-const GOOGLE_REDIRECT_KEY = 'google_auth_pending';
-
 export async function signInWithEmail(email: string, password: string) {
   const result = await signInWithEmailAndPassword(auth, email, password);
   return result.user;
@@ -39,36 +36,8 @@ export async function signUpWithEmail(email: string, password: string) {
 }
 
 export async function signInWithGoogle() {
-  // Set flag before redirect so we know to check for result on return
-  sessionStorage.setItem(GOOGLE_REDIRECT_KEY, 'true');
-  await signInWithRedirect(auth, googleProvider);
-}
-
-export async function handleGoogleRedirect() {
-  // Only check for redirect result if we initiated a redirect
-  const isPending = sessionStorage.getItem(GOOGLE_REDIRECT_KEY);
-  if (!isPending) {
-    return null;
-  }
-
-  try {
-    const result = await getRedirectResult(auth);
-    // Clear the flag regardless of result
-    sessionStorage.removeItem(GOOGLE_REDIRECT_KEY);
-
-    if (result) {
-      return result.user;
-    }
-    return null;
-  } catch (error) {
-    sessionStorage.removeItem(GOOGLE_REDIRECT_KEY);
-    console.error('Google redirect error:', error);
-    throw error;
-  }
-}
-
-export function isGoogleRedirectPending() {
-  return sessionStorage.getItem(GOOGLE_REDIRECT_KEY) === 'true';
+  const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
 }
 
 export async function getIdToken() {

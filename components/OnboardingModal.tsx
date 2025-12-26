@@ -135,7 +135,7 @@ const OnboardingModal: React.FC = () => {
 
   // Update form data when profile name changes (e.g., from Firebase auth)
   useEffect(() => {
-    if (profile.name && profile.name !== 'New Patient') {
+    if (profile.name) {
       setFormData(prev => ({ ...prev, name: profile.name }));
     }
   }, [profile.name]);

@@ -1,5 +1,5 @@
 
-const API_BASE_URL = 'https://dialysis-live-api-gwm9j.ondigitalocean.app/api/v1';
+const API_BASE_URL = 'https://api.dialysis.live/api/v1';
 
 export interface HealthResponse {
   success: boolean;

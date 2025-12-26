@@ -50,6 +50,7 @@ const Sessions: React.FC = () => {
     targetUfMl: '',
     preBpSystolic: '',
     preBpDiastolic: '',
+    preHeartRate: '',
   });
 
   // Form states for post-session data
@@ -58,8 +59,10 @@ const Sessions: React.FC = () => {
     actualUfMl: '',
     postBpSystolic: '',
     postBpDiastolic: '',
+    postHeartRate: '',
     sessionRating: '' as SessionRating | '',
     notes: '',
+    complications: [] as string[],
   });
 
   // Fetch sessions on mount
@@ -118,12 +121,13 @@ const Sessions: React.FC = () => {
       const session = await createSession(newSession);
 
       // Update with pre-session data if provided
-      if (preData.preWeightKg || preData.targetUfMl || preData.preBpSystolic) {
+      if (preData.preWeightKg || preData.targetUfMl || preData.preBpSystolic || preData.preHeartRate) {
         const updateData: any = {};
         if (preData.preWeightKg) updateData.preWeightKg = parseFloat(preData.preWeightKg);
         if (preData.targetUfMl) updateData.targetUfMl = parseInt(preData.targetUfMl);
         if (preData.preBpSystolic) updateData.preBpSystolic = parseInt(preData.preBpSystolic);
         if (preData.preBpDiastolic) updateData.preBpDiastolic = parseInt(preData.preBpDiastolic);
+        if (preData.preHeartRate) updateData.preHeartRate = parseInt(preData.preHeartRate);
 
         const updated = await updateSession(session._id, updateData);
         setActiveSession(updated);
@@ -150,8 +154,10 @@ const Sessions: React.FC = () => {
       if (postData.actualUfMl) endData.actualUfMl = parseInt(postData.actualUfMl);
       if (postData.postBpSystolic) endData.postBpSystolic = parseInt(postData.postBpSystolic);
       if (postData.postBpDiastolic) endData.postBpDiastolic = parseInt(postData.postBpDiastolic);
+      if (postData.postHeartRate) endData.postHeartRate = parseInt(postData.postHeartRate);
       if (postData.sessionRating) endData.sessionRating = postData.sessionRating;
       if (postData.notes) endData.notes = postData.notes;
+      if (postData.complications.length > 0) endData.complications = postData.complications;
 
       await endSession(activeSession._id, endData);
 
@@ -189,8 +195,8 @@ const Sessions: React.FC = () => {
       locationName: '',
       machineName: '',
     });
-    setPreData({ preWeightKg: '', targetUfMl: '', preBpSystolic: '', preBpDiastolic: '' });
-    setPostData({ postWeightKg: '', actualUfMl: '', postBpSystolic: '', postBpDiastolic: '', sessionRating: '', notes: '' });
+    setPreData({ preWeightKg: '', targetUfMl: '', preBpSystolic: '', preBpDiastolic: '', preHeartRate: '' });
+    setPostData({ postWeightKg: '', actualUfMl: '', postBpSystolic: '', postBpDiastolic: '', postHeartRate: '', sessionRating: '', notes: '', complications: [] });
   };
 
   const completedSessions = useMemo(() =>
@@ -407,6 +413,18 @@ const Sessions: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Heart Rate */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Pre Heart Rate (bpm)</label>
+              <input
+                type="number"
+                value={preData.preHeartRate}
+                onChange={e => setPreData({ ...preData, preHeartRate: e.target.value })}
+                placeholder="e.g. 72"
+                className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+              />
+            </div>
           </div>
 
           <div className="flex gap-4 pt-4">
@@ -531,6 +549,18 @@ const Sessions: React.FC = () => {
               </div>
             </div>
 
+            {/* Post Heart Rate */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post Heart Rate (bpm)</label>
+              <input
+                type="number"
+                value={postData.postHeartRate}
+                onChange={e => setPostData({ ...postData, postHeartRate: e.target.value })}
+                placeholder="e.g. 68"
+                className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+              />
+            </div>
+
             {/* Rating */}
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">How did it go?</label>
@@ -546,6 +576,33 @@ const Sessions: React.FC = () => {
                     }`}
                   >
                     {rating === SessionRating.GOOD ? '😊' : rating === SessionRating.OK ? '😐' : '😞'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Complications */}
+            <div className="md:col-span-2">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Any Complications?</label>
+              <div className="flex flex-wrap gap-2">
+                {['Cramping', 'Nausea', 'Headache', 'Low BP', 'Bleeding', 'Clotting', 'Access Issues', 'Other'].map(comp => (
+                  <button
+                    key={comp}
+                    type="button"
+                    onClick={() => {
+                      if (postData.complications.includes(comp)) {
+                        setPostData({ ...postData, complications: postData.complications.filter(c => c !== comp) });
+                      } else {
+                        setPostData({ ...postData, complications: [...postData.complications, comp] });
+                      }
+                    }}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                      postData.complications.includes(comp)
+                        ? 'bg-rose-500 text-white'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    {comp}
                   </button>
                 ))}
               </div>
@@ -642,6 +699,10 @@ const Sessions: React.FC = () => {
                       : '--'} mmHg
                   </span>
                 </div>
+                <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
+                  <span className="text-slate-500">Heart Rate</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.preHeartRate || '--'} bpm</span>
+                </div>
                 <div className="flex justify-between py-2">
                   <span className="text-slate-500">Target UF</span>
                   <span className="font-bold text-slate-900 dark:text-white">{selectedSession.targetUfMl || '--'} ml</span>
@@ -664,6 +725,10 @@ const Sessions: React.FC = () => {
                       : '--'} mmHg
                   </span>
                 </div>
+                <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
+                  <span className="text-slate-500">Heart Rate</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.postHeartRate || '--'} bpm</span>
+                </div>
                 <div className="flex justify-between py-2">
                   <span className="text-slate-500">Actual UF</span>
                   <span className="font-bold text-slate-900 dark:text-white">{selectedSession.actualUfMl || '--'} ml</span>
@@ -671,6 +736,19 @@ const Sessions: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {selectedSession.complications && selectedSession.complications.length > 0 && (
+            <div className="bg-rose-50 dark:bg-rose-500/10 rounded-2xl p-4">
+              <p className="text-rose-500 text-xs uppercase mb-2">Complications</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedSession.complications.map((comp, i) => (
+                  <span key={i} className="px-3 py-1 bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-sm font-bold rounded-full">
+                    {comp}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {selectedSession.notes && (
             <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">

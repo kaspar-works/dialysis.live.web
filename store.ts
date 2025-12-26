@@ -10,7 +10,7 @@ const STORAGE_KEY = 'renalcare_data';
 const THEME_KEY = 'dialysis_theme';
 
 const DEFAULT_PROFILE: UserProfile = {
-  name: 'New Patient',
+  name: '',
   email: '',
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   dailyFluidLimit: 1500,
