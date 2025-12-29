@@ -68,8 +68,8 @@ const Logo: React.FC<LogoProps> = ({ className = "w-12 h-12", showText = false }
       </svg>
       {showText && (
         <div className="flex flex-col">
-          <span className="font-black text-2xl text-slate-900 tracking-tighter leading-none">dialysis.live</span>
-          <span className="text-[10px] font-bold text-pink-500 uppercase tracking-[0.2em] mt-1 italic">Vibrant Health</span>
+          <span className="font-black text-2xl text-slate-900 dark:text-white tracking-tighter leading-none">dialysis.live</span>
+          <span className="text-[10px] font-bold text-pink-500 dark:text-pink-400 uppercase tracking-[0.2em] mt-1 italic">Vibrant Health</span>
         </div>
       )}
     </div>

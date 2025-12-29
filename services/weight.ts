@@ -135,7 +135,8 @@ export async function exportWeightLogs(params: ExportParams = {}): Promise<Blob>
   const endpoint = queryString ? `/weights/export?${queryString}` : '/weights/export';
 
   const token = localStorage.getItem('auth_token');
-  const response = await fetch(`https://api.dialysis.live/api/v1${endpoint}`, {
+  const apiBase = import.meta.env.DEV ? '/api/v1' : 'https://api.dialysis.live/api/v1';
+  const response = await fetch(`${apiBase}${endpoint}`, {
     headers: {
       'Authorization': `Bearer ${token}`,
     },

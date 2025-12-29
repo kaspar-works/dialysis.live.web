@@ -1,5 +1,6 @@
 
-const API_BASE_URL = 'https://api.dialysis.live/api/v1';
+// Use relative URL in development (for Vite proxy), full URL in production
+const API_BASE_URL = import.meta.env.DEV ? '/api/v1' : 'https://api.dialysis.live/api/v1';
 
 export interface HealthResponse {
   success: boolean;

@@ -8,6 +8,14 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        proxy: {
+          '/api/v1': {
+            target: 'https://api.dialysis.live',
+            changeOrigin: true,
+            secure: true,
+            timeout: 60000, // 60 second timeout
+          },
+        },
       },
       plugins: [react()],
       define: {

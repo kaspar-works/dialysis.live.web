@@ -1,32 +1,96 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line } from 'recharts';
 import { Link } from 'react-router-dom';
 import { MoodType, VitalType, FluidIntake, VitalLog } from '../types';
 import OnboardingModal from '../components/OnboardingModal';
+import { getDashboard, DashboardStats } from '../services/dashboard';
 
 const Dashboard: React.FC = () => {
   const { weights, fluids, profile, vitals, moods, addFluid, meals } = useStore();
   const [showAllVitals, setShowAllVitals] = useState(false);
+  const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const hasFetched = useRef(false);
 
-  // Current data
-  const currentWeight = weights[0]?.value || profile.weightGoal;
-  const weightChange = weights.length >= 2 ? (weights[0].value - weights[1].value).toFixed(1) : '0.0';
-  const todayFluid = fluids.reduce((acc: number, f: FluidIntake) => acc + f.amount, 0);
-  const fluidPercentage = Math.min(Math.round((todayFluid / profile.dailyFluidLimit) * 100), 100);
-  const fluidRemaining = Math.max(profile.dailyFluidLimit - todayFluid, 0);
+  // Fetch dashboard data from API
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
+    const fetchDashboard = async () => {
+      try {
+        const data = await getDashboard(30);
+        setDashboardData(data);
+      } catch (err: any) {
+        // Don't log session expiration errors
+        if (!err?.message?.includes('Session expired')) {
+          console.error('Failed to load dashboard:', err);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboard();
+  }, []);
+
+  // Current data - prefer API data over local store
+  const currentWeight = dashboardData?.weight?.current || weights[0]?.value || profile.weightGoal;
+  const dryWeight = dashboardData?.weight?.dryWeight || profile.weightGoal;
+  const weightTrend = dashboardData?.weight?.trend || null;
+  const weightChange = useMemo(() => {
+    if (dashboardData?.weight?.history && dashboardData.weight.history.length >= 2) {
+      const recent = dashboardData.weight.history[0]?.weight;
+      const prev = dashboardData.weight.history[1]?.weight;
+      if (recent && prev) return (recent - prev).toFixed(1);
+    }
+    if (weights.length >= 2) return (weights[0].value - weights[1].value).toFixed(1);
+    return '0.0';
+  }, [dashboardData, weights]);
+
+  // Fluid data from API or local
+  const todayFluid = dashboardData?.fluid?.todayTotal || fluids.reduce((acc: number, f: FluidIntake) => acc + f.amount, 0);
+  const dailyFluidLimit = dashboardData?.fluid?.dailyLimit || profile.dailyFluidLimit;
+  const fluidPercentage = Math.min(Math.round((todayFluid / dailyFluidLimit) * 100), 100);
+  const fluidRemaining = Math.max(dailyFluidLimit - todayFluid, 0);
   const latestMood = moods[0]?.type || 'Good';
 
-  // Vitals
-  const latestBP = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.BLOOD_PRESSURE), [vitals]);
-  const latestHR = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.HEART_RATE), [vitals]);
+  // Vitals from API or local
+  const latestBP = useMemo(() => {
+    if (dashboardData?.vitals?.latestBp) {
+      return { value1: dashboardData.vitals.latestBp.systolic, value2: dashboardData.vitals.latestBp.diastolic };
+    }
+    return vitals.find((v: VitalLog) => v.type === VitalType.BLOOD_PRESSURE);
+  }, [dashboardData, vitals]);
+
+  const latestHR = useMemo(() => {
+    if (dashboardData?.vitals?.latestHeartRate) {
+      return { value1: dashboardData.vitals.latestHeartRate.value };
+    }
+    return vitals.find((v: VitalLog) => v.type === VitalType.HEART_RATE);
+  }, [dashboardData, vitals]);
+
   const latestTemp = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.TEMPERATURE), [vitals]);
   const latestO2 = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.SPO2), [vitals]);
 
-  // Chart data - Weight (7 days)
+  // Session stats from API
+  const sessionStats = dashboardData?.sessions;
+  const overviewStats = dashboardData?.overview;
+
+  // Chart data - Weight (7 days) - prefer API data
   const weightData = useMemo(() => {
+    // Use API data if available
+    if (dashboardData?.weight?.history && dashboardData.weight.history.length > 0) {
+      return dashboardData.weight.history.slice(0, 7).reverse().map(w => ({
+        date: new Date(w.date).toLocaleDateString(undefined, { weekday: 'short' }),
+        weight: w.weight,
+        goal: dryWeight
+      }));
+    }
+    // Fallback to local store
     const data = [...weights].reverse().slice(-7).map(w => ({
       date: new Date(w.date).toLocaleDateString(undefined, { weekday: 'short' }),
       weight: w.value,
@@ -41,7 +105,7 @@ const Dashboard: React.FC = () => {
       { date: 'Sat', weight: 70.2, goal: 70 },
       { date: 'Sun', weight: 70, goal: 70 },
     ];
-  }, [weights, profile.weightGoal]);
+  }, [dashboardData, weights, profile.weightGoal, dryWeight]);
 
   // Fluid intake by hour (today)
   const fluidHourlyData = useMemo(() => {
@@ -232,7 +296,7 @@ const Dashboard: React.FC = () => {
               <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Today's Hydration</p>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">{todayFluid}</span>
-                <span className="text-slate-400 font-medium">/ {profile.dailyFluidLimit} ml</span>
+                <span className="text-slate-400 font-medium">/ {dailyFluidLimit} ml</span>
               </div>
             </div>
             <div className="text-right">
@@ -259,7 +323,7 @@ const Dashboard: React.FC = () => {
 
           {/* Hourly Chart */}
           <div className="h-32 mb-4">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
               <BarChart data={fluidHourlyData.slice(6, 22)} barSize={12}>
                 <XAxis
                   dataKey="label"
@@ -291,7 +355,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Next Session */}
+        {/* Session Stats */}
         <div className="col-span-12 lg:col-span-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-40 h-40 bg-sky-500/10 rounded-full blur-3xl" />
 
@@ -301,17 +365,17 @@ const Dashboard: React.FC = () => {
                 <ICONS.Activity className="w-7 h-7 text-sky-400" />
               </div>
               <div>
-                <p className="text-white/40 text-xs font-bold uppercase tracking-wider">Next Session</p>
-                <p className="text-2xl font-black">Tomorrow</p>
+                <p className="text-white/40 text-xs font-bold uppercase tracking-wider">Session Stats</p>
+                <p className="text-2xl font-black">{sessionStats?.totalCompleted || 0} Total</p>
               </div>
             </div>
 
             <div className="space-y-4">
               {[
-                { label: 'Time', value: '08:00 AM', icon: '🕐' },
-                { label: 'Type', value: 'Home HD', icon: '🏠' },
-                { label: 'Duration', value: '4 hours', icon: '⏱️' },
-                { label: 'Target UF', value: '2.5 L', icon: '💧' },
+                { label: 'This Week', value: `${sessionStats?.thisWeek || 0} sessions`, icon: '📅' },
+                { label: 'This Month', value: `${sessionStats?.thisMonth || 0} sessions`, icon: '📆' },
+                { label: 'Avg Duration', value: sessionStats?.averageDuration ? `${Math.round(sessionStats.averageDuration / 60)}h ${sessionStats.averageDuration % 60}m` : '--', icon: '⏱️' },
+                { label: 'Avg UF', value: sessionStats?.averageUf ? `${(sessionStats.averageUf / 1000).toFixed(1)} L` : '--', icon: '💧' },
               ].map((item, i) => (
                 <div key={i} className="flex items-center justify-between py-2 border-b border-white/10 last:border-b-0">
                   <span className="text-white/50 text-sm flex items-center gap-2">
@@ -326,7 +390,7 @@ const Dashboard: React.FC = () => {
               to="/sessions"
               className="mt-6 w-full py-3 bg-white/10 backdrop-blur rounded-xl font-bold text-sm text-center block hover:bg-white/20 transition-all"
             >
-              View All Sessions
+              {sessionStats?.recentSessions?.length ? 'View All Sessions' : 'Start First Session'}
             </Link>
           </div>
         </div>
@@ -342,7 +406,7 @@ const Dashboard: React.FC = () => {
           </div>
 
           <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
               <AreaChart data={weightData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">

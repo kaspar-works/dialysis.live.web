@@ -1,5 +1,6 @@
 
-const API_BASE_URL = 'https://api.dialysis.live/api/v1';
+// Use relative URL in development (for Vite proxy), full URL in production
+const API_BASE_URL = import.meta.env.DEV ? '/api/v1' : 'https://api.dialysis.live/api/v1';
 
 export interface AuthTokens {
   accessToken: string;
@@ -250,7 +251,14 @@ function isTokenError(message?: string): boolean {
   return lowerMsg.includes('invalid') && lowerMsg.includes('token') ||
          lowerMsg.includes('expired') && lowerMsg.includes('token') ||
          lowerMsg.includes('unauthorized') ||
-         lowerMsg.includes('jwt');
+         lowerMsg.includes('jwt') ||
+         lowerMsg.includes('not authenticated') ||
+         lowerMsg.includes('authentication required');
+}
+
+// Check if HTTP status indicates auth failure
+function isAuthError(status: number): boolean {
+  return status === 401 || status === 403;
 }
 
 // Handle auth failure - clear tokens and redirect
@@ -262,6 +270,29 @@ function handleAuthFailure(): never {
   throw new Error('Session expired. Please login again.');
 }
 
+// Flag to prevent concurrent refresh attempts
+let isRefreshing = false;
+let refreshPromise: Promise<AuthTokens | null> | null = null;
+
+// Get fresh token, with deduplication of concurrent refresh requests
+async function getFreshToken(): Promise<string | null> {
+  if (isRefreshing && refreshPromise) {
+    const tokens = await refreshPromise;
+    return tokens?.accessToken || null;
+  }
+
+  isRefreshing = true;
+  refreshPromise = refreshAccessToken();
+
+  try {
+    const tokens = await refreshPromise;
+    return tokens?.accessToken || null;
+  } finally {
+    isRefreshing = false;
+    refreshPromise = null;
+  }
+}
+
 // Authenticated fetch with auto token refresh
 export async function authFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
   let token = getAuthToken();
@@ -270,29 +301,35 @@ export async function authFetch(endpoint: string, options: RequestInit = {}): Pr
     handleAuthFailure();
   }
 
-  const makeRequest = async (authToken: string | null) => {
+  const makeRequest = async (authToken: string) => {
     return fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+        'Authorization': `Bearer ${authToken}`,
         ...options.headers,
       },
     });
   };
 
-  let response = await makeRequest(token);
+  // First attempt
+  let response = await makeRequest(token!);
 
-  // If 401 or 403, try refreshing the token
-  if (response.status === 401 || response.status === 403) {
-    const newTokens = await refreshAccessToken();
-    if (newTokens) {
-      response = await makeRequest(newTokens.accessToken);
+  // If unauthorized, try refreshing the token once
+  if (isAuthError(response.status)) {
+    const newToken = await getFreshToken();
+    if (newToken) {
+      response = await makeRequest(newToken);
+      // If still unauthorized after refresh, logout
+      if (isAuthError(response.status)) {
+        handleAuthFailure();
+      }
     } else {
       handleAuthFailure();
     }
   }
 
+  // Parse response
   let result: any;
   try {
     result = await response.json();
@@ -303,11 +340,17 @@ export async function authFetch(endpoint: string, options: RequestInit = {}): Pr
     return {};
   }
 
-  // Check for token errors in response body
+  // Check for token errors in response body (some APIs return 200 with error in body)
   if (result.success === false && isTokenError(result.message)) {
-    const newTokens = await refreshAccessToken();
-    if (newTokens) {
-      const retryResponse = await makeRequest(newTokens.accessToken);
+    const newToken = await getFreshToken();
+    if (newToken) {
+      const retryResponse = await makeRequest(newToken);
+
+      // If still auth error after refresh, logout
+      if (isAuthError(retryResponse.status)) {
+        handleAuthFailure();
+      }
+
       try {
         const retryResult = await retryResponse.json();
         if (retryResult.success === false && isTokenError(retryResult.message)) {

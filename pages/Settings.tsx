@@ -28,8 +28,11 @@ const Settings: React.FC = () => {
     try {
       const data = await getSettings();
       setSettings(data);
-    } catch (err) {
-      console.error('Failed to load settings:', err);
+    } catch (err: any) {
+      // Don't log session expiration errors - redirect is already happening
+      if (!err?.message?.includes('Session expired')) {
+        console.error('Failed to load settings:', err);
+      }
     } finally {
       setIsLoading(false);
     }

@@ -90,6 +90,10 @@ export async function getSettings(): Promise<UserSettings> {
     const result = await authFetch('/settings');
     return { ...defaultSettings, ...result.data.settings };
   } catch (error) {
+    // If it's a session expiration, the redirect is already happening - don't log
+    if (error instanceof Error && error.message.includes('Session expired')) {
+      return defaultSettings; // Return defaults while redirect happens
+    }
     console.error('Failed to fetch settings:', error);
     return defaultSettings;
   }
