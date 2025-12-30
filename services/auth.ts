@@ -44,8 +44,10 @@ export interface AuthResponse {
     settings?: AuthSettings | null;
     tokens?: AuthTokens;
     isNewUser?: boolean;
+    expiresAt?: number;
   };
   message?: string;
+  csrfToken?: string;
 }
 
 export interface RegisterData {
@@ -59,35 +61,30 @@ export interface LoginData {
   password: string;
 }
 
-// Token storage
-export function setAuthTokens(tokens: AuthTokens) {
-  localStorage.setItem('auth_token', tokens.accessToken);
-  localStorage.setItem('refresh_token', tokens.refreshToken);
+// CSRF Token Management
+let _csrfToken: string | null = null;
+
+export function setCsrfToken(token: string | null) {
+  _csrfToken = token;
 }
 
-export function getAuthToken(): string | null {
-  return localStorage.getItem('auth_token');
+export function getCsrfToken(): string | null {
+  return _csrfToken;
 }
 
-export function getRefreshToken(): string | null {
-  return localStorage.getItem('refresh_token');
-}
-
-export function clearAuthTokens() {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('refresh_token');
-}
-
-// Check if user is authenticated
+// Check if user is authenticated (based on localStorage flag for quick check)
 export function isAuthenticated(): boolean {
-  return !!getAuthToken();
+  return localStorage.getItem('lifeondialysis_auth') === 'true';
 }
 
-// Register with email/password
+// Register with email/password (uses JWT-based registration, then creates session)
 export async function register(data: RegisterData): Promise<AuthResponse> {
   try {
+    // Note: Backend doesn't have session-based register, use JWT register
+    // The session will be created via session/login after registration
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json'
       },
@@ -97,12 +94,7 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
     const result = await response.json();
 
     if (!response.ok || result.success === false) {
-      throw new Error(result.message || 'Registration failed');
-    }
-
-    // Store tokens if received
-    if (result.data?.tokens) {
-      setAuthTokens(result.data.tokens);
+      throw new Error(result.error?.message || result.message || 'Registration failed');
     }
 
     return result;
@@ -112,11 +104,12 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
   }
 }
 
-// Login with email/password
+// Login with email/password (session-based)
 export async function login(data: LoginData): Promise<AuthResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch(`${API_BASE_URL}/auth/session/login`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json'
       },
@@ -126,12 +119,7 @@ export async function login(data: LoginData): Promise<AuthResponse> {
     const result = await response.json();
 
     if (!response.ok || result.success === false) {
-      throw new Error(result.message || 'Login failed');
-    }
-
-    // Store tokens if received
-    if (result.data?.tokens) {
-      setAuthTokens(result.data.tokens);
+      throw new Error(result.error?.message || result.message || 'Login failed');
     }
 
     return result;
@@ -141,11 +129,12 @@ export async function login(data: LoginData): Promise<AuthResponse> {
   }
 }
 
-// Google OAuth - send Google ID token to backend
+// Google OAuth - send Google ID token to backend (session-based)
 export async function googleAuth(idToken: string): Promise<AuthResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/google`, {
+    const response = await fetch(`${API_BASE_URL}/auth/session/google`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json'
       },
@@ -155,12 +144,7 @@ export async function googleAuth(idToken: string): Promise<AuthResponse> {
     const result = await response.json();
 
     if (!response.ok || result.success === false) {
-      throw new Error(result.message || 'Google authentication failed');
-    }
-
-    // Store tokens if received
-    if (result.data?.tokens) {
-      setAuthTokens(result.data.tokens);
+      throw new Error(result.error?.message || result.message || 'Google authentication failed');
     }
 
     return result;
@@ -170,90 +154,61 @@ export async function googleAuth(idToken: string): Promise<AuthResponse> {
   }
 }
 
-// Logout - call backend and clear local data
+// Logout - call backend and clear local data (session-based)
 export async function logoutApi(): Promise<void> {
-  const refreshToken = getRefreshToken();
-
   try {
-    if (refreshToken) {
-      await fetch(`${API_BASE_URL}/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ refreshToken })
-      });
-    }
+    await fetch(`${API_BASE_URL}/auth/session/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   } catch (error) {
     console.error('Logout API error:', error);
   } finally {
-    // Always clear local tokens and auth state
-    clearAuthTokens();
+    // Always clear local auth state
     localStorage.removeItem('renalcare_data');
     localStorage.removeItem('lifeondialysis_auth');
+    setCsrfToken(null);
   }
 }
 
 // Legacy logout function for compatibility
 export function logout() {
-  clearAuthTokens();
   localStorage.removeItem('renalcare_data');
   localStorage.removeItem('lifeondialysis_auth');
+  setCsrfToken(null);
   window.location.href = '/#/logout';
 }
 
-// Refresh access token using refresh token
-export async function refreshAccessToken(): Promise<AuthTokens | null> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    console.log('No refresh token available');
-    return null;
-  }
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ refreshToken })
-    });
-
-    const result = await response.json();
-
-    if (result.success === false || !response.ok) {
-      console.log('Refresh failed:', result.message);
-      return null;
-    }
-
-    const tokens = result.data?.tokens || result.tokens || result.data;
-    if (tokens?.accessToken && tokens?.refreshToken) {
-      setAuthTokens(tokens);
-      return tokens;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    return null;
-  }
-}
-
-// Get current user from /auth/me
+// Get current user from /auth/me (works with both JWT and session auth)
 export async function getMe(): Promise<AuthResponse> {
   return authFetch('/auth/me');
 }
 
-// Check if error indicates invalid/expired token
-function isTokenError(message?: string): boolean {
-  if (!message) return false;
-  const lowerMsg = message.toLowerCase();
-  return lowerMsg.includes('invalid') && lowerMsg.includes('token') ||
-         lowerMsg.includes('expired') && lowerMsg.includes('token') ||
-         lowerMsg.includes('unauthorized') ||
-         lowerMsg.includes('jwt') ||
-         lowerMsg.includes('not authenticated') ||
-         lowerMsg.includes('authentication required');
+// Validate session and get user info (use /auth/me which supports session auth)
+export async function validateSession(): Promise<AuthResponse> {
+  return authFetch('/auth/me');
+}
+
+// Extend/refresh session on activity
+export async function extendSession(): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/session/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to refresh session');
+  }
+
+  return result;
 }
 
 // Check if HTTP status indicates auth failure
@@ -261,72 +216,29 @@ function isAuthError(status: number): boolean {
   return status === 401 || status === 403;
 }
 
-// Handle auth failure - clear tokens and redirect
+// Handle auth failure - dispatch event and throw
 function handleAuthFailure(): never {
-  clearAuthTokens();
-  localStorage.removeItem('renalcare_data');
-  localStorage.removeItem('lifeondialysis_auth');
-  window.location.href = '/#/logout';
+  // Dispatch event for AuthContext to handle
+  window.dispatchEvent(new CustomEvent('auth:session-expired'));
   throw new Error('Session expired. Please login again.');
 }
 
-// Flag to prevent concurrent refresh attempts
-let isRefreshing = false;
-let refreshPromise: Promise<AuthTokens | null> | null = null;
-
-// Get fresh token, with deduplication of concurrent refresh requests
-async function getFreshToken(): Promise<string | null> {
-  if (isRefreshing && refreshPromise) {
-    const tokens = await refreshPromise;
-    return tokens?.accessToken || null;
-  }
-
-  isRefreshing = true;
-  refreshPromise = refreshAccessToken();
-
-  try {
-    const tokens = await refreshPromise;
-    return tokens?.accessToken || null;
-  } finally {
-    isRefreshing = false;
-    refreshPromise = null;
-  }
-}
-
-// Authenticated fetch with auto token refresh
+// Authenticated fetch with cookie credentials
 export async function authFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
-  let token = getAuthToken();
-
-  if (!token) {
-    handleAuthFailure();
-  }
-
-  const makeRequest = async (authToken: string) => {
-    return fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
-        ...options.headers,
-      },
-    });
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
   };
 
-  // First attempt
-  let response = await makeRequest(token!);
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    credentials: 'include',
+    headers,
+  });
 
-  // If unauthorized, try refreshing the token once
+  // Handle auth errors
   if (isAuthError(response.status)) {
-    const newToken = await getFreshToken();
-    if (newToken) {
-      response = await makeRequest(newToken);
-      // If still unauthorized after refresh, logout
-      if (isAuthError(response.status)) {
-        handleAuthFailure();
-      }
-    } else {
-      handleAuthFailure();
-    }
+    handleAuthFailure();
   }
 
   // Parse response
@@ -340,39 +252,22 @@ export async function authFetch(endpoint: string, options: RequestInit = {}): Pr
     return {};
   }
 
-  // Check for token errors in response body (some APIs return 200 with error in body)
-  if (result.success === false && isTokenError(result.message)) {
-    const newToken = await getFreshToken();
-    if (newToken) {
-      const retryResponse = await makeRequest(newToken);
-
-      // If still auth error after refresh, logout
-      if (isAuthError(retryResponse.status)) {
-        handleAuthFailure();
-      }
-
-      try {
-        const retryResult = await retryResponse.json();
-        if (retryResult.success === false && isTokenError(retryResult.message)) {
-          handleAuthFailure();
-        }
-        if (!retryResponse.ok && retryResult.success === false) {
-          throw new Error(retryResult.message || `Request failed: ${retryResponse.status}`);
-        }
-        return retryResult;
-      } catch (e) {
-        if (!retryResponse.ok) {
-          throw new Error(`Request failed: ${retryResponse.status}`);
-        }
-        throw e;
-      }
-    } else {
+  // Check for auth errors in response body
+  if (result.success === false) {
+    const msg = (result.error?.message || result.message || '').toLowerCase();
+    if (
+      msg.includes('session') && (msg.includes('expired') || msg.includes('invalid')) ||
+      msg.includes('unauthorized') ||
+      msg.includes('not authenticated') ||
+      msg.includes('authentication required') ||
+      msg.includes('no authentication')
+    ) {
       handleAuthFailure();
     }
   }
 
   if (!response.ok || result.success === false) {
-    throw new Error(result.message || `Request failed: ${response.status}`);
+    throw new Error(result.error?.message || result.message || `Request failed: ${response.status}`);
   }
 
   return result;

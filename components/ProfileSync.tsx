@@ -1,8 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import { getAuthToken } from '../services/auth';
-
-const API_BASE_URL = 'https://api.dialysis.live/api/v1';
+import { useAuth } from '../contexts/AuthContext';
+import { authFetch } from '../services/auth';
 
 // Track if sync has already been done this session (prevents StrictMode double-call)
 let hasSyncedThisSession = false;
@@ -40,6 +39,7 @@ function signalSyncComplete() {
 // This component syncs the user profile from the API on app load
 const ProfileSync: React.FC = () => {
   const { setProfile, profile } = useStore();
+  const { isAuthenticated } = useAuth();
   const hasFetched = useRef(false);
 
   useEffect(() => {
@@ -51,34 +51,16 @@ const ProfileSync: React.FC = () => {
       hasFetched.current = true;
       hasSyncedThisSession = true;
 
-      // Only sync if user has an auth token
-      const token = getAuthToken();
-      if (!token) {
+      // Only sync if user is authenticated
+      if (!isAuthenticated) {
         signalSyncComplete();
         return;
       }
 
       try {
-        // Make a direct fetch call to avoid authFetch redirect behavior
-        const response = await fetch(`${API_BASE_URL}/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        // Use authFetch which automatically includes credentials
+        const result = await authFetch('/auth/me');
 
-        // If unauthorized, try with refresh token or just skip silently
-        if (response.status === 401 || response.status === 403) {
-          console.log('ProfileSync: Token may be expired, skipping sync');
-          return;
-        }
-
-        if (!response.ok) {
-          console.log('ProfileSync: API returned error, skipping sync');
-          return;
-        }
-
-        const result = await response.json();
         const userData = result.data;
 
         if (userData) {
@@ -130,7 +112,7 @@ const ProfileSync: React.FC = () => {
     };
 
     syncProfile();
-  }, []);
+  }, [isAuthenticated]);
 
   return null;
 };

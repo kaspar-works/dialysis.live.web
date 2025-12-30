@@ -1,13 +1,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
+import { useAuth } from '../contexts/AuthContext';
 import { DialysisType } from '../types';
 import { exportDataAsJSON } from '../services/export';
 import { getMe } from '../services/user';
-import { getAuthToken, logout } from '../services/auth';
+import { logout } from '../services/auth';
 
 const Profile: React.FC = () => {
   const { profile, setProfile, sessions, weights, fluids, vitals, medications } = useStore();
+  const { isAuthenticated } = useAuth();
   const [formData, setFormData] = useState(profile);
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,8 +19,7 @@ const Profile: React.FC = () => {
   // Fetch user data from API on mount
   useEffect(() => {
     const fetchUserData = async () => {
-      const token = getAuthToken();
-      if (!token) return;
+      if (!isAuthenticated) return;
 
       setIsLoading(true);
       try {
@@ -44,7 +45,7 @@ const Profile: React.FC = () => {
     };
 
     fetchUserData();
-  }, []);
+  }, [isAuthenticated]);
 
   const defaultAvatar = "https://ui-avatars.com/api/?name=" + encodeURIComponent(formData.name || profile.name) + "&background=0ea5e9&color=fff&size=128&bold=true";
 
@@ -54,8 +55,7 @@ const Profile: React.FC = () => {
 
     try {
       // Save to backend if authenticated
-      const token = getAuthToken();
-      if (token) {
+      if (isAuthenticated) {
         const { updateSettings } = await import('../services/user');
         await updateSettings({
           dailyFluidLimitMl: formData.dailyFluidLimit,

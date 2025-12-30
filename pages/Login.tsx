@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { useStore } from '../store';
 import Logo from '../components/Logo';
-import { login as apiLogin, googleAuth } from '../services/auth';
 
 // Google Client ID from environment
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -33,7 +33,10 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [googleLoaded, setGoogleLoaded] = useState(false);
-  const { login, setProfile, profile } = useStore();
+  const [googleError, setGoogleError] = useState(false);
+
+  const { login: authLogin, loginWithGoogle } = useAuth();
+  const { setProfile, profile } = useStore();
   const navigate = useNavigate();
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
@@ -64,21 +67,16 @@ const Login: React.FC = () => {
   useEffect(() => {
     if (!googleLoaded || !window.google || !GOOGLE_CLIENT_ID) return;
 
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleGoogleCallback,
-      ux_mode: 'popup',
-      use_fedcm_for_prompt: false, // Disable FedCM to avoid issues
-    });
-
-    // Render the hidden Google button
-    if (googleButtonRef.current) {
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        type: 'standard',
-        theme: 'outline',
-        size: 'large',
-        width: 400,
+    try {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCallback,
+        ux_mode: 'popup',
+        use_fedcm_for_prompt: false,
       });
+    } catch (err) {
+      console.error('Google Sign-In initialization failed:', err);
+      setGoogleError(true);
     }
   }, [googleLoaded]);
 
@@ -92,25 +90,23 @@ const Login: React.FC = () => {
         throw new Error('No credential received from Google');
       }
 
-      const authResult = await googleAuth(idToken);
+      await loginWithGoogle(idToken);
 
-      if (authResult.data) {
-        const updatedProfile = {
-          ...profile,
-          name: authResult.data.profile?.fullName || profile.name,
-          email: authResult.data.user?.email || '',
-          isOnboarded: authResult.data.user?.onboardingCompleted || profile.isOnboarded,
-        };
-
-        const storageData = localStorage.getItem('renalcare_data');
-        const data = storageData ? JSON.parse(storageData) : {};
-        data.profile = { ...data.profile, ...updatedProfile };
-        localStorage.setItem('renalcare_data', JSON.stringify(data));
-
-        setProfile(updatedProfile);
-        login();
-        navigate('/dashboard');
+      // Update local profile in store
+      const storageData = localStorage.getItem('renalcare_data');
+      if (storageData) {
+        const data = JSON.parse(storageData);
+        if (data.profile) {
+          setProfile({
+            ...profile,
+            name: data.profile.name || profile.name,
+            email: data.profile.email || '',
+            isOnboarded: data.profile.isOnboarded || profile.isOnboarded,
+          });
+        }
       }
+
+      navigate('/dashboard');
     } catch (err: any) {
       console.error('Google login error:', err);
       setError(err.message || 'Google sign-in failed. Please try again.');
@@ -125,25 +121,23 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const authResult = await apiLogin({ email, password });
+      await authLogin(email, password);
 
-      if (authResult.data) {
-        const updatedProfile = {
-          ...profile,
-          name: authResult.data.profile?.fullName || profile.name,
-          email: authResult.data.user?.email || email,
-          isOnboarded: authResult.data.user?.onboardingCompleted || profile.isOnboarded,
-        };
-
-        const storageData = localStorage.getItem('renalcare_data');
-        const data = storageData ? JSON.parse(storageData) : {};
-        data.profile = { ...data.profile, ...updatedProfile };
-        localStorage.setItem('renalcare_data', JSON.stringify(data));
-
-        setProfile(updatedProfile);
-        login();
-        navigate('/dashboard');
+      // Update local profile in store
+      const storageData = localStorage.getItem('renalcare_data');
+      if (storageData) {
+        const data = JSON.parse(storageData);
+        if (data.profile) {
+          setProfile({
+            ...profile,
+            name: data.profile.name || profile.name,
+            email: data.profile.email || email,
+            isOnboarded: data.profile.isOnboarded || profile.isOnboarded,
+          });
+        }
       }
+
+      navigate('/dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.message?.includes('Invalid credentials') || err.message?.includes('not found')) {
@@ -213,8 +207,8 @@ const Login: React.FC = () => {
            )}
 
            <div className="space-y-6">
-              {/* Google Sign-In Button Container */}
-              {GOOGLE_CLIENT_ID && (
+              {/* Google Sign-In Button - only show if no error */}
+              {GOOGLE_CLIENT_ID && !googleError && (
                 <div className="relative">
                   {isGoogleLoading && (
                     <div className="absolute inset-0 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center z-10">
@@ -222,19 +216,34 @@ const Login: React.FC = () => {
                       <span className="font-bold text-sm text-slate-600 dark:text-slate-300">Signing in...</span>
                     </div>
                   )}
-                  <div
-                    ref={googleButtonRef}
-                    className="flex justify-center [&>div]:w-full [&_iframe]:!w-full"
-                  />
-                  {!googleLoaded && (
-                    <div className="w-full py-5 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center">
-                      <span className="text-sm text-slate-400">Loading Google Sign-In...</span>
-                    </div>
-                  )}
+                  {/* Custom styled Google button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.google?.accounts?.id) {
+                        try {
+                          window.google.accounts.id.prompt();
+                        } catch (err) {
+                          console.error('Google prompt error:', err);
+                          setGoogleError(true);
+                        }
+                      }
+                    }}
+                    disabled={!googleLoaded || isGoogleLoading}
+                    className="w-full py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    {!googleLoaded ? 'Loading...' : 'Continue with Google'}
+                  </button>
                 </div>
               )}
 
-              {GOOGLE_CLIENT_ID && (
+              {GOOGLE_CLIENT_ID && !googleError && (
                 <div className="relative py-2">
                    <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-slate-100 dark:border-slate-800"></div>
@@ -254,6 +263,7 @@ const Login: React.FC = () => {
                     onChange={e => setEmail(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all outline-none"
                     placeholder="you@example.com"
+                    autoComplete="email"
                     required
                     disabled={isLoading || isGoogleLoading}
                   />
@@ -270,6 +280,7 @@ const Login: React.FC = () => {
                     onChange={e => setPassword(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all outline-none"
                     placeholder="Min. 8 characters"
+                    autoComplete="current-password"
                     required
                     disabled={isLoading || isGoogleLoading}
                   />

@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useStore } from '../store';
+import { useAuth } from '../contexts/AuthContext';
 import { ICONS } from '../constants';
-import { getAuthToken } from '../services/auth';
 import {
   DialysisSession,
   DialysisMode,
@@ -26,6 +26,7 @@ type ViewMode = 'list' | 'create' | 'active' | 'end' | 'detail';
 
 const Sessions: React.FC = () => {
   const { profile } = useStore();
+  const { isAuthenticated } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [sessions, setSessions] = useState<DialysisSession[]>([]);
   const [activeSession, setActiveSession] = useState<DialysisSession | null>(null);
@@ -33,7 +34,6 @@ const Sessions: React.FC = () => {
   const [sessionEvents, setSessionEvents] = useState<SessionEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [elapsed, setElapsed] = useState('00:00:00');
 
   // Form states for new session
@@ -86,14 +86,10 @@ const Sessions: React.FC = () => {
     hasFetched.current = true;
 
     const fetchData = async () => {
-      const token = getAuthToken();
-      if (!token) {
-        setIsAuthenticated(false);
+      if (!isAuthenticated) {
         setIsLoading(false);
         return;
       }
-
-      setIsAuthenticated(true);
 
       try {
         const [sessionsData, active] = await Promise.all([
@@ -115,7 +111,7 @@ const Sessions: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [isAuthenticated]);
 
   // Timer for active session
   useEffect(() => {

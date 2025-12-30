@@ -1,7 +1,11 @@
 
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+import PublicRoute from './components/PublicRoute';
+import SessionExpiredModal from './components/SessionExpiredModal';
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
 import WeightLog from './pages/WeightLog';
@@ -26,87 +30,143 @@ import Terms from './pages/Terms';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
 import SEO from './components/SEO';
-import ProfileSync from './components/ProfileSync';
-import { useStore } from './store';
 
 const App: React.FC = () => {
-  const { isAuthenticated } = useStore();
-
   return (
-    <Router>
-      <SEO />
-      {isAuthenticated && <ProfileSync />}
-      <Routes>
-        {/* Public Marketing Routes */}
-        <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Landing />} />
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} />
-        <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/logout" element={<Logout />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/features" element={<Features />} />
-        <Route path="/pricing" element={<Pricing />} />
+    <AuthProvider>
+      <Router>
+        <SEO />
+        <SessionExpiredModal />
+        <Routes>
+          {/* Public Marketing Routes - redirect to dashboard if authenticated */}
+          <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
+          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
-        {/* Private Application Routes - Redirect to home if not logged in */}
-        <Route
-          path="/dashboard"
-          element={isAuthenticated ? <Layout><SEO title="Clinical Dashboard" /><Dashboard /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/sessions"
-          element={isAuthenticated ? <Layout><SEO title="Treatment Sessions" /><Sessions /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/vitals"
-          element={isAuthenticated ? <Layout><SEO title="Vital Signs Ledger" /><Vitals /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/symptoms"
-          element={isAuthenticated ? <Layout><SEO title="Symptom Tracker" /><Symptoms /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/weight"
-          element={isAuthenticated ? <Layout><SEO title="Weight Analytics" /><WeightLog /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/fluid"
-          element={isAuthenticated ? <Layout><SEO title="Hydration Tracking" /><FluidLog /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/meds"
-          element={isAuthenticated ? <Layout><SEO title="Medication Adherence" /><Medications /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/nutri-scan"
-          element={isAuthenticated ? <Layout><SEO title="AI Nutrition Scan" /><NutritionScan /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/edu"
-          element={isAuthenticated ? <Layout><SEO title="Education Center" /><Education /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/profile"
-          element={isAuthenticated ? <Layout><SEO title="Patient Profile" /><Profile /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/settings"
-          element={isAuthenticated ? <Layout><SEO title="System Settings" /><Settings /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/subscription"
-          element={isAuthenticated ? <Layout><SEO title="Plan Management" /><SubscriptionDetail /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/subscription/pricing"
-          element={isAuthenticated ? <Layout><SEO title="Subscription Plans" /><Subscription /></Layout> : <Navigate to="/" />}
-        />
-        <Route
-          path="/reports"
-          element={isAuthenticated ? <Layout><SEO title="Clinical Reports" /><Reports /></Layout> : <Navigate to="/" />}
-        />
-      </Routes>
-    </Router>
+          {/* Public routes that don't redirect */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/logout" element={<Logout />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/features" element={<Features />} />
+          <Route path="/pricing" element={<Pricing />} />
+
+          {/* Protected Application Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Clinical Dashboard" /><Dashboard /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sessions"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Treatment Sessions" /><Sessions /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/vitals"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Vital Signs Ledger" /><Vitals /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/symptoms"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Symptom Tracker" /><Symptoms /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/weight"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Weight Analytics" /><WeightLog /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/fluid"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Hydration Tracking" /><FluidLog /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/meds"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Medication Adherence" /><Medications /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/nutri-scan"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="AI Nutrition Scan" /><NutritionScan /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/edu"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Education Center" /><Education /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Patient Profile" /><Profile /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="System Settings" /><Settings /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/subscription"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Plan Management" /><SubscriptionDetail /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/subscription/pricing"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Subscription Plans" /><Subscription /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Clinical Reports" /><Reports /></Layout>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 };
 

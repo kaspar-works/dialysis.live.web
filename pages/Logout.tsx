@@ -1,28 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { useStore } from '../store';
-import { logoutApi } from '../services/auth';
-import { resetProfileSync } from '../components/ProfileSync';
 import Logo from '../components/Logo';
 
 const Logout: React.FC = () => {
-  const { logout, profile } = useStore();
+  const { logout: authLogout } = useAuth();
+  const { profile } = useStore();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
+  const [userName, setUserName] = useState<string>('');
 
   useEffect(() => {
+    // Capture the user's name before logout clears everything
+    setUserName(profile.name || '');
+
     const performLogout = async () => {
       try {
-        // Call backend logout API
-        await logoutApi();
+        // Call AuthContext logout which handles API call and state cleanup
+        await authLogout();
       } catch (err) {
-        console.error('Logout API error:', err);
+        console.error('Logout error:', err);
       }
-
-      // Clear local auth state and reset profile sync flag
-      logout();
-      resetProfileSync();
 
       // Short delay for animation
       setTimeout(() => {
@@ -32,14 +32,14 @@ const Logout: React.FC = () => {
     };
 
     performLogout();
-  }, [logout]);
-
-  const handleGoHome = () => {
-    navigate('/');
-  };
+  }, [authLogout, profile.name]);
 
   const handleSignIn = () => {
     navigate('/login');
+  };
+
+  const handleGoHome = () => {
+    navigate('/');
   };
 
   return (
@@ -81,8 +81,8 @@ const Logout: React.FC = () => {
                 You're Signed Out
               </h1>
               <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-                {profile.name ? (
-                  <>Thanks for using dialysis.live, <span className="font-bold text-slate-700 dark:text-slate-300">{profile.name}</span>.</>
+                {userName ? (
+                  <>Thanks for using dialysis.live, <span className="font-bold text-slate-700 dark:text-slate-300">{userName}</span>.</>
                 ) : (
                   <>Thanks for using dialysis.live.</>
                 )}

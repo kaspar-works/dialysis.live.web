@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
+import { useAuth } from '../contexts/AuthContext';
 import { DialysisType } from '../types';
 import Logo from './Logo';
 import { completeOnboarding as completeOnboardingApi } from '../services/onboarding';
-import { getAuthToken } from '../services/auth';
-
-const API_BASE_URL = 'https://api.dialysis.live/api/v1';
+import { authFetch } from '../services/auth';
 
 const OnboardingModal: React.FC = () => {
   const { profile, completeOnboarding } = useStore();
+  const { isAuthenticated, user } = useAuth();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -24,73 +24,36 @@ const OnboardingModal: React.FC = () => {
   // Check API for onboarding status
   useEffect(() => {
     const checkOnboarding = async () => {
-      const token = getAuthToken();
-
-      if (!token) {
+      // If not authenticated, skip showing the modal
+      if (!isAuthenticated) {
         setIsOnboarded(true);
         setChecking(false);
         return;
       }
 
+      // If we already have user info from AuthContext, use it
+      if (user) {
+        setIsOnboarded(user.onboardingCompleted === true);
+        setChecking(false);
+        return;
+      }
+
+      // Fallback: check via API
       try {
-        let res = await fetch(`${API_BASE_URL}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        let data = await res.json();
-
-        // If token expired, try refresh
-        if (!res.ok || data.success === false) {
-          console.log('[Onboarding] Token invalid, trying refresh...');
-          const refreshToken = localStorage.getItem('refresh_token');
-          console.log('[Onboarding] Refresh token:', refreshToken ? 'exists' : 'missing');
-
-          if (refreshToken) {
-            console.log('[Onboarding] Calling /auth/refresh...');
-            const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ refreshToken })
-            });
-            const refreshData = await refreshRes.json();
-            console.log('[Onboarding] Refresh response:', refreshRes.status, refreshData);
-
-            if (refreshRes.ok && refreshData.data?.tokens) {
-              // Save new tokens
-              localStorage.setItem('auth_token', refreshData.data.tokens.accessToken);
-              localStorage.setItem('refresh_token', refreshData.data.tokens.refreshToken);
-              console.log('[Onboarding] New tokens saved, retrying /auth/me...');
-
-              // Retry with new token
-              res = await fetch(`${API_BASE_URL}/auth/me`, {
-                headers: { 'Authorization': `Bearer ${refreshData.data.tokens.accessToken}` }
-              });
-              data = await res.json();
-              console.log('[Onboarding] Retry response:', res.status, data);
-            } else {
-              // Refresh failed, redirect to logout
-              console.log('[Onboarding] Refresh failed, redirecting to logout');
-              window.location.href = '/#/logout';
-              return;
-            }
-          } else {
-            // No refresh token, redirect to logout
-            console.log('[Onboarding] No refresh token, redirecting to logout');
-            window.location.href = '/#/logout';
-            return;
-          }
-        }
-
-        if (data.success !== false && data.data?.user) {
-          setIsOnboarded(data.data.user.onboardingCompleted === true);
+        const result = await authFetch('/auth/me');
+        if (result.success !== false && result.data?.user) {
+          setIsOnboarded(result.data.user.onboardingCompleted === true);
         }
       } catch (err) {
         console.error('Failed to check onboarding:', err);
+        // If auth fails, don't show onboarding - let session expiry handle it
+        setIsOnboarded(true);
       }
       setChecking(false);
     };
 
     checkOnboarding();
-  }, []);
+  }, [isAuthenticated, user]);
 
   // Wait while checking
   if (checking) return null;
@@ -108,9 +71,8 @@ const OnboardingModal: React.FC = () => {
     setError('');
 
     try {
-      // Call API if authenticated with backend
-      const token = getAuthToken();
-      if (token) {
+      // Call API if authenticated
+      if (isAuthenticated) {
         await completeOnboardingApi({
           fullName: formData.name,
           dialysisType: formData.preferredDialysisType,
@@ -181,7 +143,7 @@ const OnboardingModal: React.FC = () => {
                       <input
                         type="text"
                         value={formData.name}
-                        onChange={e => setFormData({...formData, name: e.target.value})}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, name: e.target.value})}
                         className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl md:rounded-[2rem] px-8 py-6 md:px-10 md:py-7 font-black text-xl md:text-2xl text-slate-900 dark:text-white outline-none focus:ring-8 focus:ring-sky-500/5 transition-all"
                         placeholder="e.g. Alex Johnson"
                         autoFocus
@@ -223,7 +185,7 @@ const OnboardingModal: React.FC = () => {
                          <input
                            type="number"
                            value={formData.dailyFluidLimit}
-                           onChange={e => setFormData({...formData, dailyFluidLimit: parseInt(e.target.value)})}
+                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, dailyFluidLimit: parseInt(e.target.value)})}
                            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl md:rounded-[2rem] px-6 py-5 md:px-8 md:py-6 font-black text-xl md:text-2xl text-slate-900 dark:text-white outline-none text-center"
                          />
                       </div>
@@ -233,7 +195,7 @@ const OnboardingModal: React.FC = () => {
                            type="number"
                            step="0.1"
                            value={formData.weightGoal}
-                           onChange={e => setFormData({...formData, weightGoal: parseFloat(e.target.value)})}
+                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, weightGoal: parseFloat(e.target.value)})}
                            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl md:rounded-[2rem] px-6 py-5 md:px-8 md:py-6 font-black text-xl md:text-2xl text-slate-900 dark:text-white outline-none text-center"
                          />
                       </div>

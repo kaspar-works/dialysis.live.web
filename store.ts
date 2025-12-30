@@ -140,9 +140,6 @@ export function useStore() {
   const [moods, setMoods] = useState<MoodLog[]>(initialData?.moods || []);
   const [savedReports, setSavedReports] = useState<CustomReportConfig[]>(initialData?.savedReports || []);
   const [profile, setProfile] = useState<UserProfile>(initialData?.profile || DEFAULT_PROFILE);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('lifeondialysis_auth') === 'true';
-  });
   const hasLoadedFromStorage = useRef(true); // Already loaded synchronously
 
   // Sync theme with HTML class
@@ -175,16 +172,6 @@ export function useStore() {
     if (!hasLoadedFromStorage.current) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessions, weights, fluids, medications, vitals, meals, moods, savedReports, profile }));
   }, [sessions, weights, fluids, medications, vitals, meals, moods, savedReports, profile]);
-
-  const login = () => {
-    setIsAuthenticated(true);
-    localStorage.setItem('lifeondialysis_auth', 'true');
-  };
-
-  const logout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem('lifeondialysis_auth');
-  };
 
   const setTheme = (theme: 'light' | 'dark') => {
     setProfile(prev => ({
@@ -222,7 +209,6 @@ export function useStore() {
   const removeSavedReport = (id: string) => setSavedReports(prev => prev.filter(r => r.id !== id));
 
   return {
-    isAuthenticated, login, logout,
     sessions, addSession, updateSession,
     weights, addWeight,
     fluids, addFluid, clearDailyFluids,
