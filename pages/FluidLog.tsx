@@ -34,7 +34,7 @@ const FluidLog: React.FC = () => {
     try {
       const [todayData, logsData] = await Promise.all([
         getTodayFluidIntake(),
-        getFluidLogs({ limit: 200 })
+        getFluidLogs({ limit: 100 })
       ]);
       setTotalToday(todayData.totalMl);
       setLogs(logsData.logs);
