@@ -4,6 +4,18 @@ import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
 import { ICONS } from '../constants';
 import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+} from 'recharts';
+import {
   DialysisSession,
   DialysisMode,
   DialysisType,
@@ -298,6 +310,26 @@ const Sessions: React.FC = () => {
     [sessions]
   );
 
+  // Prepare chart data from completed sessions (reverse to show oldest first)
+  const chartData = useMemo(() => {
+    return [...completedSessions]
+      .reverse()
+      .slice(-10) // Last 10 sessions
+      .map((session, index) => ({
+        name: new Date(session.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        preWeight: session.preWeightKg || null,
+        postWeight: session.postWeightKg || null,
+        ufRemoved: session.actualUfMl || 0,
+        targetUf: session.targetUfMl || 0,
+        weightLoss: session.preWeightKg && session.postWeightKg
+          ? parseFloat((session.preWeightKg - session.postWeightKg).toFixed(1))
+          : 0,
+      }));
+  }, [completedSessions]);
+
+  // Get dry weight from profile if available
+  const dryWeight = profile?.dryWeightKg;
+
   if (isLoading) {
     return (
       <div className="w-full max-w-6xl mx-auto px-4 py-12 flex items-center justify-center">
@@ -344,6 +376,160 @@ const Sessions: React.FC = () => {
                   </div>
                 </div>
                 <ICONS.Activity className="w-8 h-8" />
+              </div>
+            </div>
+          )}
+
+          {/* Charts Section */}
+          {chartData.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Weight Trend Chart */}
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Weight Trend</h3>
+                    <p className="text-sm text-slate-400">Pre & Post session weights</p>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-purple-500" />
+                      <span className="text-slate-400">Pre</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                      <span className="text-slate-400">Post</span>
+                    </div>
+                    {dryWeight && (
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-0.5 bg-rose-400" />
+                        <span className="text-slate-400">Dry</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#94a3b8', fontSize: 11 }}
+                      />
+                      <YAxis
+                        domain={['auto', 'auto']}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#94a3b8', fontSize: 11 }}
+                        tickFormatter={(v) => `${v}kg`}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1e293b',
+                          border: 'none',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                        }}
+                        labelStyle={{ color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}
+                        itemStyle={{ color: '#fff', fontWeight: 700 }}
+                        formatter={(value: number) => [`${value} kg`, '']}
+                      />
+                      {dryWeight && (
+                        <ReferenceLine
+                          y={dryWeight}
+                          stroke="#f43f5e"
+                          strokeDasharray="5 5"
+                          strokeWidth={2}
+                          label={{ value: 'Dry Weight', fill: '#f43f5e', fontSize: 10, position: 'right' }}
+                        />
+                      )}
+                      <Line
+                        type="monotone"
+                        dataKey="preWeight"
+                        stroke="#a855f7"
+                        strokeWidth={3}
+                        dot={{ fill: '#a855f7', strokeWidth: 0, r: 4 }}
+                        activeDot={{ r: 6, fill: '#a855f7' }}
+                        name="Pre Weight"
+                        connectNulls
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="postWeight"
+                        stroke="#10b981"
+                        strokeWidth={3}
+                        dot={{ fill: '#10b981', strokeWidth: 0, r: 4 }}
+                        activeDot={{ r: 6, fill: '#10b981' }}
+                        name="Post Weight"
+                        connectNulls
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Fluid Removal Chart */}
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Fluid Removal</h3>
+                    <p className="text-sm text-slate-400">UF removed per session</p>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded bg-sky-500" />
+                      <span className="text-slate-400">Actual</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded bg-sky-200 dark:bg-sky-800" />
+                      <span className="text-slate-400">Target</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} vertical={false} />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#94a3b8', fontSize: 11 }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#94a3b8', fontSize: 11 }}
+                        tickFormatter={(v) => `${(v / 1000).toFixed(1)}L`}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1e293b',
+                          border: 'none',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                        }}
+                        labelStyle={{ color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}
+                        itemStyle={{ color: '#fff', fontWeight: 700 }}
+                        formatter={(value: number) => [`${value} ml`, '']}
+                      />
+                      <Bar
+                        dataKey="targetUf"
+                        fill="#bae6fd"
+                        radius={[4, 4, 0, 0]}
+                        name="Target UF"
+                        className="dark:fill-sky-900"
+                      />
+                      <Bar
+                        dataKey="ufRemoved"
+                        fill="#0ea5e9"
+                        radius={[4, 4, 0, 0]}
+                        name="Actual UF"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           )}
