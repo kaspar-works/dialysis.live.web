@@ -220,7 +220,17 @@ const Medications: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex bg-white dark:bg-white/5 p-1 rounded-xl md:rounded-2xl border border-slate-100 dark:border-white/10 shadow-sm">
+        <div className="flex items-center gap-3">
+          {/* Add Medication Button */}
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-pink-500/20"
+          >
+            <ICONS.Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Med</span>
+          </button>
+
+          <div className="flex bg-white dark:bg-white/5 p-1 rounded-xl md:rounded-2xl border border-slate-100 dark:border-white/10 shadow-sm">
           <button
             onClick={() => setActiveTab('today')}
             className={`px-4 md:px-8 py-2 md:py-3 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
@@ -241,6 +251,7 @@ const Medications: React.FC = () => {
           >
             All
           </button>
+          </div>
         </div>
       </section>
 
