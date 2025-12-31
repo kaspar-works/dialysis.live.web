@@ -24,8 +24,11 @@ export interface Meal {
   userId: string;
   mealType: MealType;
   name: string;
+  description?: string;
   nutrients: Nutrients;
   servingSize?: string;
+  imageUrl?: string;
+  aiAnalyzed?: boolean;
   loggedAt: string;
   notes?: string;
   createdAt: string;
@@ -37,14 +40,17 @@ export const DAILY_LIMITS = {
   sodium: 2000,      // mg
   potassium: 2500,   // mg
   phosphorus: 1000,  // mg
+  protein: 50,       // g
 } as const;
 
 // Input types
 export interface CreateMealInput {
   mealType: MealType;
   name: string;
-  nutrients: Nutrients;
+  description?: string;
+  nutrients?: Nutrients;
   servingSize?: string;
+  imageUrl?: string;
   loggedAt?: string;
   notes?: string;
 }
@@ -52,8 +58,11 @@ export interface CreateMealInput {
 export interface UpdateMealInput {
   mealType?: MealType;
   name?: string;
+  description?: string;
   nutrients?: Partial<Nutrients>;
   servingSize?: string;
+  imageUrl?: string;
+  loggedAt?: string;
   notes?: string;
 }
 
@@ -83,10 +92,18 @@ export interface DailyTotals {
   calories: number;
 }
 
-export interface DailyPercentages {
+export interface DailyLimits {
   sodium: number;
   potassium: number;
   phosphorus: number;
+  protein: number;
+}
+
+export interface PercentOfLimit {
+  sodium: number;
+  potassium: number;
+  phosphorus: number;
+  protein: number;
 }
 
 export interface MealsByType {
@@ -99,14 +116,14 @@ export interface MealsByType {
 export interface TodayMealsResponse {
   date: string;
   totalMeals: number;
-  meals: Meal[];
+  totals: DailyTotals;
+  dailyLimits: DailyLimits;
+  percentOfLimit: PercentOfLimit;
   mealsByType: MealsByType;
-  dailyTotals: DailyTotals;
-  percentOfLimits: DailyPercentages;
+  meals: Meal[];
 }
 
-export interface DailyBreakdown {
-  date: string;
+export interface DailyBreakdownEntry {
   sodium: number;
   potassium: number;
   phosphorus: number;
@@ -123,10 +140,71 @@ export interface DaysOverLimit {
 
 export interface NutrientSummary {
   period: string;
-  days: number;
+  daysWithData: number;
+  totalMeals: number;
   dailyAverages: DailyTotals;
+  dailyLimits: DailyLimits;
   daysOverLimit: DaysOverLimit;
-  dailyBreakdown: DailyBreakdown[];
+  dailyBreakdown: Record<string, DailyBreakdownEntry>;
+}
+
+// ============================================
+// AI Analysis Types
+// ============================================
+
+export interface AnalyzeMealInput {
+  image?: string;      // base64 string
+  imageUrl?: string;   // URL to image
+  mimeType?: string;   // e.g., 'image/jpeg'
+}
+
+export interface NutrientEstimate {
+  sodium: number;
+  potassium: number;
+  phosphorus: number;
+  protein: number;
+  calories: number;
+}
+
+export interface MealAnalysisResult {
+  foodItems: string[];
+  estimatedNutrients: NutrientEstimate;
+  warnings: string[];
+  recommendations: string[];
+  confidence: number;
+}
+
+// ============================================
+// Reference Data Types
+// ============================================
+
+export interface DietGuideline {
+  limit: string;
+  tips: string[];
+}
+
+export interface DietReferenceResponse {
+  dailyLimits: DailyLimits;
+  highRiskFoods: HighRiskFood[];
+  kidneyFriendlyFoods: KidneyFriendlyFood[];
+  guidelines: {
+    potassium: DietGuideline;
+    sodium: DietGuideline;
+    phosphorus: DietGuideline;
+  };
+}
+
+export interface HighRiskFood {
+  name: string;
+  category: string;
+  nutrient: string;
+  amount: string;
+}
+
+export interface KidneyFriendlyFood {
+  name: string;
+  category: string;
+  benefits: string;
 }
 
 // ============================================
@@ -241,12 +319,83 @@ export async function getTodayMeals(): Promise<TodayMealsResponse> {
  * Get nutrient summary over a period
  * GET /api/v1/nutri-audit/meals/summary?days=7
  *
- * @param days - Number of days to include (default 7, max 30)
+ * @param days - Number of days to include (default 7, max 90)
  * @returns Daily averages, days over limit, and daily breakdown
  */
 export async function getNutrientSummary(days: number = 7): Promise<NutrientSummary> {
   const result = await authFetch(`/nutri-audit/meals/summary?days=${days}`);
-  return result.data.summary;
+  return result.data;
+}
+
+// ============================================
+// AI Analysis Endpoints
+// ============================================
+
+/**
+ * Analyze a meal image for renal diet compliance
+ * POST /api/v1/nutri-audit/analyze
+ *
+ * Requires Basic plan or higher. Uses AI usage limit.
+ *
+ * @param data - Either base64 image or image URL
+ * @returns Analysis with nutrient estimates, warnings, recommendations
+ */
+export async function analyzeMeal(data: AnalyzeMealInput): Promise<MealAnalysisResult> {
+  const result = await authFetch('/nutri-audit/analyze', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return result.data;
+}
+
+/**
+ * Analyze meal from base64 image
+ */
+export async function analyzeMealImage(
+  base64Image: string,
+  mimeType: string = 'image/jpeg'
+): Promise<MealAnalysisResult> {
+  return analyzeMeal({ image: base64Image, mimeType });
+}
+
+/**
+ * Analyze meal from URL
+ */
+export async function analyzeMealFromUrl(imageUrl: string): Promise<MealAnalysisResult> {
+  return analyzeMeal({ imageUrl });
+}
+
+// ============================================
+// Reference Data Endpoints
+// ============================================
+
+/**
+ * Get renal diet reference information
+ * GET /api/v1/nutri-audit/reference
+ *
+ * Returns daily limits, guidelines, and food lists
+ */
+export async function getDietReference(): Promise<DietReferenceResponse> {
+  const result = await authFetch('/nutri-audit/reference');
+  return result.data;
+}
+
+/**
+ * Get list of high-risk foods for renal patients
+ * GET /api/v1/nutri-audit/high-risk-foods
+ */
+export async function getHighRiskFoods(): Promise<HighRiskFood[]> {
+  const result = await authFetch('/nutri-audit/high-risk-foods');
+  return result.data;
+}
+
+/**
+ * Get list of kidney-friendly foods
+ * GET /api/v1/nutri-audit/kidney-friendly-foods
+ */
+export async function getKidneyFriendlyFoods(): Promise<KidneyFriendlyFood[]> {
+  const result = await authFetch('/nutri-audit/kidney-friendly-foods');
+  return result.data;
 }
 
 // ============================================
@@ -259,8 +408,8 @@ export async function getNutrientSummary(days: number = 7): Promise<NutrientSumm
 export async function quickLogMeal(
   mealType: MealType,
   name: string,
-  nutrients: Nutrients,
-  options?: { servingSize?: string; notes?: string }
+  nutrients?: Nutrients,
+  options?: { servingSize?: string; notes?: string; description?: string }
 ): Promise<Meal> {
   return createMeal({
     mealType,
@@ -271,18 +420,20 @@ export async function quickLogMeal(
 }
 
 /**
- * Get remaining daily allowances
+ * Get remaining daily allowances based on today's totals
  */
 export async function getRemainingAllowances(): Promise<{
   sodium: number;
   potassium: number;
   phosphorus: number;
+  protein: number;
 }> {
   const today = await getTodayMeals();
   return {
-    sodium: Math.max(0, DAILY_LIMITS.sodium - today.dailyTotals.sodium),
-    potassium: Math.max(0, DAILY_LIMITS.potassium - today.dailyTotals.potassium),
-    phosphorus: Math.max(0, DAILY_LIMITS.phosphorus - today.dailyTotals.phosphorus),
+    sodium: Math.max(0, today.dailyLimits.sodium - today.totals.sodium),
+    potassium: Math.max(0, today.dailyLimits.potassium - today.totals.potassium),
+    phosphorus: Math.max(0, today.dailyLimits.phosphorus - today.totals.phosphorus),
+    protein: Math.max(0, today.dailyLimits.protein - today.totals.protein),
   };
 }
 
@@ -301,7 +452,7 @@ export function getPercentOfLimit(nutrient: keyof typeof DAILY_LIMITS, amount: n
 }
 
 /**
- * Get color based on percentage of daily limit
+ * Get text color based on percentage of daily limit
  */
 export function getLimitColor(percent: number): string {
   if (percent >= 100) return 'text-rose-500';
@@ -321,23 +472,33 @@ export function getLimitBgColor(percent: number): string {
 }
 
 /**
+ * Get progress bar color based on percentage of daily limit
+ */
+export function getLimitProgressColor(percent: number): string {
+  if (percent >= 100) return 'bg-gradient-to-r from-rose-500 to-rose-400';
+  if (percent >= 80) return 'bg-gradient-to-r from-amber-500 to-amber-400';
+  if (percent >= 60) return 'bg-gradient-to-r from-yellow-500 to-yellow-400';
+  return 'bg-gradient-to-r from-emerald-500 to-emerald-400';
+}
+
+/**
  * Format nutrient value with unit
  */
 export function formatNutrient(
   nutrient: keyof Nutrients,
   value: number | undefined
 ): string {
-  if (value === undefined) return '--';
+  if (value === undefined || value === null) return '--';
 
   switch (nutrient) {
     case 'sodium':
     case 'potassium':
     case 'phosphorus':
-      return `${value}mg`;
+      return `${Math.round(value)}mg`;
     case 'protein':
-      return `${value}g`;
+      return `${Math.round(value)}g`;
     case 'calories':
-      return `${value}`;
+      return `${Math.round(value)} cal`;
     default:
       return `${value}`;
   }
@@ -367,4 +528,29 @@ export async function getMealsByType(date?: string): Promise<MealsByType> {
     dinner: meals.filter(m => m.mealType === MealType.DINNER),
     snack: meals.filter(m => m.mealType === MealType.SNACK),
   };
+}
+
+/**
+ * Get meal type icon emoji
+ */
+export function getMealTypeIcon(mealType: MealType): string {
+  switch (mealType) {
+    case MealType.BREAKFAST:
+      return '🌅';
+    case MealType.LUNCH:
+      return '☀️';
+    case MealType.DINNER:
+      return '🌙';
+    case MealType.SNACK:
+      return '🍎';
+    default:
+      return '🍽️';
+  }
+}
+
+/**
+ * Get meal type display name
+ */
+export function getMealTypeName(mealType: MealType): string {
+  return mealType.charAt(0).toUpperCase() + mealType.slice(1);
 }
