@@ -33,7 +33,7 @@ import {
   getRatingColor,
   SessionEvent,
 } from '../services/dialysis';
-import { createVitalLog, VitalType } from '../services/vitals';
+import { createVitalRecord, getVitalRecords, VitalRecord } from '../services/vitals';
 
 type ViewMode = 'list' | 'create' | 'active' | 'end' | 'detail';
 
@@ -90,6 +90,8 @@ const Sessions: React.FC = () => {
   });
   const [isLoggingVitals, setIsLoggingVitals] = useState(false);
   const [vitalsSuccess, setVitalsSuccess] = useState('');
+  const [sessionVitals, setSessionVitals] = useState<VitalRecord[]>([]);
+  const [isLoadingVitals, setIsLoadingVitals] = useState(false);
 
   const hasFetched = useRef(false);
 
@@ -141,6 +143,28 @@ const Sessions: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [viewMode, activeSession]);
+
+  // Fetch vitals for active session
+  const fetchSessionVitals = async (sessionId: string) => {
+    setIsLoadingVitals(true);
+    try {
+      const response = await getVitalRecords({ sessionId, limit: 50 });
+      setSessionVitals(response.records);
+    } catch (err) {
+      console.error('Failed to fetch session vitals:', err);
+    } finally {
+      setIsLoadingVitals(false);
+    }
+  };
+
+  // Load vitals when active session changes
+  useEffect(() => {
+    if (activeSession && viewMode === 'active') {
+      fetchSessionVitals(activeSession._id);
+    } else {
+      setSessionVitals([]);
+    }
+  }, [activeSession?._id, viewMode]);
 
   const handleCreateSession = async () => {
     setIsSubmitting(true);
@@ -235,68 +259,61 @@ const Sessions: React.FC = () => {
     setPostData({ postWeightKg: '', actualUfMl: '', postBpSystolic: '', postBpDiastolic: '', postHeartRate: '', sessionRating: '', notes: '', complications: [] });
   };
 
-  // Log vitals during session
+  // Log vitals during session using new consolidated API
   const handleLogVitals = async () => {
     if (!activeSession) return;
     setIsLoggingVitals(true);
     setVitalsSuccess('');
 
     try {
-      const promises = [];
+      // Build the vital record with all provided vitals
+      const recordData: any = {
+        sessionId: activeSession._id,
+        loggedAt: new Date().toISOString(),
+      };
 
-      // Log BP if provided
+      let vitalCount = 0;
+
+      // Add BP if provided
       if (vitalsData.bpSystolic && vitalsData.bpDiastolic) {
-        promises.push(createVitalLog({
-          type: 'blood_pressure',
-          value1: parseFloat(vitalsData.bpSystolic),
-          value2: parseFloat(vitalsData.bpDiastolic),
-          unit: 'mmHg',
-          sessionId: activeSession._id,
-          loggedAt: new Date().toISOString(),
-        }));
+        recordData.bloodPressure = {
+          systolic: parseFloat(vitalsData.bpSystolic),
+          diastolic: parseFloat(vitalsData.bpDiastolic),
+        };
+        vitalCount++;
       }
 
-      // Log heart rate if provided
+      // Add heart rate if provided
       if (vitalsData.heartRate) {
-        promises.push(createVitalLog({
-          type: 'heart_rate',
-          value1: parseFloat(vitalsData.heartRate),
-          unit: 'bpm',
-          sessionId: activeSession._id,
-          loggedAt: new Date().toISOString(),
-        }));
+        recordData.heartRate = parseFloat(vitalsData.heartRate);
+        vitalCount++;
       }
 
-      // Log SpO2 if provided
+      // Add SpO2 if provided
       if (vitalsData.spo2) {
-        promises.push(createVitalLog({
-          type: 'spo2',
-          value1: parseFloat(vitalsData.spo2),
-          unit: '%',
-          sessionId: activeSession._id,
-          loggedAt: new Date().toISOString(),
-        }));
+        recordData.spo2 = parseFloat(vitalsData.spo2);
+        vitalCount++;
       }
 
-      // Log temperature if provided
+      // Add temperature if provided
       if (vitalsData.temperature) {
-        promises.push(createVitalLog({
-          type: 'temperature',
-          value1: parseFloat(vitalsData.temperature),
-          unit: '°C',
-          sessionId: activeSession._id,
-          loggedAt: new Date().toISOString(),
-        }));
+        recordData.temperature = {
+          value: parseFloat(vitalsData.temperature),
+          unit: 'celsius',
+        };
+        vitalCount++;
       }
 
-      if (promises.length === 0) {
+      if (vitalCount === 0) {
         alert('Please enter at least one vital sign');
         return;
       }
 
-      await Promise.all(promises);
-      setVitalsSuccess(`${promises.length} vital(s) logged!`);
+      await createVitalRecord(recordData);
+      setVitalsSuccess(`${vitalCount} vital(s) logged!`);
       setVitalsData({ bpSystolic: '', bpDiastolic: '', heartRate: '', spo2: '', temperature: '' });
+      // Refresh the vitals list
+      fetchSessionVitals(activeSession._id);
       setTimeout(() => setVitalsSuccess(''), 3000);
     } catch (err) {
       console.error('Failed to log vitals:', err);
@@ -917,6 +934,71 @@ const Sessions: React.FC = () => {
                   </>
                 )}
               </button>
+            </div>
+          )}
+
+          {/* Session Vitals List */}
+          {sessionVitals.length > 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Session Vitals</h3>
+                  <p className="text-sm text-slate-400">{sessionVitals.length} reading{sessionVitals.length !== 1 ? 's' : ''} logged</p>
+                </div>
+                {isLoadingVitals && (
+                  <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                )}
+              </div>
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {sessionVitals.map((vital) => (
+                  <div
+                    key={vital._id}
+                    className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {vital.bloodPressure && (
+                        <div className="flex items-center gap-2">
+                          <span className="w-8 h-8 bg-rose-500/10 rounded-lg flex items-center justify-center text-rose-500 text-sm">🫀</span>
+                          <div>
+                            <p className="text-xs text-slate-400">BP</p>
+                            <p className="font-bold text-slate-900 dark:text-white">{vital.bloodPressure.systolic}/{vital.bloodPressure.diastolic}</p>
+                          </div>
+                        </div>
+                      )}
+                      {vital.heartRate && (
+                        <div className="flex items-center gap-2">
+                          <span className="w-8 h-8 bg-orange-500/10 rounded-lg flex items-center justify-center text-orange-500 text-sm">💓</span>
+                          <div>
+                            <p className="text-xs text-slate-400">HR</p>
+                            <p className="font-bold text-slate-900 dark:text-white">{vital.heartRate} bpm</p>
+                          </div>
+                        </div>
+                      )}
+                      {vital.spo2 && (
+                        <div className="flex items-center gap-2">
+                          <span className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 text-sm">🩸</span>
+                          <div>
+                            <p className="text-xs text-slate-400">SpO2</p>
+                            <p className="font-bold text-slate-900 dark:text-white">{vital.spo2}%</p>
+                          </div>
+                        </div>
+                      )}
+                      {vital.temperature && (
+                        <div className="flex items-center gap-2">
+                          <span className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center text-purple-500 text-sm">🌡️</span>
+                          <div>
+                            <p className="text-xs text-slate-400">Temp</p>
+                            <p className="font-bold text-slate-900 dark:text-white">{vital.temperature.value}°{vital.temperature.unit === 'celsius' ? 'C' : 'F'}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      {new Date(vital.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

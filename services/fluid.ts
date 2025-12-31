@@ -27,13 +27,19 @@ export interface TodayFluidResponse {
   date: string;
 }
 
+export interface FluidPagination {
+  total: number;
+  limit: number;
+  offset: number;
+  page: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
 export interface FluidLogsResponse {
   logs: FluidLog[];
-  pagination: {
-    total: number;
-    limit: number;
-    offset: number;
-  };
+  pagination: FluidPagination;
 }
 
 // Create a new fluid log
@@ -68,7 +74,10 @@ export async function getFluidLogs(params?: {
 
   const query = searchParams.toString();
   const result = await authFetch(`/fluids${query ? `?${query}` : ''}`);
-  return result.data;
+  return {
+    logs: result.data.logs,
+    pagination: result.meta.pagination,
+  };
 }
 
 // Delete a fluid log

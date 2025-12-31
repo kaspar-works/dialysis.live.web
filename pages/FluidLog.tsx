@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
-import { createFluidLog, getTodayFluidIntake, getFluidLogs, deleteFluidLog, FluidLog as FluidLogType, FluidSource } from '../services/fluid';
+import { createFluidLog, getTodayFluidIntake, getFluidLogs, deleteFluidLog, FluidLog as FluidLogType, FluidSource, FluidPagination } from '../services/fluid';
 
 const beverages: { name: string; source: FluidSource; icon: string; color: string; gradient: string }[] = [
   { name: 'Water', source: 'water', icon: '💧', color: 'sky', gradient: 'from-sky-400 to-cyan-500' },
@@ -22,8 +22,12 @@ const FluidLog: React.FC = () => {
   const [totalToday, setTotalToday] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAllEntries, setShowAllEntries] = useState(false);
   const [recentlyAdded, setRecentlyAdded] = useState<string | null>(null);
+  const [deleteModalLog, setDeleteModalLog] = useState<FluidLogType | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [pagination, setPagination] = useState<FluidPagination | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const hasFetched = useRef(false);
 
   useEffect(() => {
@@ -32,15 +36,18 @@ const FluidLog: React.FC = () => {
     fetchFluidData();
   }, []);
 
+  const LOGS_PER_PAGE = 10;
+
   const fetchFluidData = async () => {
     setIsLoading(true);
     try {
       const [todayData, logsData] = await Promise.all([
         getTodayFluidIntake(),
-        getFluidLogs({ limit: 100 })
+        getFluidLogs({ limit: LOGS_PER_PAGE })
       ]);
       setTotalToday(todayData.totalMl);
       setLogs(logsData.logs);
+      setPagination(logsData.pagination);
     } catch (err: any) {
       if (!err?.message?.includes('Session expired')) {
         console.error('Failed to fetch fluid data:', err);
@@ -48,6 +55,24 @@ const FluidLog: React.FC = () => {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadMoreLogs = async () => {
+    if (!pagination?.hasNext || isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const logsData = await getFluidLogs({
+        limit: LOGS_PER_PAGE,
+        offset: pagination.offset + LOGS_PER_PAGE
+      });
+      setLogs(prev => [...prev, ...logsData.logs]);
+      setPagination(logsData.pagination);
+    } catch (err) {
+      setError('Failed to load more');
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -120,18 +145,30 @@ const FluidLog: React.FC = () => {
     }
   };
 
-  const handleDelete = async (logId: string) => {
-    const log = logs.find(l => l._id === logId);
-    if (!log) return;
+  const handleDeleteClick = (log: FluidLogType) => {
+    setDeleteModalLog(log);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!deleteModalLog) return;
+
+    const bevName = beverages.find(b => b.source === deleteModalLog.source)?.name || 'Fluid';
+    const amount = deleteModalLog.amountMl;
+
+    setIsDeleting(true);
     try {
-      await deleteFluidLog(logId);
-      setLogs(prev => prev.filter(l => l._id !== logId));
-      if (log.loggedAt.startsWith(today)) {
-        setTotalToday(prev => Math.max(prev - log.amountMl, 0));
+      await deleteFluidLog(deleteModalLog._id);
+      setLogs(prev => prev.filter(l => l._id !== deleteModalLog._id));
+      if (deleteModalLog.loggedAt.startsWith(today)) {
+        setTotalToday(prev => Math.max(prev - deleteModalLog.amountMl, 0));
       }
+      setDeleteModalLog(null);
+      setNotification({ message: `${bevName} entry (${amount} ml) deleted`, type: 'success' });
+      setTimeout(() => setNotification(null), 3000);
     } catch (err) {
       setError('Failed to delete');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -484,26 +521,20 @@ const FluidLog: React.FC = () => {
         </div>
       </div>
 
-      {/* Today's Entries */}
+      {/* Recent Entries */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Today's Entries</h3>
-            <p className="text-slate-400 text-sm">{todayLogs.length} items logged</p>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Recent Entries</h3>
+            <p className="text-slate-400 text-sm">
+              {pagination ? `${logs.length} of ${pagination.total} entries` : `${logs.length} entries`}
+            </p>
           </div>
-          {todayLogs.length > 5 && (
-            <button
-              onClick={() => setShowAllEntries(!showAllEntries)}
-              className="text-sky-500 text-sm font-bold hover:underline"
-            >
-              {showAllEntries ? 'Show less' : 'View all'}
-            </button>
-          )}
         </div>
 
-        {todayLogs.length > 0 ? (
-          <div className={`space-y-2 ${showAllEntries ? '' : 'max-h-80'} overflow-y-auto`}>
-            {(showAllEntries ? todayLogs : todayLogs.slice(0, 5)).map((log, index) => {
+        {logs.length > 0 ? (
+          <div className="space-y-2">
+            {logs.map((log, index) => {
               const bev = beverages.find(b => b.source === log.source) || beverages[0];
               const isNew = recentlyAdded === log._id;
 
@@ -523,7 +554,10 @@ const FluidLog: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-900 dark:text-white">{bev.name}</p>
                     <p className="text-sm text-slate-400">
-                      {new Date(log.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {log.loggedAt.startsWith(today)
+                        ? new Date(log.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : new Date(log.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      }
                     </p>
                   </div>
                   <div className="text-right">
@@ -533,7 +567,7 @@ const FluidLog: React.FC = () => {
                     <span className="text-sm text-slate-400 ml-1">ml</span>
                   </div>
                   <button
-                    onClick={() => handleDelete(log._id)}
+                    onClick={() => handleDeleteClick(log)}
                     className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
                   >
                     <ICONS.X className="w-5 h-5" />
@@ -541,13 +575,33 @@ const FluidLog: React.FC = () => {
                 </div>
               );
             })}
+
+            {/* Load More Button */}
+            {pagination?.hasNext && (
+              <button
+                onClick={loadMoreLogs}
+                disabled={isLoadingMore}
+                className="w-full mt-4 py-3 rounded-xl font-bold text-sky-500 bg-sky-500/10 hover:bg-sky-500/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    Load more ({pagination.total - logs.length} remaining)
+                  </>
+                )}
+              </button>
+            )}
           </div>
         ) : (
           <div className="py-12 text-center">
             <div className="w-20 h-20 bg-sky-500/10 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-4">
               💧
             </div>
-            <p className="text-slate-600 dark:text-slate-300 font-bold text-lg">No entries yet today</p>
+            <p className="text-slate-600 dark:text-slate-300 font-bold text-lg">No entries yet</p>
             <p className="text-slate-400 text-sm mt-1">Start tracking your fluid intake above</p>
           </div>
         )}
@@ -563,6 +617,73 @@ const FluidLog: React.FC = () => {
           animation: wave 8s linear infinite;
         }
       `}</style>
+
+      {/* Success Notification */}
+      {notification && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top fade-in duration-300">
+          <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl shadow-lg ${
+            notification.type === 'success'
+              ? 'bg-emerald-500 text-white'
+              : 'bg-rose-500 text-white'
+          }`}>
+            {notification.type === 'success' ? (
+              <ICONS.Check className="w-5 h-5" />
+            ) : (
+              <ICONS.X className="w-5 h-5" />
+            )}
+            <span className="font-bold">{notification.message}</span>
+            <button
+              onClick={() => setNotification(null)}
+              className="ml-2 p-1 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <ICONS.X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => !isDeleting && setDeleteModalLog(null)}
+          />
+          <div className="relative bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 fade-in duration-200">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-rose-500/10 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">
+                <ICONS.X className="w-8 h-8 text-rose-500" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                Delete Entry
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-6">
+                Are you sure you want to delete this {beverages.find(b => b.source === deleteModalLog.source)?.name.toLowerCase() || 'fluid'} entry of <span className="font-bold text-slate-900 dark:text-white">{deleteModalLog.amountMl} ml</span>?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteModalLog(null)}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-3 rounded-xl font-bold text-white bg-rose-500 hover:bg-rose-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Delete'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

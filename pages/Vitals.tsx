@@ -6,23 +6,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   AreaChart, Area, ReferenceLine, CartesianGrid
 } from 'recharts';
-import { createVitalLog, getVitalLogs, VitalLog as VitalLogApi } from '../services/vitals';
-
-// Map frontend VitalType enum to backend API values
-const typeToApi: Record<VitalType, string> = {
-  [VitalType.BLOOD_PRESSURE]: 'blood_pressure',
-  [VitalType.HEART_RATE]: 'heart_rate',
-  [VitalType.TEMPERATURE]: 'temperature',
-  [VitalType.SPO2]: 'spo2',
-};
-
-// Map backend API values to frontend VitalType enum
-const apiToType: Record<string, VitalType> = {
-  'blood_pressure': VitalType.BLOOD_PRESSURE,
-  'heart_rate': VitalType.HEART_RATE,
-  'temperature': VitalType.TEMPERATURE,
-  'spo2': VitalType.SPO2,
-};
+import { createVitalRecord, getVitalRecords, deleteVitalRecord, VitalRecord } from '../services/vitals';
 
 type ViewTab = 'overview' | 'blood_pressure' | 'heart_rate' | 'temperature' | 'spo2';
 
@@ -34,9 +18,12 @@ const Vitals: React.FC = () => {
   const [val2, setVal2] = useState<string>('80');
   const [isLogging, setIsLogging] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [vitals, setVitals] = useState<VitalLogApi[]>([]);
+  const [records, setRecords] = useState<VitalRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteModalRecord, setDeleteModalRecord] = useState<VitalRecord | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const hasFetched = useRef(false);
 
   const vitalConfig = {
@@ -111,8 +98,8 @@ const Vitals: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await getVitalLogs({ limit: 100 });
-      setVitals(response.logs);
+      const response = await getVitalRecords({ limit: 100 });
+      setRecords(response.records);
     } catch (err: any) {
       if (!err?.message?.includes('Session expired')) {
         console.error('Failed to fetch vitals:', err);
@@ -129,15 +116,34 @@ const Vitals: React.FC = () => {
     setError(null);
 
     try {
-      const newVital = await createVitalLog({
-        type: typeToApi[selectedType] as any,
-        value1: parseFloat(val1),
-        value2: selectedType === VitalType.BLOOD_PRESSURE ? parseFloat(val2) : undefined,
-        unit: vitalConfig[selectedType].unit,
+      // Build the request based on vital type using new consolidated API
+      const recordData: any = {
         loggedAt: new Date().toISOString(),
-      });
+      };
 
-      setVitals(prev => [newVital, ...prev]);
+      switch (selectedType) {
+        case VitalType.BLOOD_PRESSURE:
+          recordData.bloodPressure = {
+            systolic: parseFloat(val1),
+            diastolic: parseFloat(val2),
+          };
+          break;
+        case VitalType.HEART_RATE:
+          recordData.heartRate = parseFloat(val1);
+          break;
+        case VitalType.TEMPERATURE:
+          recordData.temperature = {
+            value: parseFloat(val1),
+            unit: profile.settings.units === 'metric' ? 'celsius' : 'fahrenheit',
+          };
+          break;
+        case VitalType.SPO2:
+          recordData.spo2 = parseFloat(val1);
+          break;
+      }
+
+      const newRecord = await createVitalRecord(recordData);
+      setRecords(prev => [newRecord, ...prev]);
       setShowForm(false);
 
       // Reset to defaults for next entry
@@ -149,6 +155,37 @@ const Vitals: React.FC = () => {
       setError('Failed to add vital');
     } finally {
       setIsLogging(false);
+    }
+  };
+
+  // Helper to get display label for a record
+  const getRecordLabel = (record: VitalRecord): string => {
+    if (record.bloodPressure) return 'Blood Pressure';
+    if (record.heartRate) return 'Heart Rate';
+    if (record.temperature) return 'Temperature';
+    if (record.spo2) return 'SpO2';
+    if (record.bloodSugar) return 'Blood Sugar';
+    if (record.weight) return 'Weight';
+    return 'Vital';
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModalRecord) return;
+
+    const vitalLabel = getRecordLabel(deleteModalRecord);
+
+    setIsDeleting(true);
+    try {
+      await deleteVitalRecord(deleteModalRecord._id);
+      setRecords(prev => prev.filter(r => r._id !== deleteModalRecord._id));
+      setDeleteModalRecord(null);
+      setNotification({ message: `${vitalLabel} entry deleted`, type: 'success' });
+      setTimeout(() => setNotification(null), 3000);
+    } catch (err) {
+      console.error('Failed to delete vital:', err);
+      setError('Failed to delete vital');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -201,65 +238,87 @@ const Vitals: React.FC = () => {
     return { label: 'Normal', color: 'emerald', severity: 0 };
   };
 
-  // Get latest vitals by type
+  // Get latest vitals from records
   const latestVitals = useMemo(() => {
-    const latest: Partial<Record<VitalType, VitalLogApi>> = {};
-    vitals.forEach(v => {
-      const frontendType = apiToType[v.type];
-      if (frontendType && !latest[frontendType]) {
-        latest[frontendType] = v;
-      }
-    });
-    return latest;
-  }, [vitals]);
+    const latest: {
+      bloodPressure?: { systolic: number; diastolic: number; loggedAt: string };
+      heartRate?: { value: number; loggedAt: string };
+      temperature?: { value: number; unit: string; loggedAt: string };
+      spo2?: { value: number; loggedAt: string };
+    } = {};
 
-  // Get vitals by type
-  const vitalsByType = useMemo(() => {
-    const grouped: Record<string, VitalLogApi[]> = {
-      blood_pressure: [],
-      heart_rate: [],
-      temperature: [],
-      spo2: [],
-    };
-    vitals.forEach(v => {
-      if (grouped[v.type]) {
-        grouped[v.type].push(v);
+    for (const r of records) {
+      if (r.bloodPressure && !latest.bloodPressure) {
+        latest.bloodPressure = { ...r.bloodPressure, loggedAt: r.loggedAt };
       }
-    });
-    return grouped;
-  }, [vitals]);
+      if (r.heartRate && !latest.heartRate) {
+        latest.heartRate = { value: r.heartRate, loggedAt: r.loggedAt };
+      }
+      if (r.temperature && !latest.temperature) {
+        latest.temperature = { value: r.temperature.value, unit: r.temperature.unit, loggedAt: r.loggedAt };
+      }
+      if (r.spo2 && !latest.spo2) {
+        latest.spo2 = { value: r.spo2, loggedAt: r.loggedAt };
+      }
+    }
+    return latest;
+  }, [records]);
+
+  // Get records filtered by vital type
+  const recordsByType = useMemo(() => {
+    return {
+      blood_pressure: records.filter(r => r.bloodPressure),
+      heart_rate: records.filter(r => r.heartRate),
+      temperature: records.filter(r => r.temperature),
+      spo2: records.filter(r => r.spo2),
+    };
+  }, [records]);
 
   // Chart data by type
   const chartData = useMemo(() => {
-    const createChartData = (type: string, key1: string, key2?: string) => {
-      return vitalsByType[type]
+    return {
+      blood_pressure: recordsByType.blood_pressure
         .slice(0, 14)
         .reverse()
-        .map(v => ({
-          date: new Date(v.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-          [key1]: v.value1,
-          ...(key2 && v.value2 ? { [key2]: v.value2 } : {}),
-        }));
+        .map(r => ({
+          date: new Date(r.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          systolic: r.bloodPressure!.systolic,
+          diastolic: r.bloodPressure!.diastolic,
+        })),
+      heart_rate: recordsByType.heart_rate
+        .slice(0, 14)
+        .reverse()
+        .map(r => ({
+          date: new Date(r.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          bpm: r.heartRate!,
+        })),
+      temperature: recordsByType.temperature
+        .slice(0, 14)
+        .reverse()
+        .map(r => ({
+          date: new Date(r.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          temp: r.temperature!.value,
+        })),
+      spo2: recordsByType.spo2
+        .slice(0, 14)
+        .reverse()
+        .map(r => ({
+          date: new Date(r.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          spo2: r.spo2!,
+        })),
     };
-
-    return {
-      blood_pressure: createChartData('blood_pressure', 'systolic', 'diastolic'),
-      heart_rate: createChartData('heart_rate', 'bpm'),
-      temperature: createChartData('temperature', 'temp'),
-      spo2: createChartData('spo2', 'spo2'),
-    };
-  }, [vitalsByType]);
+  }, [recordsByType]);
 
   // Calculate trends
   const trends = useMemo(() => {
-    const calcTrend = (data: VitalLogApi[], key: 'value1') => {
+    const calcTrend = (data: number[]) => {
       if (data.length < 2) return null;
       const recent = data.slice(0, 3);
       const older = data.slice(3, 6);
       if (older.length === 0) return null;
 
-      const recentAvg = recent.reduce((acc, v) => acc + v[key], 0) / recent.length;
-      const olderAvg = older.reduce((acc, v) => acc + v[key], 0) / older.length;
+      const recentAvg = recent.reduce((acc, v) => acc + v, 0) / recent.length;
+      const olderAvg = older.reduce((acc, v) => acc + v, 0) / older.length;
       const diff = recentAvg - olderAvg;
       const percentChange = ((diff / olderAvg) * 100).toFixed(1);
 
@@ -272,18 +331,22 @@ const Vitals: React.FC = () => {
     };
 
     return {
-      blood_pressure: calcTrend(vitalsByType.blood_pressure, 'value1'),
-      heart_rate: calcTrend(vitalsByType.heart_rate, 'value1'),
-      temperature: calcTrend(vitalsByType.temperature, 'value1'),
-      spo2: calcTrend(vitalsByType.spo2, 'value1'),
+      blood_pressure: calcTrend(recordsByType.blood_pressure.map(r => r.bloodPressure!.systolic)),
+      heart_rate: calcTrend(recordsByType.heart_rate.map(r => r.heartRate!)),
+      temperature: calcTrend(recordsByType.temperature.map(r => r.temperature!.value)),
+      spo2: calcTrend(recordsByType.spo2.map(r => r.spo2!)),
     };
-  }, [vitalsByType]);
+  }, [recordsByType]);
 
-  // Filter vitals for history based on active tab
-  const filteredVitals = useMemo(() => {
-    if (activeTab === 'overview') return vitals;
-    return vitals.filter(v => v.type === activeTab);
-  }, [vitals, activeTab]);
+  // Filter records for history based on active tab
+  const filteredRecords = useMemo(() => {
+    if (activeTab === 'overview') return records;
+    if (activeTab === 'blood_pressure') return records.filter(r => r.bloodPressure);
+    if (activeTab === 'heart_rate') return records.filter(r => r.heartRate);
+    if (activeTab === 'temperature') return records.filter(r => r.temperature);
+    if (activeTab === 'spo2') return records.filter(r => r.spo2);
+    return records;
+  }, [records, activeTab]);
 
   const tabs: { id: ViewTab; label: string; icon: string }[] = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -306,7 +369,7 @@ const Vitals: React.FC = () => {
             Vitals
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            {vitals.length} readings logged
+            {records.length} readings logged
           </p>
         </div>
         <button
@@ -445,11 +508,28 @@ const Vitals: React.FC = () => {
               {/* Stats Cards Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {Object.entries(vitalConfig).map(([type, config]) => {
-                  const vital = latestVitals[type as VitalType];
-                  const value = vital
-                    ? (type === String(VitalType.BLOOD_PRESSURE) ? `${vital.value1}/${vital.value2}` : vital.value1)
-                    : '--';
-                  const status = vital ? getVitalStatus(type as VitalType, vital.value1, vital.value2) : null;
+                  // Map VitalType to latestVitals keys
+                  const latestKey = type === VitalType.BLOOD_PRESSURE ? 'bloodPressure' :
+                                   type === VitalType.HEART_RATE ? 'heartRate' :
+                                   type === VitalType.TEMPERATURE ? 'temperature' : 'spo2';
+                  const vital = latestVitals[latestKey as keyof typeof latestVitals];
+
+                  let value: string = '--';
+                  let val1: number | undefined;
+                  let val2: number | undefined;
+
+                  if (vital) {
+                    if (latestKey === 'bloodPressure' && 'systolic' in vital) {
+                      value = `${vital.systolic}/${vital.diastolic}`;
+                      val1 = vital.systolic;
+                      val2 = vital.diastolic;
+                    } else if ('value' in vital) {
+                      value = String(vital.value);
+                      val1 = vital.value;
+                    }
+                  }
+
+                  const status = val1 ? getVitalStatus(type as VitalType, val1, val2) : null;
                   const trend = trends[type as keyof typeof trends];
                   const Icon = config.icon;
 
@@ -737,15 +817,25 @@ const Vitals: React.FC = () => {
               )}
 
               {/* Statistics Summary */}
-              {vitalsByType[activeTab].length > 0 && (
+              {recordsByType[activeTab as keyof typeof recordsByType]?.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {(() => {
-                    const data = vitalsByType[activeTab];
-                    const values = data.map(v => v.value1);
-                    const avg = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
+                    const data = recordsByType[activeTab as keyof typeof recordsByType];
+                    // Extract primary value based on vital type
+                    const values = data.map((r: VitalRecord) => {
+                      if (activeTab === 'blood_pressure' && r.bloodPressure) return r.bloodPressure.systolic;
+                      if (activeTab === 'heart_rate' && r.heartRate) return r.heartRate;
+                      if (activeTab === 'temperature' && r.temperature) return r.temperature.value;
+                      if (activeTab === 'spo2' && r.spo2) return r.spo2;
+                      return 0;
+                    }).filter((v: number) => v > 0);
+
+                    if (values.length === 0) return null;
+
+                    const avg = (values.reduce((a: number, b: number) => a + b, 0) / values.length).toFixed(1);
                     const min = Math.min(...values);
                     const max = Math.max(...values);
-                    const latest = data[0]?.value1;
+                    const latest = values[0];
 
                     return [
                       { label: 'Latest', value: latest, icon: '📍' },
@@ -771,18 +861,44 @@ const Vitals: React.FC = () => {
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                 {activeTab === 'overview' ? 'Recent History' : 'All Readings'}
               </h3>
-              <span className="text-sm text-slate-400 tabular-nums">{filteredVitals.length} entries</span>
+              <span className="text-sm text-slate-400 tabular-nums">{filteredRecords.length} entries</span>
             </div>
 
-            {filteredVitals.length > 0 ? (
+            {filteredRecords.length > 0 ? (
               <div className="space-y-3">
-                {filteredVitals.slice(0, 30).map((entry) => {
-                  const frontendType = apiToType[entry.type] || VitalType.BLOOD_PRESSURE;
+                {filteredRecords.slice(0, 30).map((record: VitalRecord) => {
+                  // Determine vital type and values from VitalRecord
+                  let frontendType: VitalType = VitalType.BLOOD_PRESSURE;
+                  let value: string = '--';
+                  let unit: string = '';
+                  let val1: number | undefined;
+                  let val2: number | undefined;
+
+                  if (record.bloodPressure) {
+                    frontendType = VitalType.BLOOD_PRESSURE;
+                    val1 = record.bloodPressure.systolic;
+                    val2 = record.bloodPressure.diastolic;
+                    value = `${val1}/${val2}`;
+                    unit = 'mmHg';
+                  } else if (record.heartRate) {
+                    frontendType = VitalType.HEART_RATE;
+                    val1 = record.heartRate;
+                    value = String(val1);
+                    unit = 'bpm';
+                  } else if (record.temperature) {
+                    frontendType = VitalType.TEMPERATURE;
+                    val1 = record.temperature.value;
+                    value = String(val1);
+                    unit = record.temperature.unit === 'celsius' ? '°C' : '°F';
+                  } else if (record.spo2) {
+                    frontendType = VitalType.SPO2;
+                    val1 = record.spo2;
+                    value = String(val1);
+                    unit = '%';
+                  }
+
                   const config = vitalConfig[frontendType];
-                  const value = entry.type === 'blood_pressure'
-                    ? `${entry.value1}/${entry.value2}`
-                    : entry.value1;
-                  const status = getVitalStatus(frontendType, entry.value1, entry.value2);
+                  const status = val1 ? getVitalStatus(frontendType, val1, val2) : { label: 'Unknown', color: 'slate' };
                   const Icon = config.icon;
 
                   const statusColors: Record<string, string> = {
@@ -790,11 +906,12 @@ const Vitals: React.FC = () => {
                     amber: 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400',
                     rose: 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400',
                     sky: 'bg-sky-100 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400',
+                    slate: 'bg-slate-100 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400',
                   };
 
                   return (
                     <div
-                      key={entry._id}
+                      key={record._id}
                       className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 flex items-center gap-4 hover:shadow-md hover:border-slate-200 dark:hover:border-slate-600 transition-all group"
                     >
                       <div className={`w-12 h-12 rounded-xl ${config.bgLight} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
@@ -809,7 +926,7 @@ const Vitals: React.FC = () => {
                           </span>
                         </div>
                         <p className="text-xs text-slate-400 mt-0.5">
-                          {new Date(entry.loggedAt).toLocaleDateString([], {
+                          {new Date(record.loggedAt).toLocaleDateString([], {
                             weekday: 'short',
                             month: 'short',
                             day: 'numeric',
@@ -821,8 +938,15 @@ const Vitals: React.FC = () => {
 
                       <div className="text-right">
                         <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">{value}</span>
-                        <span className="text-sm text-slate-400 ml-1">{entry.unit}</span>
+                        <span className="text-sm text-slate-400 ml-1">{unit}</span>
                       </div>
+
+                      <button
+                        onClick={() => setDeleteModalRecord(record)}
+                        className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
+                      >
+                        <ICONS.X className="w-5 h-5" />
+                      </button>
                     </div>
                   );
                 })}
@@ -842,6 +966,83 @@ const Vitals: React.FC = () => {
             )}
           </div>
         </>
+      )}
+
+      {/* Success Notification */}
+      {notification && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top fade-in duration-300">
+          <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl shadow-lg ${
+            notification.type === 'success'
+              ? 'bg-emerald-500 text-white'
+              : 'bg-rose-500 text-white'
+          }`}>
+            {notification.type === 'success' ? (
+              <ICONS.Check className="w-5 h-5" />
+            ) : (
+              <ICONS.X className="w-5 h-5" />
+            )}
+            <span className="font-bold">{notification.message}</span>
+            <button
+              onClick={() => setNotification(null)}
+              className="ml-2 p-1 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <ICONS.X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => !isDeleting && setDeleteModalRecord(null)}
+          />
+          <div className="relative bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 fade-in duration-200">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-rose-500/10 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">
+                <ICONS.X className="w-8 h-8 text-rose-500" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                Delete Entry
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-6">
+                Are you sure you want to delete this {getRecordLabel(deleteModalRecord).toLowerCase()} reading of <span className="font-bold text-slate-900 dark:text-white">
+                  {deleteModalRecord.bloodPressure
+                    ? `${deleteModalRecord.bloodPressure.systolic}/${deleteModalRecord.bloodPressure.diastolic} mmHg`
+                    : deleteModalRecord.heartRate
+                    ? `${deleteModalRecord.heartRate} bpm`
+                    : deleteModalRecord.temperature
+                    ? `${deleteModalRecord.temperature.value}${deleteModalRecord.temperature.unit === 'celsius' ? '°C' : '°F'}`
+                    : deleteModalRecord.spo2
+                    ? `${deleteModalRecord.spo2}%`
+                    : '--'}
+                </span>?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteModalRecord(null)}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-3 rounded-xl font-bold text-white bg-rose-500 hover:bg-rose-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Delete'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
