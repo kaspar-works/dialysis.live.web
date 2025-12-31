@@ -15,6 +15,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
+import UFSafetyIndicator from '../components/UFSafetyIndicator';
 import {
   DialysisSession,
   DialysisMode,
@@ -747,7 +748,7 @@ const Sessions: React.FC = () => {
               {elapsed}
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="bg-white/5 rounded-2xl p-4">
                 <p className="text-white/40 text-xs uppercase">Target UF</p>
                 <p className="text-2xl font-bold">{activeSession.targetUfMl || '--'} ml</p>
@@ -761,6 +762,49 @@ const Sessions: React.FC = () => {
                 <p className="text-2xl font-bold">{activeSession.plannedDurationMin ? formatDuration(activeSession.plannedDurationMin) : '--'}</p>
               </div>
             </div>
+
+            {/* UF Rate Indicator - Show projected rate based on target and planned duration */}
+            {activeSession.targetUfMl && activeSession.preWeightKg && activeSession.plannedDurationMin && (
+              <div className="mb-8">
+                {(() => {
+                  const ufRate = activeSession.targetUfMl / activeSession.preWeightKg / (activeSession.plannedDurationMin / 60);
+                  const isSafe = ufRate < 10;
+                  const isCaution = ufRate >= 10 && ufRate < 13;
+                  const statusLabel = isSafe ? 'Safe' : isCaution ? 'Caution' : 'Risk';
+                  const bgClass = isSafe ? 'bg-emerald-500/20 border-emerald-500/30' : isCaution ? 'bg-amber-500/20 border-amber-500/30' : 'bg-rose-500/20 border-rose-500/30';
+                  const iconBgClass = isSafe ? 'bg-emerald-500/30' : isCaution ? 'bg-amber-500/30' : 'bg-rose-500/30';
+                  const iconTextClass = isSafe ? 'text-emerald-400' : isCaution ? 'text-amber-400' : 'text-rose-400';
+                  const badgeClass = isSafe ? 'bg-emerald-500' : isCaution ? 'bg-amber-500' : 'bg-rose-500';
+                  return (
+                    <div className={`${bgClass} border rounded-2xl p-4`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 ${iconBgClass} rounded-xl flex items-center justify-center`}>
+                            <svg className={`w-5 h-5 ${iconTextClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-white/60 text-xs uppercase tracking-wider">Projected UF Rate</p>
+                            <p className="text-2xl font-black text-white tabular-nums">
+                              {ufRate.toFixed(1)} <span className="text-sm font-medium text-white/50">ml/kg/hr</span>
+                            </p>
+                          </div>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${badgeClass} text-white`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+                      {!isSafe && (
+                        <p className="text-white/50 text-xs mt-2">
+                          {isCaution ? 'Monitor for cramping or BP drops' : 'High rate may cause cramps or hypotension'}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
 
             <div className="flex gap-4 justify-center">
               <button
@@ -1122,6 +1166,16 @@ const Sessions: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* UF Safety Indicator - Show if we have the required data */}
+          {selectedSession.actualUfMl && selectedSession.preWeightKg && selectedSession.actualDurationMin && (
+            <UFSafetyIndicator
+              ufVolumeMl={selectedSession.actualUfMl}
+              weightKg={selectedSession.preWeightKg}
+              durationMin={selectedSession.actualDurationMin}
+              targetUfMl={selectedSession.targetUfMl}
+            />
+          )}
 
           {selectedSession.complications && selectedSession.complications.length > 0 && (
             <div className="bg-rose-50 dark:bg-rose-500/10 rounded-2xl p-4">

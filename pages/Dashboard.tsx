@@ -6,6 +6,8 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, 
 import { Link } from 'react-router-dom';
 import { MoodType, VitalType, FluidIntake, VitalLog } from '../types';
 import OnboardingModal from '../components/OnboardingModal';
+import DryWeightTracker from '../components/DryWeightTracker';
+import BPTrendCard from '../components/BPTrendCard';
 import { getDashboard, DashboardStats } from '../services/dashboard';
 
 const Dashboard: React.FC = () => {
@@ -75,6 +77,37 @@ const Dashboard: React.FC = () => {
 
   const latestTemp = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.TEMPERATURE), [vitals]);
   const latestO2 = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.SPO2), [vitals]);
+
+  // BP readings for trend card - extract from vitals and API data
+  const bpReadings = useMemo(() => {
+    const readings: { systolic: number; diastolic: number; timestamp: string; type?: 'pre_dialysis' | 'post_dialysis' | 'home' }[] = [];
+
+    // Add BP readings from vitals
+    vitals
+      .filter((v: VitalLog) => v.type === VitalType.BLOOD_PRESSURE && v.value1 && v.value2)
+      .forEach((v: VitalLog) => {
+        readings.push({
+          systolic: v.value1!,
+          diastolic: v.value2!,
+          timestamp: v.loggedAt || new Date().toISOString(),
+          type: 'home',
+        });
+      });
+
+    // Add from dashboard API if available
+    if (dashboardData?.vitals?.bpHistory) {
+      dashboardData.vitals.bpHistory.forEach((bp: { systolic: number; diastolic: number; loggedAt: string; type?: string }) => {
+        readings.push({
+          systolic: bp.systolic,
+          diastolic: bp.diastolic,
+          timestamp: bp.loggedAt,
+          type: bp.type === 'pre_dialysis' ? 'pre_dialysis' : bp.type === 'post_dialysis' ? 'post_dialysis' : 'home',
+        });
+      });
+    }
+
+    return readings;
+  }, [vitals, dashboardData]);
 
   // Session stats from API
   const sessionStats = dashboardData?.sessions;
@@ -222,22 +255,11 @@ const Dashboard: React.FC = () => {
         {/* Vitals Grid */}
         <div className="col-span-12 md:col-span-8 lg:col-span-9 grid grid-cols-2 lg:grid-cols-4 gap-3">
 
-          {/* Blood Pressure */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 hover:shadow-lg hover:border-rose-200 dark:hover:border-rose-500/30 transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <ICONS.Vitals className="w-5 h-5 text-rose-500" />
-              </div>
-              <span className={`text-[10px] font-bold uppercase ${latestBP ? 'text-emerald-500' : 'text-slate-300'}`}>
-                {latestBP ? 'Normal' : 'No data'}
-              </span>
-            </div>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Blood Pressure</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white tabular-nums mt-1">
-              {latestBP ? `${latestBP.value1}/${latestBP.value2}` : '--/--'}
-            </p>
-            <p className="text-slate-400 text-xs">mmHg</p>
-          </div>
+          {/* Blood Pressure with Trend */}
+          <BPTrendCard
+            currentBP={latestBP ? { systolic: latestBP.value1, diastolic: latestBP.value2 } : undefined}
+            readings={bpReadings}
+          />
 
           {/* Heart Rate */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 hover:shadow-lg hover:border-sky-200 dark:hover:border-sky-500/30 transition-all duration-300 group">
@@ -287,6 +309,16 @@ const Dashboard: React.FC = () => {
             </p>
             <p className="text-slate-400 text-xs">°C</p>
           </div>
+        </div>
+
+        {/* Dry Weight Tracker */}
+        <div className="col-span-12 lg:col-span-4">
+          <DryWeightTracker
+            currentWeight={currentWeight || 70}
+            dryWeight={dryWeight || 70}
+            previousWeight={weights[1]?.value}
+            trend={weightTrend as 'up' | 'down' | 'stable' | undefined}
+          />
         </div>
 
         {/* Fluid Tracker */}
