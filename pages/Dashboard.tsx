@@ -5,23 +5,46 @@ import { Link } from 'react-router-dom';
 import { MoodType, VitalType, FluidIntake, VitalLog } from '../types';
 import OnboardingModal from '../components/OnboardingModal';
 import { getDashboard, DashboardStats } from '../services/dashboard';
+import {
+  getDashboardAlerts,
+  dismissAlert,
+  refreshAlerts,
+  Alert,
+  AlertCounts,
+  getSeverityColor,
+  getSeverityIcon,
+} from '../services/alerts';
 
 const Dashboard: React.FC = () => {
   const { weights, fluids, profile, vitals, moods, addFluid, meals } = useStore();
   const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeQuickAdd, setActiveQuickAdd] = useState<number | null>(null);
+  const [apiAlerts, setApiAlerts] = useState<Alert[]>([]);
+  const [alertCounts, setAlertCounts] = useState<AlertCounts | null>(null);
+  const [hasUrgentAlerts, setHasUrgentAlerts] = useState(false);
+  const [isDismissing, setIsDismissing] = useState<string | null>(null);
   const hasFetched = useRef(false);
 
-  // Fetch dashboard data from API
+  // Fetch dashboard data and alerts from API
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
 
     const fetchDashboard = async () => {
       try {
-        const data = await getDashboard(30);
-        setDashboardData(data);
+        const [dashData, alertsData] = await Promise.all([
+          getDashboard(30),
+          getDashboardAlerts().catch(() => null),
+        ]);
+
+        setDashboardData(dashData);
+
+        if (alertsData) {
+          setApiAlerts(alertsData.alerts);
+          setAlertCounts(alertsData.counts);
+          setHasUrgentAlerts(alertsData.hasUrgent);
+        }
       } catch (err: unknown) {
         const error = err as { message?: string };
         if (!error?.message?.includes('Session expired')) {
@@ -34,6 +57,19 @@ const Dashboard: React.FC = () => {
 
     fetchDashboard();
   }, []);
+
+  // Handle dismiss alert
+  const handleDismissAlert = async (alertId: string) => {
+    setIsDismissing(alertId);
+    try {
+      await dismissAlert(alertId);
+      setApiAlerts(prev => prev.filter(a => a._id !== alertId));
+    } catch (err) {
+      console.error('Failed to dismiss alert:', err);
+    } finally {
+      setIsDismissing(null);
+    }
+  };
 
   // Current data - prefer API data over local store
   const currentWeight = dashboardData?.weight?.current || weights[0]?.value || profile.weightGoal;
@@ -170,25 +206,40 @@ const Dashboard: React.FC = () => {
     return { label: 'Needs Attention', color: 'rose', message: 'Please review your health metrics and consult your care team.' };
   }, [healthScore]);
 
-  // Alerts
-  const alerts = useMemo(() => {
-    const items: { type: 'warning' | 'info' | 'success'; message: string; action?: string }[] = [];
+  // Combine API alerts with local fallback alerts
+  const displayAlerts = useMemo(() => {
+    // If we have API alerts, use those
+    if (apiAlerts.length > 0) {
+      return apiAlerts.slice(0, 4).map(alert => ({
+        id: alert._id,
+        type: alert.severity === 'critical' || alert.severity === 'high' ? 'warning' as const :
+              alert.severity === 'medium' ? 'info' as const : 'info' as const,
+        severity: alert.severity,
+        title: alert.title,
+        message: alert.message,
+        category: alert.category,
+        canDismiss: true,
+      }));
+    }
+
+    // Fallback to local alerts if no API alerts
+    const items: { id: string; type: 'warning' | 'info' | 'success'; severity?: string; title?: string; message: string; action?: string; canDismiss: boolean }[] = [];
 
     if (fluidPercentage > 95) {
-      items.push({ type: 'warning', message: 'Approaching daily fluid limit', action: 'View Hydration' });
+      items.push({ id: 'fluid-limit', type: 'warning', message: 'Approaching daily fluid limit', action: 'View Hydration', canDismiss: false });
     }
     if (Math.abs(currentWeight - dryWeight) > 1.5) {
-      items.push({ type: 'warning', message: `Weight ${currentWeight > dryWeight ? 'above' : 'below'} target range`, action: 'View Weight' });
+      items.push({ id: 'weight-range', type: 'warning', message: `Weight ${currentWeight > dryWeight ? 'above' : 'below'} target range`, action: 'View Weight', canDismiss: false });
     }
     if (sessionStats?.thisWeek === 0) {
-      items.push({ type: 'info', message: 'No sessions logged this week', action: 'Log Session' });
+      items.push({ id: 'no-sessions', type: 'info', message: 'No sessions logged this week', action: 'Log Session', canDismiss: false });
     }
     if (healthScore >= 85) {
-      items.push({ type: 'success', message: 'Great job maintaining your health this week!' });
+      items.push({ id: 'health-good', type: 'success', message: 'Great job maintaining your health this week!', canDismiss: false });
     }
 
-    return items.slice(0, 2);
-  }, [fluidPercentage, currentWeight, dryWeight, sessionStats, healthScore]);
+    return items.slice(0, 3);
+  }, [apiAlerts, fluidPercentage, currentWeight, dryWeight, sessionStats, healthScore]);
 
   const handleQuickFluid = (amount: number) => {
     setActiveQuickAdd(amount);
@@ -399,45 +450,80 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Alerts Section */}
-      {alerts.length > 0 && (
+      {displayAlerts.length > 0 && (
         <div className="space-y-3">
-          {alerts.map((alert, i) => (
-            <div
-              key={i}
-              className={`rounded-2xl p-4 flex items-center gap-4 animate-in slide-in-from-top duration-500 ${
-                alert.type === 'warning' ? 'bg-amber-500/10 border border-amber-500/20' :
-                alert.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/20' :
-                'bg-sky-500/10 border border-sky-500/20'
-              }`}
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                alert.type === 'warning' ? 'bg-amber-500/20' :
-                alert.type === 'success' ? 'bg-emerald-500/20' :
-                'bg-sky-500/20'
-              }`}>
-                <span className="text-xl">
-                  {alert.type === 'warning' ? '⚠️' : alert.type === 'success' ? '✨' : 'ℹ️'}
+          {/* Alert counts badge */}
+          {alertCounts && (alertCounts.critical > 0 || alertCounts.high > 0) && (
+            <div className="flex items-center gap-2 mb-2">
+              {alertCounts.critical > 0 && (
+                <span className="px-3 py-1 bg-rose-500/10 text-rose-500 text-xs font-bold rounded-full">
+                  {alertCounts.critical} Critical
                 </span>
-              </div>
-              <p className={`flex-1 font-medium ${
-                alert.type === 'warning' ? 'text-amber-700 dark:text-amber-300' :
-                alert.type === 'success' ? 'text-emerald-700 dark:text-emerald-300' :
-                'text-sky-700 dark:text-sky-300'
-              }`}>
-                {alert.message}
-              </p>
-              {alert.action && (
-                <button className={`text-sm font-bold ${
-                  alert.type === 'warning' ? 'text-amber-500' :
-                  alert.type === 'success' ? 'text-emerald-500' :
-                  'text-sky-500'
-                } hover:underline`}>
-                  {alert.action}
-                </button>
+              )}
+              {alertCounts.high > 0 && (
+                <span className="px-3 py-1 bg-orange-500/10 text-orange-500 text-xs font-bold rounded-full">
+                  {alertCounts.high} High Priority
+                </span>
               )}
             </div>
-          ))}
+          )}
+
+          {displayAlerts.map((alert, i) => {
+            const severityColors: Record<string, { bg: string; border: string; icon: string; text: string }> = {
+              critical: { bg: 'bg-rose-500/10', border: 'border-rose-500/20', icon: 'bg-rose-500/20', text: 'text-rose-700 dark:text-rose-300' },
+              high: { bg: 'bg-orange-500/10', border: 'border-orange-500/20', icon: 'bg-orange-500/20', text: 'text-orange-700 dark:text-orange-300' },
+              medium: { bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: 'bg-amber-500/20', text: 'text-amber-700 dark:text-amber-300' },
+              low: { bg: 'bg-sky-500/10', border: 'border-sky-500/20', icon: 'bg-sky-500/20', text: 'text-sky-700 dark:text-sky-300' },
+              warning: { bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: 'bg-amber-500/20', text: 'text-amber-700 dark:text-amber-300' },
+              success: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: 'bg-emerald-500/20', text: 'text-emerald-700 dark:text-emerald-300' },
+              info: { bg: 'bg-sky-500/10', border: 'border-sky-500/20', icon: 'bg-sky-500/20', text: 'text-sky-700 dark:text-sky-300' },
+            };
+
+            const colorKey = alert.severity || alert.type;
+            const colors = severityColors[colorKey] || severityColors.info;
+
+            const getIcon = () => {
+              if (alert.severity === 'critical') return '🚨';
+              if (alert.severity === 'high') return '⚠️';
+              if (alert.severity === 'medium') return '⚡';
+              if (alert.type === 'warning') return '⚠️';
+              if (alert.type === 'success') return '✨';
+              return 'ℹ️';
+            };
+
+            return (
+              <div
+                key={alert.id}
+                className={`rounded-2xl p-4 flex items-center gap-4 animate-in slide-in-from-top duration-500 ${colors.bg} border ${colors.border}`}
+                style={{ animationDelay: `${i * 100}ms` }}
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${colors.icon}`}>
+                  <span className="text-xl">{getIcon()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {alert.title && (
+                    <p className={`font-bold text-sm ${colors.text}`}>{alert.title}</p>
+                  )}
+                  <p className={`${alert.title ? 'text-sm opacity-80' : 'font-medium'} ${colors.text}`}>
+                    {alert.message}
+                  </p>
+                </div>
+                {alert.canDismiss && (
+                  <button
+                    onClick={() => handleDismissAlert(alert.id)}
+                    disabled={isDismissing === alert.id}
+                    className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors shrink-0"
+                  >
+                    {isDismissing === alert.id ? (
+                      <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                    ) : (
+                      <ICONS.X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+                    )}
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
