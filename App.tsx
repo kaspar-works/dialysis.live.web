@@ -30,6 +30,10 @@ import Terms from './pages/Terms';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
 import SEO from './components/SEO';
+import HealthCheck from './pages/HealthCheck';
+
+// Check if health check page is enabled via env variable
+const ENABLE_HEALTH_CHECK = import.meta.env.VITE_ENABLE_HEALTH_CHECK === 'true';
 
 const App: React.FC = () => {
   return (
@@ -50,6 +54,11 @@ const App: React.FC = () => {
           <Route path="/terms" element={<Terms />} />
           <Route path="/features" element={<Features />} />
           <Route path="/pricing" element={<Pricing />} />
+
+          {/* Development: Health Check (disabled in production via env) */}
+          {ENABLE_HEALTH_CHECK && (
+            <Route path="/health" element={<Layout><SEO title="Health Check" /><HealthCheck /></Layout>} />
+          )}
 
           {/* Protected Application Routes */}
           <Route

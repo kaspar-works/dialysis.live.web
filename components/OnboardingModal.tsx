@@ -83,11 +83,12 @@ const OnboardingModal: React.FC = () => {
 
       // Update local state
       completeOnboarding(formData);
+
+      // Close modal on success
+      setIsOnboarded(true);
     } catch (err: any) {
       console.error('Onboarding error:', err);
-      // Still complete locally even if API fails
-      completeOnboarding(formData);
-    } finally {
+      setError('Failed to sync. Please try again.');
       setIsLoading(false);
     }
   };
@@ -214,6 +215,11 @@ const OnboardingModal: React.FC = () => {
                          Profile initialization complete. Launching clinical hub.
                       </p>
                    </div>
+                   {error && (
+                     <div className="mt-4 px-6 py-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl">
+                       <p className="text-rose-500 text-sm font-bold">{error}</p>
+                     </div>
+                   )}
                 </div>
               )}
            </div>

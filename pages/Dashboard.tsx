@@ -1,20 +1,16 @@
-
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line } from 'recharts';
 import { Link } from 'react-router-dom';
 import { MoodType, VitalType, FluidIntake, VitalLog } from '../types';
 import OnboardingModal from '../components/OnboardingModal';
-import DryWeightTracker from '../components/DryWeightTracker';
-import BPTrendCard from '../components/BPTrendCard';
 import { getDashboard, DashboardStats } from '../services/dashboard';
 
 const Dashboard: React.FC = () => {
   const { weights, fluids, profile, vitals, moods, addFluid, meals } = useStore();
-  const [showAllVitals, setShowAllVitals] = useState(false);
   const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeQuickAdd, setActiveQuickAdd] = useState<number | null>(null);
   const hasFetched = useRef(false);
 
   // Fetch dashboard data from API
@@ -26,9 +22,9 @@ const Dashboard: React.FC = () => {
       try {
         const data = await getDashboard(30);
         setDashboardData(data);
-      } catch (err: any) {
-        // Don't log session expiration errors
-        if (!err?.message?.includes('Session expired')) {
+      } catch (err: unknown) {
+        const error = err as { message?: string };
+        if (!error?.message?.includes('Session expired')) {
           console.error('Failed to load dashboard:', err);
         }
       } finally {
@@ -42,80 +38,56 @@ const Dashboard: React.FC = () => {
   // Current data - prefer API data over local store
   const currentWeight = dashboardData?.weight?.current || weights[0]?.value || profile.weightGoal;
   const dryWeight = dashboardData?.weight?.dryWeight || profile.weightGoal;
-  const weightTrend = dashboardData?.weight?.trend || null;
+  const weightTrend = dashboardData?.weight?.trend || 'stable';
+
   const weightChange = useMemo(() => {
     if (dashboardData?.weight?.history && dashboardData.weight.history.length >= 2) {
       const recent = dashboardData.weight.history[0]?.weight;
       const prev = dashboardData.weight.history[1]?.weight;
-      if (recent && prev) return (recent - prev).toFixed(1);
+      if (recent && prev) return recent - prev;
     }
-    if (weights.length >= 2) return (weights[0].value - weights[1].value).toFixed(1);
-    return '0.0';
+    if (weights.length >= 2) return weights[0].value - weights[1].value;
+    return 0;
   }, [dashboardData, weights]);
 
-  // Fluid data from API or local
+  // Fluid data
   const todayFluid = dashboardData?.fluid?.todayTotal || fluids.reduce((acc: number, f: FluidIntake) => acc + f.amount, 0);
   const dailyFluidLimit = dashboardData?.fluid?.dailyLimit || profile.dailyFluidLimit;
   const fluidPercentage = Math.min(Math.round((todayFluid / dailyFluidLimit) * 100), 100);
   const fluidRemaining = Math.max(dailyFluidLimit - todayFluid, 0);
-  const latestMood = moods[0]?.type || 'Good';
 
-  // Vitals from API or local
+  // Vitals
   const latestBP = useMemo(() => {
     if (dashboardData?.vitals?.latestBp) {
-      return { value1: dashboardData.vitals.latestBp.systolic, value2: dashboardData.vitals.latestBp.diastolic };
+      return { systolic: dashboardData.vitals.latestBp.systolic, diastolic: dashboardData.vitals.latestBp.diastolic };
     }
-    return vitals.find((v: VitalLog) => v.type === VitalType.BLOOD_PRESSURE);
+    const bp = vitals.find((v: VitalLog) => v.type === VitalType.BLOOD_PRESSURE);
+    return bp ? { systolic: bp.value1, diastolic: bp.value2 } : null;
   }, [dashboardData, vitals]);
 
   const latestHR = useMemo(() => {
     if (dashboardData?.vitals?.latestHeartRate) {
-      return { value1: dashboardData.vitals.latestHeartRate.value };
+      return dashboardData.vitals.latestHeartRate.value;
     }
-    return vitals.find((v: VitalLog) => v.type === VitalType.HEART_RATE);
+    const hr = vitals.find((v: VitalLog) => v.type === VitalType.HEART_RATE);
+    return hr?.value1 || null;
   }, [dashboardData, vitals]);
 
-  const latestTemp = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.TEMPERATURE), [vitals]);
-  const latestO2 = useMemo(() => vitals.find((v: VitalLog) => v.type === VitalType.SPO2), [vitals]);
+  const latestTemp = useMemo(() => {
+    const temp = vitals.find((v: VitalLog) => v.type === VitalType.TEMPERATURE);
+    return temp?.value1 || 36.5;
+  }, [vitals]);
 
-  // BP readings for trend card - extract from vitals and API data
-  const bpReadings = useMemo(() => {
-    const readings: { systolic: number; diastolic: number; timestamp: string; type?: 'pre_dialysis' | 'post_dialysis' | 'home' }[] = [];
+  const latestO2 = useMemo(() => {
+    const o2 = vitals.find((v: VitalLog) => v.type === VitalType.SPO2);
+    return o2?.value1 || 98;
+  }, [vitals]);
 
-    // Add BP readings from vitals
-    vitals
-      .filter((v: VitalLog) => v.type === VitalType.BLOOD_PRESSURE && v.value1 && v.value2)
-      .forEach((v: VitalLog) => {
-        readings.push({
-          systolic: v.value1!,
-          diastolic: v.value2!,
-          timestamp: v.loggedAt || new Date().toISOString(),
-          type: 'home',
-        });
-      });
-
-    // Add from dashboard API if available
-    if (dashboardData?.vitals?.bpHistory) {
-      dashboardData.vitals.bpHistory.forEach((bp: { systolic: number; diastolic: number; loggedAt: string; type?: string }) => {
-        readings.push({
-          systolic: bp.systolic,
-          diastolic: bp.diastolic,
-          timestamp: bp.loggedAt,
-          type: bp.type === 'pre_dialysis' ? 'pre_dialysis' : bp.type === 'post_dialysis' ? 'post_dialysis' : 'home',
-        });
-      });
-    }
-
-    return readings;
-  }, [vitals, dashboardData]);
-
-  // Session stats from API
+  // Session stats
   const sessionStats = dashboardData?.sessions;
-  const overviewStats = dashboardData?.overview;
 
-  // Chart data - Weight (7 days) - prefer API data
+  // Chart data - Weight (7 days)
   const weightData = useMemo(() => {
-    // Use API data if available
     if (dashboardData?.weight?.history && dashboardData.weight.history.length > 0) {
       return dashboardData.weight.history.slice(0, 7).reverse().map(w => ({
         date: new Date(w.date).toLocaleDateString(undefined, { weekday: 'short' }),
@@ -123,35 +95,33 @@ const Dashboard: React.FC = () => {
         goal: dryWeight
       }));
     }
-    // Fallback to local store
     const data = [...weights].reverse().slice(-7).map(w => ({
       date: new Date(w.date).toLocaleDateString(undefined, { weekday: 'short' }),
       weight: w.value,
       goal: profile.weightGoal
     }));
-    return data.length > 0 ? data : [
-      { date: 'Mon', weight: 72, goal: 70 },
-      { date: 'Tue', weight: 71.5, goal: 70 },
-      { date: 'Wed', weight: 71.2, goal: 70 },
-      { date: 'Thu', weight: 70.8, goal: 70 },
-      { date: 'Fri', weight: 70.5, goal: 70 },
-      { date: 'Sat', weight: 70.2, goal: 70 },
-      { date: 'Sun', weight: 70, goal: 70 },
-    ];
+    if (data.length === 0) {
+      return [
+        { date: 'Mon', weight: 72, goal: 70 },
+        { date: 'Tue', weight: 71.5, goal: 70 },
+        { date: 'Wed', weight: 71, goal: 70 },
+        { date: 'Thu', weight: 70.5, goal: 70 },
+        { date: 'Fri', weight: 70.2, goal: 70 },
+        { date: 'Sat', weight: 70, goal: 70 },
+        { date: 'Sun', weight: 70, goal: 70 },
+      ];
+    }
+    return data;
   }, [dashboardData, weights, profile.weightGoal, dryWeight]);
 
-  // Fluid intake by hour (today)
+  // Fluid hourly data
   const fluidHourlyData = useMemo(() => {
-    const hours = Array.from({ length: 24 }, (_, i) => ({
-      hour: i,
-      label: i === 0 ? '12am' : i === 12 ? '12pm' : i < 12 ? `${i}am` : `${i - 12}pm`,
-      amount: 0
-    }));
+    const hours = Array.from({ length: 24 }, (_, i) => ({ hour: i, amount: 0 }));
     fluids.forEach((f: FluidIntake) => {
       const hour = new Date(f.time).getHours();
       hours[hour].amount += f.amount;
     });
-    return hours;
+    return hours.slice(6, 22);
   }, [fluids]);
 
   // Nutrition totals
@@ -166,25 +136,74 @@ const Dashboard: React.FC = () => {
     }), { sodium: 0, potassium: 0, phosphorus: 0, protein: 0 });
   }, [meals]);
 
-  // Stability Score
-  const stabilityScore = useMemo(() => {
+  // Health Score calculation
+  const healthScore = useMemo(() => {
     let score = 92;
+    const latestMood = moods[0]?.type || 'Good';
+
+    // Fluid balance
     if (fluidPercentage > 100) score -= 15;
+    else if (fluidPercentage > 90) score -= 5;
+
+    // Mood factor
     if (latestMood === MoodType.UNWELL) score -= 10;
-    if (parseFloat(weightChange) > 2) score -= 10;
-    return Math.max(Math.min(score, 100), 40);
-  }, [fluidPercentage, latestMood, weightChange]);
+
+    // Weight deviation
+    const weightDev = Math.abs(currentWeight - dryWeight);
+    if (weightDev > 2) score -= 15;
+    else if (weightDev > 1) score -= 8;
+
+    // BP check
+    if (latestBP) {
+      if (latestBP.systolic > 140 || latestBP.diastolic > 90) score -= 10;
+      else if (latestBP.systolic > 130 || latestBP.diastolic > 85) score -= 5;
+    }
+
+    return Math.max(Math.min(score, 100), 20);
+  }, [fluidPercentage, moods, currentWeight, dryWeight, latestBP]);
+
+  // Health status
+  const healthStatus = useMemo(() => {
+    if (healthScore >= 85) return { label: 'Excellent', color: 'emerald', message: 'You\'re doing great! Keep up the excellent work.' };
+    if (healthScore >= 70) return { label: 'Good', color: 'sky', message: 'Looking good. Stay consistent with your routine.' };
+    if (healthScore >= 55) return { label: 'Fair', color: 'amber', message: 'Some areas need attention. Review your logs.' };
+    return { label: 'Needs Attention', color: 'rose', message: 'Please review your health metrics and consult your care team.' };
+  }, [healthScore]);
+
+  // Alerts
+  const alerts = useMemo(() => {
+    const items: { type: 'warning' | 'info' | 'success'; message: string; action?: string }[] = [];
+
+    if (fluidPercentage > 95) {
+      items.push({ type: 'warning', message: 'Approaching daily fluid limit', action: 'View Hydration' });
+    }
+    if (Math.abs(currentWeight - dryWeight) > 1.5) {
+      items.push({ type: 'warning', message: `Weight ${currentWeight > dryWeight ? 'above' : 'below'} target range`, action: 'View Weight' });
+    }
+    if (sessionStats?.thisWeek === 0) {
+      items.push({ type: 'info', message: 'No sessions logged this week', action: 'Log Session' });
+    }
+    if (healthScore >= 85) {
+      items.push({ type: 'success', message: 'Great job maintaining your health this week!' });
+    }
+
+    return items.slice(0, 2);
+  }, [fluidPercentage, currentWeight, dryWeight, sessionStats, healthScore]);
 
   const handleQuickFluid = (amount: number) => {
-    addFluid({
-      id: Date.now().toString(),
-      time: new Date().toISOString(),
-      amount,
-      beverage: 'Water'
-    });
+    setActiveQuickAdd(amount);
+    setTimeout(() => {
+      addFluid({
+        id: Date.now().toString(),
+        time: new Date().toISOString(),
+        amount,
+        beverage: 'Water'
+      });
+      setActiveQuickAdd(null);
+    }, 300);
   };
 
-  // Get greeting based on time
+  // Greeting
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
@@ -192,281 +211,527 @@ const Dashboard: React.FC = () => {
     return 'Good evening';
   };
 
-  // Score ring
-  const ringRadius = 54;
-  const ringCircumference = 2 * Math.PI * ringRadius;
-  const ringOffset = ringCircumference - (stabilityScore / 100) * ringCircumference;
+  // SVG chart path generation
+  const weightChartPath = useMemo(() => {
+    if (weightData.length < 2) return { line: '', area: '', points: [] };
+
+    const width = 300;
+    const height = 100;
+    const padding = 10;
+    const chartWidth = width - padding * 2;
+    const chartHeight = height - padding * 2;
+
+    const weights = weightData.map(d => d.weight);
+    const minW = Math.min(...weights) - 0.5;
+    const maxW = Math.max(...weights) + 0.5;
+    const range = maxW - minW || 1;
+    const xStep = chartWidth / (weightData.length - 1);
+
+    const points = weightData.map((d, i) => ({
+      x: padding + i * xStep,
+      y: padding + chartHeight - ((d.weight - minW) / range) * chartHeight,
+      value: d.weight,
+    }));
+
+    const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    const area = `${line} L ${points[points.length - 1].x} ${height - padding} L ${padding} ${height - padding} Z`;
+
+    return { line, area, points };
+  }, [weightData]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[80vh]">
+        <div className="text-center space-y-4">
+          <div className="w-20 h-20 relative mx-auto">
+            <div className="absolute inset-0 border-4 border-sky-500/20 rounded-full" />
+            <div className="absolute inset-0 border-4 border-transparent border-t-sky-500 rounded-full animate-spin" />
+            <div className="absolute inset-4 bg-gradient-to-br from-sky-500 to-cyan-500 rounded-full flex items-center justify-center">
+              <ICONS.Activity className="w-6 h-6 text-white" />
+            </div>
+          </div>
+          <p className="text-slate-400 font-medium">Loading your health data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full space-y-6 pb-24 px-4 animate-in fade-in duration-500">
+    <div className="w-full max-w-7xl mx-auto space-y-6 pb-24 px-4 animate-in fade-in duration-700">
       <OnboardingModal />
 
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
+        @keyframes pulse-soft {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        @keyframes wave {
+          0% { transform: translateX(0) translateY(0); }
+          50% { transform: translateX(-25%) translateY(-2px); }
+          100% { transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes glow {
+          0%, 100% { box-shadow: 0 0 20px rgba(14, 165, 233, 0.3); }
+          50% { box-shadow: 0 0 40px rgba(14, 165, 233, 0.5); }
+        }
+        .animate-float { animation: float 4s ease-in-out infinite; }
+        .animate-pulse-soft { animation: pulse-soft 3s ease-in-out infinite; }
+        .animate-shimmer { animation: shimmer 2s infinite; }
+        .animate-wave { animation: wave 8s linear infinite; }
+        .animate-glow { animation: glow 2s ease-in-out infinite; }
+        .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
+        .glass-light { background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); }
+        .dark .glass-light { background: rgba(30,41,59,0.8); }
+      `}</style>
+
       {/* Header */}
-      <header className="flex items-center justify-between pt-2">
+      <header className="flex items-center justify-between pt-4">
         <div>
-          <p className="text-slate-400 text-sm font-medium">{getGreeting()},</p>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{profile.name || 'Patient'}</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">{getGreeting()}</p>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            {profile.name || 'Welcome back'}
+          </h1>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ${
-            stabilityScore >= 80
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-              : stabilityScore >= 60
-              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-          }`}>
-            <span className={`w-2 h-2 rounded-full animate-pulse ${
-              stabilityScore >= 80 ? 'bg-emerald-500' : stabilityScore >= 60 ? 'bg-amber-500' : 'bg-rose-500'
-            }`}></span>
-            {stabilityScore >= 80 ? 'Stable' : stabilityScore >= 60 ? 'Monitor' : 'Alert'}
-          </span>
+          <Link
+            to="/profile"
+            className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center hover:scale-105 transition-transform"
+          >
+            <span className="text-xl">👤</span>
+          </Link>
         </div>
       </header>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-12 gap-4">
+      {/* Health Status Hero */}
+      <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[2.5rem] p-8 overflow-hidden">
+        {/* Background Effects */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className={`absolute top-0 right-0 w-96 h-96 rounded-full blur-[100px] opacity-30 bg-${healthStatus.color}-500`} />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-sky-500/20 rounded-full blur-[80px]" />
+        </div>
 
-        {/* Stability Score Card */}
-        <div className="col-span-12 md:col-span-4 lg:col-span-3 bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-6 flex flex-col items-center justify-center min-h-[220px] relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-
+        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-8">
+          {/* Health Score Ring */}
           <div className="relative">
-            <svg width="140" height="140" className="-rotate-90">
-              <circle cx="70" cy="70" r={ringRadius} stroke="rgba(255,255,255,0.1)" strokeWidth="8" fill="none" />
-              <circle
-                cx="70" cy="70" r={ringRadius}
-                stroke={stabilityScore >= 80 ? '#10B981' : stabilityScore >= 60 ? '#F59E0B' : '#EF4444'}
-                strokeWidth="8"
-                fill="none"
-                strokeLinecap="round"
-                strokeDasharray={ringCircumference}
-                strokeDashoffset={ringOffset}
-                className="transition-all duration-1000 ease-out"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-5xl font-black text-white tabular-nums animate-in zoom-in duration-700">{stabilityScore}</span>
-              <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Score</span>
+            <div className="w-52 h-52 relative animate-glow rounded-full">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
+                {/* Background ring */}
+                <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="12" />
+                {/* Progress ring */}
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="85"
+                  fill="none"
+                  stroke={`url(#healthGradient-${healthStatus.color})`}
+                  strokeWidth="12"
+                  strokeLinecap="round"
+                  strokeDasharray={`${healthScore * 5.34} 534`}
+                  className="transition-all duration-1000 ease-out"
+                />
+                <defs>
+                  <linearGradient id={`healthGradient-${healthStatus.color}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor={healthStatus.color === 'emerald' ? '#10b981' : healthStatus.color === 'sky' ? '#0ea5e9' : healthStatus.color === 'amber' ? '#f59e0b' : '#f43f5e'} />
+                    <stop offset="100%" stopColor={healthStatus.color === 'emerald' ? '#059669' : healthStatus.color === 'sky' ? '#0284c7' : healthStatus.color === 'amber' ? '#d97706' : '#e11d48'} />
+                  </linearGradient>
+                </defs>
+              </svg>
+              {/* Center Content */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                <div className="animate-float">
+                  <span className="text-6xl font-black tabular-nums">{healthScore}</span>
+                </div>
+                <span className={`text-sm font-bold text-${healthStatus.color}-400 mt-1`}>{healthStatus.label}</span>
+              </div>
             </div>
           </div>
-          <p className="text-white/60 text-xs font-bold uppercase tracking-wider mt-4">Health Stability</p>
-        </div>
 
-        {/* Vitals Grid */}
-        <div className="col-span-12 md:col-span-8 lg:col-span-9 grid grid-cols-2 lg:grid-cols-4 gap-3">
-
-          {/* Blood Pressure with Trend */}
-          <BPTrendCard
-            currentBP={latestBP ? { systolic: latestBP.value1, diastolic: latestBP.value2 } : undefined}
-            readings={bpReadings}
-          />
-
-          {/* Heart Rate */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 hover:shadow-lg hover:border-sky-200 dark:hover:border-sky-500/30 transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-sky-500/10 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:animate-pulse transition-transform">
-                <ICONS.Activity className="w-5 h-5 text-sky-500" />
-              </div>
-              <span className={`text-[10px] font-bold uppercase ${latestHR ? 'text-emerald-500' : 'text-slate-300'}`}>
-                {latestHR ? 'Normal' : 'No data'}
-              </span>
-            </div>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Heart Rate</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white tabular-nums mt-1">
-              {latestHR?.value1 || '--'}
+          {/* Status Info */}
+          <div className="flex-1 text-center lg:text-left">
+            <h2 className="text-2xl md:text-3xl font-black text-white mb-3">
+              Health Overview
+            </h2>
+            <p className="text-white/60 text-lg mb-6 max-w-md">
+              {healthStatus.message}
             </p>
-            <p className="text-slate-400 text-xs">bpm</p>
-          </div>
 
-          {/* Weight */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 hover:shadow-lg hover:border-purple-200 dark:hover:border-purple-500/30 transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <ICONS.Scale className="w-5 h-5 text-purple-500" />
+            {/* Quick Stats Pills */}
+            <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
+              <div className="glass rounded-2xl px-4 py-3 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center">
+                  <span className="text-xl">💧</span>
+                </div>
+                <div>
+                  <p className="text-white/50 text-xs font-medium">Hydration</p>
+                  <p className="text-white font-bold">{fluidPercentage}%</p>
+                </div>
               </div>
-              <span className={`text-[10px] font-bold tabular-nums ${
-                parseFloat(weightChange) > 1 ? 'text-amber-500' : parseFloat(weightChange) < -1 ? 'text-sky-500' : 'text-emerald-500'
-              }`}>
-                {parseFloat(weightChange) > 0 ? '+' : ''}{weightChange} kg
-              </span>
-            </div>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Weight</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white tabular-nums mt-1">{currentWeight}</p>
-            <p className="text-slate-400 text-xs">kg</p>
-          </div>
-
-          {/* Temperature / O2 */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 hover:shadow-lg hover:border-amber-200 dark:hover:border-amber-500/30 transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <ICONS.Vitals className="w-5 h-5 text-amber-500" />
+              <div className="glass rounded-2xl px-4 py-3 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <span className="text-xl">⚖️</span>
+                </div>
+                <div>
+                  <p className="text-white/50 text-xs font-medium">Weight</p>
+                  <p className="text-white font-bold">{currentWeight} kg</p>
+                </div>
               </div>
-              <span className="text-[10px] font-bold uppercase text-emerald-500">Normal</span>
+              <div className="glass rounded-2xl px-4 py-3 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center">
+                  <span className="text-xl">❤️</span>
+                </div>
+                <div>
+                  <p className="text-white/50 text-xs font-medium">Sessions</p>
+                  <p className="text-white font-bold">{sessionStats?.thisWeek || 0}/wk</p>
+                </div>
+              </div>
             </div>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Temperature</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white tabular-nums mt-1">
-              {latestTemp?.value1 || '36.5'}
-            </p>
-            <p className="text-slate-400 text-xs">°C</p>
           </div>
         </div>
+      </div>
 
-        {/* Dry Weight Tracker */}
-        <div className="col-span-12 lg:col-span-4">
-          <DryWeightTracker
-            currentWeight={currentWeight || 70}
-            dryWeight={dryWeight || 70}
-            previousWeight={weights[1]?.value}
-            trend={weightTrend as 'up' | 'down' | 'stable' | undefined}
-          />
-        </div>
-
-        {/* Fluid Tracker */}
-        <div className="col-span-12 lg:col-span-8 bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Today's Hydration</p>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">{todayFluid}</span>
-                <span className="text-slate-400 font-medium">/ {dailyFluidLimit} ml</span>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className={`text-3xl font-black tabular-nums ${
-                fluidPercentage >= 100 ? 'text-rose-500' : fluidPercentage > 80 ? 'text-amber-500' : 'text-emerald-500'
-              }`}>
-                {fluidPercentage}%
-              </p>
-              <p className="text-slate-400 text-sm">{fluidRemaining} ml remaining</p>
-            </div>
-          </div>
-
-          {/* Animated Progress Bar */}
-          <div className="h-4 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mb-6">
+      {/* Alerts Section */}
+      {alerts.length > 0 && (
+        <div className="space-y-3">
+          {alerts.map((alert, i) => (
             <div
-              className={`h-full rounded-full transition-all duration-1000 ease-out relative overflow-hidden ${
-                fluidPercentage >= 100 ? 'bg-rose-500' : fluidPercentage > 80 ? 'bg-amber-500' : 'bg-gradient-to-r from-sky-400 to-sky-500'
+              key={i}
+              className={`rounded-2xl p-4 flex items-center gap-4 animate-in slide-in-from-top duration-500 ${
+                alert.type === 'warning' ? 'bg-amber-500/10 border border-amber-500/20' :
+                alert.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/20' :
+                'bg-sky-500/10 border border-sky-500/20'
               }`}
-              style={{ width: `${Math.min(fluidPercentage, 100)}%` }}
+              style={{ animationDelay: `${i * 100}ms` }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                alert.type === 'warning' ? 'bg-amber-500/20' :
+                alert.type === 'success' ? 'bg-emerald-500/20' :
+                'bg-sky-500/20'
+              }`}>
+                <span className="text-xl">
+                  {alert.type === 'warning' ? '⚠️' : alert.type === 'success' ? '✨' : 'ℹ️'}
+                </span>
+              </div>
+              <p className={`flex-1 font-medium ${
+                alert.type === 'warning' ? 'text-amber-700 dark:text-amber-300' :
+                alert.type === 'success' ? 'text-emerald-700 dark:text-emerald-300' :
+                'text-sky-700 dark:text-sky-300'
+              }`}>
+                {alert.message}
+              </p>
+              {alert.action && (
+                <button className={`text-sm font-bold ${
+                  alert.type === 'warning' ? 'text-amber-500' :
+                  alert.type === 'success' ? 'text-emerald-500' :
+                  'text-sky-500'
+                } hover:underline`}>
+                  {alert.action}
+                </button>
+              )}
             </div>
-          </div>
+          ))}
+        </div>
+      )}
 
-          {/* Hourly Chart */}
-          <div className="h-32 mb-4">
-            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
-              <BarChart data={fluidHourlyData.slice(6, 22)} barSize={12}>
-                <XAxis
-                  dataKey="label"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#94a3b8', fontSize: 10 }}
-                  interval={2}
-                />
-                <Tooltip
-                  contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }}
-                  formatter={(value: number) => [`${value} ml`, 'Intake']}
-                />
-                <Bar dataKey="amount" fill="#0EA5E9" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+      {/* Vitals Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Blood Pressure */}
+        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[1.5rem] p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-rose-500/20">
+              <ICONS.Activity className="w-6 h-6 text-white" />
+            </div>
+            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
+              latestBP && (latestBP.systolic <= 120 && latestBP.diastolic <= 80)
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : latestBP && (latestBP.systolic <= 140 && latestBP.diastolic <= 90)
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
+            }`}>
+              {latestBP ? (latestBP.systolic <= 120 ? 'Normal' : 'Elevated') : 'No data'}
+            </span>
           </div>
-
-          {/* Quick Add */}
-          <div className="flex gap-2">
-            {[100, 150, 200, 250, 500].map(v => (
-              <button
-                key={v}
-                onClick={() => handleQuickFluid(v)}
-                className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-sky-500 hover:text-white active:scale-95 transition-all"
-              >
-                +{v}
-              </button>
-            ))}
+          <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Blood Pressure</p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+              {latestBP?.systolic || '--'}
+            </span>
+            <span className="text-slate-400 text-lg">/</span>
+            <span className="text-xl font-bold text-slate-600 dark:text-slate-300 tabular-nums">
+              {latestBP?.diastolic || '--'}
+            </span>
           </div>
+          <p className="text-slate-400 text-xs mt-1">mmHg</p>
         </div>
 
-        {/* Session Stats */}
-        <div className="col-span-12 lg:col-span-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-sky-500/10 rounded-full blur-3xl" />
+        {/* Heart Rate */}
+        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[1.5rem] p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 flex items-center justify-center group-hover:scale-110 group-hover:animate-pulse transition-transform shadow-lg shadow-sky-500/20">
+              <span className="text-xl">💓</span>
+            </div>
+            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
+              latestHR && latestHR >= 60 && latestHR <= 100
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
+            }`}>
+              {latestHR ? 'Normal' : 'No data'}
+            </span>
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Heart Rate</p>
+          <p className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+            {latestHR || '--'}
+          </p>
+          <p className="text-slate-400 text-xs mt-1">bpm</p>
+        </div>
 
-          <div className="relative">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center">
-                <ICONS.Activity className="w-7 h-7 text-sky-400" />
-              </div>
+        {/* Temperature */}
+        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[1.5rem] p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-amber-500/20">
+              <span className="text-xl">🌡️</span>
+            </div>
+            <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              Normal
+            </span>
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Temperature</p>
+          <p className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+            {latestTemp}
+          </p>
+          <p className="text-slate-400 text-xs mt-1">°C</p>
+        </div>
+
+        {/* Oxygen */}
+        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[1.5rem] p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-violet-500/20">
+              <span className="text-xl">🫁</span>
+            </div>
+            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
+              latestO2 >= 95 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600'
+            }`}>
+              {latestO2 >= 95 ? 'Normal' : 'Low'}
+            </span>
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Oxygen</p>
+          <p className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+            {latestO2}
+          </p>
+          <p className="text-slate-400 text-xs mt-1">% SpO2</p>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* Hydration Card */}
+        <div className="col-span-12 lg:col-span-5 bg-gradient-to-br from-sky-500 via-cyan-500 to-teal-500 rounded-[2rem] p-6 relative overflow-hidden">
+          {/* Wave Effect */}
+          <div className="absolute bottom-0 left-0 right-0 h-24 overflow-hidden">
+            <svg className="absolute bottom-0 w-[200%] animate-wave" viewBox="0 0 1200 120" preserveAspectRatio="none">
+              <path d="M0,60 C150,120 350,0 600,60 C850,120 1050,0 1200,60 L1200,120 L0,120 Z" fill="rgba(255,255,255,0.1)" />
+            </svg>
+          </div>
+
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <p className="text-white/40 text-xs font-bold uppercase tracking-wider">Session Stats</p>
-                <p className="text-2xl font-black">{sessionStats?.totalCompleted || 0} Total</p>
+                <p className="text-white/60 text-xs font-bold uppercase tracking-wider">Today's Hydration</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-4xl font-black text-white tabular-nums">{todayFluid}</span>
+                  <span className="text-white/60 font-medium">/ {dailyFluidLimit} ml</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className={`text-4xl font-black tabular-nums ${
+                  fluidPercentage >= 100 ? 'text-rose-200' : 'text-white'
+                }`}>
+                  {fluidPercentage}%
+                </div>
+                <p className="text-white/60 text-sm">{fluidRemaining} ml left</p>
               </div>
             </div>
 
-            <div className="space-y-4">
-              {[
-                { label: 'This Week', value: `${sessionStats?.thisWeek || 0} sessions`, icon: '📅' },
-                { label: 'This Month', value: `${sessionStats?.thisMonth || 0} sessions`, icon: '📆' },
-                { label: 'Avg Duration', value: sessionStats?.averageDuration ? `${Math.round(sessionStats.averageDuration / 60)}h ${sessionStats.averageDuration % 60}m` : '--', icon: '⏱️' },
-                { label: 'Avg UF', value: sessionStats?.averageUf ? `${(sessionStats.averageUf / 1000).toFixed(1)} L` : '--', icon: '💧' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-white/10 last:border-b-0">
-                  <span className="text-white/50 text-sm flex items-center gap-2">
-                    <span>{item.icon}</span> {item.label}
-                  </span>
-                  <span className="font-bold">{item.value}</span>
+            {/* Progress Ring */}
+            <div className="flex justify-center mb-6">
+              <div className="relative w-32 h-32">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="10" />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray={`${fluidPercentage * 3.14} 314`}
+                    className="transition-all duration-1000"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-4xl">💧</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Hourly Mini Chart */}
+            <div className="flex items-end justify-between gap-1 h-12 mb-6 px-2">
+              {fluidHourlyData.map((h, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div
+                    className="w-full bg-white/30 rounded-t transition-all hover:bg-white/50"
+                    style={{ height: `${Math.max(4, (h.amount / 500) * 40)}px` }}
+                  />
                 </div>
               ))}
             </div>
 
-            <Link
-              to="/sessions"
-              className="mt-6 w-full py-3 bg-white/10 backdrop-blur rounded-xl font-bold text-sm text-center block hover:bg-white/20 transition-all"
-            >
-              {sessionStats?.recentSessions?.length ? 'View All Sessions' : 'Start First Session'}
-            </Link>
+            {/* Quick Add Buttons */}
+            <div className="grid grid-cols-5 gap-2">
+              {[100, 150, 200, 250, 500].map(v => (
+                <button
+                  key={v}
+                  onClick={() => handleQuickFluid(v)}
+                  disabled={activeQuickAdd !== null}
+                  className={`py-3 bg-white/20 backdrop-blur rounded-xl text-white font-bold text-sm hover:bg-white/30 active:scale-95 transition-all ${
+                    activeQuickAdd === v ? 'bg-white/40 scale-95' : ''
+                  }`}
+                >
+                  +{v}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Weight Trend Chart */}
-        <div className="col-span-12 lg:col-span-6 bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Weight Trend</h3>
-              <p className="text-slate-400 text-sm">Last 7 days</p>
+        {/* Weight & Session Column */}
+        <div className="col-span-12 lg:col-span-7 space-y-6">
+          {/* Weight Card */}
+          <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[2rem] p-6 border border-slate-200/50 dark:border-slate-700/50">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">Weight Trend</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">Last 7 days</p>
+              </div>
+              <Link to="/weight" className="text-purple-500 text-sm font-bold hover:underline">View All</Link>
             </div>
-            <Link to="/weight" className="text-sky-500 text-sm font-bold hover:underline">View All</Link>
-          </div>
 
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
-              <AreaChart data={weightData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <div className="flex items-center gap-8 mb-4">
+              <div>
+                <p className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">{currentWeight}</p>
+                <p className="text-slate-400 text-sm">kg current</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  weightChange <= 0 ? 'bg-emerald-500/10' : 'bg-amber-500/10'
+                }`}>
+                  <svg className={`w-5 h-5 ${weightChange <= 0 ? 'text-emerald-500' : 'text-amber-500'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <path strokeLinecap="round" strokeLinejoin="round" d={weightChange <= 0 ? 'M19 14l-7 7m0 0l-7-7m7 7V3' : 'M5 10l7-7m0 0l7 7m-7-7v18'} />
+                  </svg>
+                </div>
+                <div>
+                  <p className={`font-bold ${weightChange <= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                    {weightChange > 0 ? '+' : ''}{weightChange.toFixed(1)} kg
+                  </p>
+                  <p className="text-slate-400 text-xs">vs last</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                  <span className="text-lg">🎯</span>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900 dark:text-white">{dryWeight} kg</p>
+                  <p className="text-slate-400 text-xs">target</p>
+                </div>
+              </div>
+            </div>
+
+            {/* SVG Chart */}
+            <div className="h-28">
+              <svg viewBox="0 0 300 100" className="w-full h-full" preserveAspectRatio="none">
                 <defs>
-                  <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.3}/>
-                    <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0}/>
+                  <linearGradient id="weightGradientDash" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} domain={['dataMin - 1', 'dataMax + 1']} width={35} />
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }} />
-                <Line type="monotone" dataKey="goal" stroke="#94a3b8" strokeDasharray="5 5" strokeWidth={2} dot={false} />
-                <Area type="monotone" dataKey="weight" stroke="#8B5CF6" strokeWidth={3} fill="url(#weightGradient)" dot={{ r: 4, fill: '#fff', strokeWidth: 2, stroke: '#8B5CF6' }} />
-              </AreaChart>
-            </ResponsiveContainer>
+                <path d={weightChartPath.area} fill="url(#weightGradientDash)" />
+                <path d={weightChartPath.line} fill="none" stroke="#8b5cf6" strokeWidth="3" strokeLinecap="round" />
+                {weightChartPath.points.map((p, i) => (
+                  <circle key={i} cx={p.x} cy={p.y} r="4" fill="#8b5cf6" stroke="white" strokeWidth="2" />
+                ))}
+              </svg>
+            </div>
+          </div>
+
+          {/* Session Insights */}
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[2rem] p-6 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-violet-500/20 rounded-full blur-[60px]" />
+
+            <div className="relative z-10">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center">
+                  <span className="text-2xl">🩺</span>
+                </div>
+                <div>
+                  <p className="text-white/50 text-xs font-bold uppercase tracking-wider">Dialysis Sessions</p>
+                  <p className="text-2xl font-black">{sessionStats?.totalCompleted || 0} Total</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { label: 'This Week', value: sessionStats?.thisWeek || 0, unit: 'sessions', icon: '📅' },
+                  { label: 'This Month', value: sessionStats?.thisMonth || 0, unit: 'sessions', icon: '📆' },
+                  { label: 'Avg Duration', value: sessionStats?.averageDuration ? `${Math.floor(sessionStats.averageDuration / 60)}h ${sessionStats.averageDuration % 60}m` : '--', icon: '⏱️' },
+                  { label: 'Avg UF', value: sessionStats?.averageUf ? `${(sessionStats.averageUf / 1000).toFixed(1)}L` : '--', icon: '💧' },
+                ].map((stat, i) => (
+                  <div key={i} className="bg-white/5 backdrop-blur rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">{stat.icon}</span>
+                      <span className="text-white/50 text-xs font-medium">{stat.label}</span>
+                    </div>
+                    <p className="text-xl font-black">
+                      {typeof stat.value === 'number' ? stat.value : stat.value}
+                      {stat.unit && <span className="text-sm text-white/50 ml-1">{stat.unit}</span>}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <Link
+                to="/sessions"
+                className="mt-6 w-full py-3.5 bg-white/10 backdrop-blur rounded-xl font-bold text-center block hover:bg-white/20 transition-all"
+              >
+                View All Sessions
+              </Link>
+            </div>
           </div>
         </div>
 
         {/* Nutrition Summary */}
-        <div className="col-span-12 lg:col-span-6 bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700">
+        <div className="col-span-12 bg-white dark:bg-slate-800/50 glass-light rounded-[2rem] p-6 border border-slate-200/50 dark:border-slate-700/50">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Nutrition Today</h3>
-              <p className="text-slate-400 text-sm">Key nutrients tracked</p>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">Today's Nutrition</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">Key nutrients tracked</p>
             </div>
-            <Link to="/nutriscan" className="text-emerald-500 text-sm font-bold hover:underline">Add Meal</Link>
+            <Link to="/nutri-scan" className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors">
+              + Scan Food
+            </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Sodium', value: nutritionTotals.sodium, limit: 2000, unit: 'mg', color: 'sky', icon: '🧂' },
               { label: 'Potassium', value: nutritionTotals.potassium, limit: 3000, unit: 'mg', color: 'orange', icon: '🍌' },
@@ -475,14 +740,24 @@ const Dashboard: React.FC = () => {
             ].map((n, i) => {
               const percent = Math.min((n.value / n.limit) * 100, 100);
               return (
-                <div key={i} className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-lg">{n.icon}</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">/{n.limit}{n.unit}</span>
+                <div key={i} className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl p-4 hover:shadow-lg transition-shadow">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-2xl">{n.icon}</span>
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{n.label}</span>
                   </div>
-                  <p className="text-xl font-black text-slate-900 dark:text-white tabular-nums">{n.value}<span className="text-sm text-slate-400 ml-1">{n.unit}</span></p>
-                  <div className="h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full mt-2 overflow-hidden">
-                    <div className={`h-full rounded-full bg-${n.color}-500 transition-all duration-700`} style={{ width: `${percent}%` }} />
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">{n.value}</span>
+                    <span className="text-slate-400 text-sm">/ {n.limit}{n.unit}</span>
+                  </div>
+                  <div className="h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-1000 ${
+                        n.color === 'sky' ? 'bg-sky-500' :
+                        n.color === 'orange' ? 'bg-orange-500' :
+                        n.color === 'purple' ? 'bg-purple-500' : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${percent}%` }}
+                    />
                   </div>
                 </div>
               );
@@ -491,35 +766,25 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="col-span-12 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="col-span-12 grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { to: '/fluid', icon: ICONS.Droplet, label: 'Fluid Log', desc: 'Track intake', color: 'from-sky-500 to-sky-600' },
-            { to: '/weight', icon: ICONS.Scale, label: 'Weight', desc: 'Log weight', color: 'from-purple-500 to-purple-600' },
-            { to: '/vitals', icon: ICONS.Vitals, label: 'Vitals', desc: 'BP & pulse', color: 'from-rose-500 to-rose-600' },
-            { to: '/nutriscan', icon: ICONS.Camera, label: 'NutriScan', desc: 'Scan food', color: 'from-emerald-500 to-emerald-600' },
+            { to: '/fluid', icon: '💧', label: 'Fluid Log', desc: 'Track hydration', gradient: 'from-sky-500 to-cyan-500' },
+            { to: '/weight', icon: '⚖️', label: 'Weight', desc: 'Log weight', gradient: 'from-purple-500 to-violet-500' },
+            { to: '/vitals', icon: '❤️', label: 'Vitals', desc: 'BP & pulse', gradient: 'from-rose-500 to-pink-500' },
+            { to: '/symptoms', icon: '🩺', label: 'Symptoms', desc: 'Track how you feel', gradient: 'from-amber-500 to-orange-500' },
           ].map((item, i) => (
             <Link
               key={i}
               to={item.to}
-              className={`bg-gradient-to-br ${item.color} text-white rounded-2xl p-5 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 group`}
+              className={`bg-gradient-to-br ${item.gradient} text-white rounded-2xl p-6 hover:shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 group`}
             >
-              <item.icon className="w-8 h-8 mb-3 group-hover:scale-110 transition-transform" />
-              <p className="font-bold">{item.label}</p>
+              <span className="text-4xl block mb-3 group-hover:scale-110 transition-transform">{item.icon}</span>
+              <p className="font-bold text-lg">{item.label}</p>
               <p className="text-white/70 text-sm">{item.desc}</p>
             </Link>
           ))}
         </div>
       </div>
-
-      <style>{`
-        @keyframes shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-        .animate-shimmer {
-          animation: shimmer 2s infinite;
-        }
-      `}</style>
     </div>
   );
 };
