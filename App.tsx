@@ -20,6 +20,7 @@ import SubscriptionDetail from './pages/SubscriptionDetail';
 import Reports from './pages/Reports';
 import NutritionScan from './pages/NutritionScan';
 import Symptoms from './pages/Symptoms';
+import Reminders from './pages/Reminders';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -90,6 +91,14 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <Layout><SEO title="Symptom Tracker" /><Symptoms /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reminders"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Reminders" /><Reminders /></Layout>
               </ProtectedRoute>
             }
           />

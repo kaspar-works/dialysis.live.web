@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ICONS } from '../constants';
 import {
   getCurrentSubscription,
@@ -12,13 +12,10 @@ import {
   PlanType,
   UsageItem,
   getPlanDisplayName,
-  featureDisplayNames,
-  resourceDisplayNames,
-  planHasFeature,
+  PLAN_CONFIGS,
 } from '../services/subscription';
 
 const Subscription: React.FC = () => {
-  const navigate = useNavigate();
   const [isYearly, setIsYearly] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionType | null>(null);
   const [usage, setUsage] = useState<UsageData | null>(null);
@@ -26,6 +23,7 @@ const Subscription: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpgrading, setIsUpgrading] = useState<PlanType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'plans'>('overview');
 
   useEffect(() => {
     fetchData();
@@ -53,12 +51,10 @@ const Subscription: React.FC = () => {
 
   const handleUpgrade = async (plan: PlanType) => {
     if (!subscription || subscription.plan === plan) return;
-
     setIsUpgrading(plan);
     try {
       const updated = await updateSubscription(plan);
       setSubscription(updated);
-      // Refresh usage after plan change
       const newUsage = await getUsageStats();
       setUsage(newUsage);
     } catch (err) {
@@ -70,49 +66,65 @@ const Subscription: React.FC = () => {
   };
 
   const getPlanIcon = (plan: PlanType) => {
-    const icons: Record<PlanType, string> = {
-      free: '🎯',
-      basic: '⚡',
-      premium: '✨',
+    const icons: Record<PlanType, string> = { free: '🎯', basic: '⚡', premium: '👑' };
+    return icons[plan] || '📦';
+  };
+
+  const getPlanGradient = (plan: PlanType) => {
+    const gradients: Record<PlanType, string> = {
+      free: 'from-slate-500 to-slate-600',
+      basic: 'from-sky-500 to-blue-600',
+      premium: 'from-amber-500 via-orange-500 to-rose-500',
     };
-    return icons[plan];
+    return gradients[plan] || 'from-slate-500 to-slate-600';
   };
 
-  const getPlanPrice = (plan: PlanInfo) => {
-    return isYearly ? plan.price.yearly : plan.price.monthly;
-  };
-
-  const UsageBar: React.FC<{ label: string; usage: UsageItem }> = ({ label, usage }) => {
-    if (usage.unlimited) {
-      return (
-        <div className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
-          <span className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</span>
-          <span className="text-sm font-bold text-emerald-500">Unlimited</span>
-        </div>
-      );
-    }
-
-    const isNearLimit = usage.percentUsed >= 80;
-    const isAtLimit = usage.percentUsed >= 100;
+  const UsageCard: React.FC<{ label: string; usage: UsageItem; icon: React.ReactNode }> = ({ label, usage, icon }) => {
+    const isUnlimited = usage.unlimited;
+    const isNearLimit = !isUnlimited && usage.percentUsed >= 80;
+    const isAtLimit = !isUnlimited && usage.percentUsed >= 100;
 
     return (
-      <div className="py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</span>
-          <span className={`text-sm font-bold ${isAtLimit ? 'text-rose-500' : isNearLimit ? 'text-amber-500' : 'text-slate-900 dark:text-white'}`}>
-            {usage.current} / {usage.limit}
-          </span>
+      <div className={`relative p-4 rounded-2xl border transition-all ${
+        isAtLimit
+          ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30'
+          : isNearLimit
+          ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30'
+          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+      }`}>
+        <div className="flex items-start justify-between mb-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+            isAtLimit ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-600' :
+            isNearLimit ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600' :
+            'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+          }`}>
+            {icon}
+          </div>
+          {isUnlimited && (
+            <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold rounded-full">
+              Unlimited
+            </span>
+          )}
         </div>
-        <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${
-              isAtLimit ? 'bg-rose-500' : isNearLimit ? 'bg-amber-500' : 'bg-emerald-500'
-            }`}
-            style={{ width: `${Math.min(usage.percentUsed, 100)}%` }}
-          />
-        </div>
-        {isAtLimit && (
-          <p className="text-xs text-rose-500 mt-1 font-medium">Limit reached - upgrade to add more</p>
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{label}</p>
+        {isUnlimited ? (
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">∞</p>
+        ) : (
+          <>
+            <p className={`text-2xl font-black ${
+              isAtLimit ? 'text-rose-600' : isNearLimit ? 'text-amber-600' : 'text-slate-900 dark:text-white'
+            }`}>
+              {usage.current}<span className="text-sm font-medium text-slate-400">/{usage.limit}</span>
+            </p>
+            <div className="mt-3 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  isAtLimit ? 'bg-rose-500' : isNearLimit ? 'bg-amber-500' : 'bg-emerald-500'
+                }`}
+                style={{ width: `${Math.min(usage.percentUsed, 100)}%` }}
+              />
+            </div>
+          </>
         )}
       </div>
     );
@@ -133,10 +145,10 @@ const Subscription: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-24 px-4 animate-in fade-in duration-500">
+    <div className="max-w-5xl mx-auto pb-24 px-4 animate-in fade-in duration-500">
       {/* Error Display */}
       {error && (
-        <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 flex items-center justify-between">
+        <div className="mb-6 bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 flex items-center justify-between">
           <p className="text-rose-500 font-medium">{error}</p>
           <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-600">
             <ICONS.X className="w-5 h-5" />
@@ -144,195 +156,388 @@ const Subscription: React.FC = () => {
         </div>
       )}
 
-      {/* Current Plan Card */}
+      {/* Hero Section */}
       {subscription && (
-        <div className="bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-600 rounded-[2rem] p-8 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+        <div className={`relative rounded-[2rem] p-8 md:p-10 mb-8 overflow-hidden bg-gradient-to-br ${getPlanGradient(subscription.plan)}`}>
+          {/* Background decoration */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-black/10 rounded-full blur-3xl" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/5 rounded-full blur-3xl" />
+          </div>
 
           <div className="relative z-10">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-4xl">{getPlanIcon(subscription.plan)}</span>
-                  <div>
-                    <p className="text-white/60 text-sm font-medium">Current Plan</p>
-                    <h2 className="text-3xl font-black">{getPlanDisplayName(subscription.plan)}</h2>
-                  </div>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-4xl">
+                  {getPlanIcon(subscription.plan)}
                 </div>
-                <div className="flex items-center gap-2 mt-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    subscription.status === 'active' ? 'bg-emerald-400/20 text-emerald-200' : 'bg-amber-400/20 text-amber-200'
-                  }`}>
-                    {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
-                  </span>
+                <div>
+                  <p className="text-white/70 text-sm font-medium mb-1">Your Plan</p>
+                  <h1 className="text-4xl md:text-5xl font-black text-white">{getPlanDisplayName(subscription.plan)}</h1>
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${
+                      subscription.status === 'active'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-amber-400/30 text-amber-100'
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full ${subscription.status === 'active' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                      {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {subscription.plan !== 'premium' && (
-                <button
-                  onClick={() => handleUpgrade('premium')}
-                  disabled={isUpgrading !== null}
-                  className="px-8 py-4 bg-white text-sky-600 rounded-2xl font-bold hover:scale-105 transition-transform disabled:opacity-50"
+              <div className="flex flex-col sm:flex-row gap-3">
+                {subscription.plan !== 'premium' && (
+                  <button
+                    onClick={() => setActiveTab('plans')}
+                    className="px-6 py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-white/90 transition-all shadow-lg"
+                  >
+                    Upgrade Plan
+                  </button>
+                )}
+                <Link
+                  to="/pricing"
+                  className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl font-bold hover:bg-white/30 transition-all text-center"
                 >
-                  {isUpgrading === 'premium' ? 'Upgrading...' : 'Upgrade to Premium'}
-                </button>
-              )}
+                  Compare Plans
+                </Link>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Usage Stats */}
-      {usage && (
-        <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 border border-slate-100 dark:border-slate-700">
-          <h3 className="text-xl font-black text-slate-900 dark:text-white mb-6">Usage</h3>
-          <div className="grid md:grid-cols-2 gap-x-8">
-            <UsageBar label={resourceDisplayNames.sessions} usage={usage.usage.sessions} />
-            <UsageBar label={resourceDisplayNames.weightLogs} usage={usage.usage.weightLogs} />
-            <UsageBar label={resourceDisplayNames.fluidLogs} usage={usage.usage.fluidLogs} />
-            <UsageBar label={resourceDisplayNames.vitalRecords} usage={usage.usage.vitalRecords} />
-            <UsageBar label={resourceDisplayNames.symptomLogs} usage={usage.usage.symptomLogs} />
-            <UsageBar label={resourceDisplayNames.medications} usage={usage.usage.medications} />
-            <UsageBar label={resourceDisplayNames.mealLogs} usage={usage.usage.mealLogs} />
-            <UsageBar label={resourceDisplayNames.aiRequests} usage={usage.usage.aiRequests} />
-          </div>
-        </div>
-      )}
-
-      {/* Features */}
-      {subscription && (
-        <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 border border-slate-100 dark:border-slate-700">
-          <h3 className="text-xl font-black text-slate-900 dark:text-white mb-6">Features</h3>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(subscription.features).map(([key, enabled]) => (
-              <div
-                key={key}
-                className={`flex items-center gap-3 p-4 rounded-xl ${
-                  enabled ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-slate-50 dark:bg-slate-900'
-                }`}
-              >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  enabled ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'
-                }`}>
-                  {enabled ? (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  )}
-                </div>
-                <span className={`text-sm font-medium ${enabled ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
-                  {featureDisplayNames[key as keyof typeof featureDisplayNames] || key}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Plans Header */}
-      <div className="text-center space-y-4 pt-8">
-        <h2 className="text-3xl font-black text-slate-900 dark:text-white">All Plans</h2>
-        <p className="text-slate-500 dark:text-slate-400">Choose the plan that fits your needs</p>
-
-        {/* Billing Toggle */}
-        <div className="inline-flex items-center gap-4 p-2 bg-slate-100 dark:bg-slate-800 rounded-full">
-          <button
-            onClick={() => setIsYearly(false)}
-            className={`px-6 py-3 rounded-full text-sm font-bold transition-all ${
-              !isYearly ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow' : 'text-slate-500'
-            }`}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => setIsYearly(true)}
-            className={`px-6 py-3 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${
-              isYearly ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow' : 'text-slate-500'
-            }`}
-          >
-            Yearly
-            <span className="px-2 py-0.5 bg-emerald-500 text-white text-xs rounded-full">-17%</span>
-          </button>
-        </div>
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-2 mb-8 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === 'overview'
+              ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('plans')}
+          className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === 'plans'
+              ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          Change Plan
+        </button>
       </div>
 
-      {/* Plans Grid */}
-      <div className="grid md:grid-cols-3 gap-6">
-        {plans.map((plan) => {
-          const isCurrent = subscription?.plan === plan.id;
-          const isPremium = plan.id === 'premium';
-
-          return (
-            <div
-              key={plan.id}
-              className={`relative rounded-3xl p-6 transition-all ${
-                isPremium
-                  ? 'bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 border-2 border-emerald-500/50 dark:border-emerald-500/30'
-                  : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
-              } ${isCurrent ? 'ring-2 ring-sky-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
-            >
-              {isPremium && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-emerald-500 rounded-full text-xs font-bold text-white">
-                  Popular
-                </div>
-              )}
-
-              {isCurrent && (
-                <div className="absolute -top-3 right-4 px-3 py-1 bg-sky-500 rounded-full text-xs font-bold text-white">
-                  Current
-                </div>
-              )}
-
-              <div className="text-center mb-6">
-                <div className="text-3xl mb-2">{getPlanIcon(plan.id)}</div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">{plan.name}</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{plan.description}</p>
+      {activeTab === 'overview' ? (
+        <div className="space-y-8">
+          {/* Usage Stats */}
+          {usage && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Usage This Month</h2>
+                <span className="text-sm text-slate-500">Resets monthly</span>
               </div>
-
-              <div className="text-center mb-6">
-                <div className="flex items-baseline justify-center gap-1">
-                  <span className="text-4xl font-black text-slate-900 dark:text-white">
-                    ${getPlanPrice(plan)}
-                  </span>
-                  {plan.price.monthly > 0 && (
-                    <span className="text-slate-400 text-sm">/{isYearly ? 'yr' : 'mo'}</span>
-                  )}
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <UsageCard
+                  label="Sessions"
+                  usage={usage.usage.sessions}
+                  icon={<ICONS.Activity className="w-5 h-5" />}
+                />
+                <UsageCard
+                  label="Medications"
+                  usage={usage.usage.medications}
+                  icon={<ICONS.Heart className="w-5 h-5" />}
+                />
+                <UsageCard
+                  label="AI Requests"
+                  usage={usage.usage.aiRequests}
+                  icon={<ICONS.Zap className="w-5 h-5" />}
+                />
+                <UsageCard
+                  label="Meal Logs"
+                  usage={usage.usage.mealLogs}
+                  icon={<ICONS.Calendar className="w-5 h-5" />}
+                />
               </div>
+            </div>
+          )}
 
-              <div className="space-y-2 mb-6 text-sm">
-                {(plan.includes || []).slice(0, 6).map((item: string, idx: number) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-slate-600 dark:text-slate-400">{item}</span>
+          {/* Features Grid */}
+          {subscription && (
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Your Features</h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* AI Features */}
+                <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-purple-100 dark:bg-purple-500/20 rounded-xl flex items-center justify-center">
+                      <ICONS.Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <h3 className="font-bold text-slate-900 dark:text-white">AI Features</h3>
                   </div>
-                ))}
-              </div>
+                  <div className="space-y-3">
+                    {[
+                      { name: 'AI Health Chat', enabled: subscription.features.aiHealthAnalysis },
+                      { name: 'Nutri-Scan AI', enabled: subscription.features.nutriScanAI },
+                    ].map((feature) => (
+                      <div key={feature.name} className="flex items-center justify-between">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">{feature.name}</span>
+                        {feature.enabled ? (
+                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-sm text-slate-400">Upgrade required</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
+                {/* Export & Reports */}
+                <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-sky-100 dark:bg-sky-500/20 rounded-xl flex items-center justify-center">
+                      <ICONS.BarChart className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                    </div>
+                    <h3 className="font-bold text-slate-900 dark:text-white">Reports & Export</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { name: 'Data Export (CSV/PDF)', enabled: subscription.features.exportData },
+                      { name: 'Session History', enabled: subscription.features.sessionHistory },
+                    ].map((feature) => (
+                      <div key={feature.name} className="flex items-center justify-between">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">{feature.name}</span>
+                        {feature.enabled ? (
+                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-sm text-slate-400">Upgrade required</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Premium Features */}
+                <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-amber-100 dark:bg-amber-500/20 rounded-xl flex items-center justify-center">
+                      <span className="text-lg">👑</span>
+                    </div>
+                    <h3 className="font-bold text-slate-900 dark:text-white">Premium Features</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { name: 'Caregiver Access', enabled: subscription.features.caregiverAccess },
+                      { name: 'Family Dashboard', enabled: subscription.features.familyDashboard },
+                    ].map((feature) => (
+                      <div key={feature.name} className="flex items-center justify-between">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">{feature.name}</span>
+                        {feature.enabled ? (
+                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-sm text-slate-400">Premium only</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+                  <h3 className="font-bold text-slate-900 dark:text-white mb-4">Quick Actions</h3>
+                  <div className="space-y-2">
+                    <Link
+                      to="/settings"
+                      className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      <ICONS.Settings className="w-5 h-5 text-slate-500" />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Account Settings</span>
+                    </Link>
+                    <Link
+                      to="/reports"
+                      className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      <ICONS.BarChart className="w-5 h-5 text-slate-500" />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">View Reports</span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {/* Billing Toggle */}
+          <div className="flex justify-center">
+            <div className="inline-flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
               <button
-                onClick={() => handleUpgrade(plan.id)}
-                disabled={isCurrent || isUpgrading !== null}
-                className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${
-                  isCurrent
-                    ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-default'
-                    : isPremium
-                    ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-                    : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90'
+                onClick={() => setIsYearly(false)}
+                className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                  !isYearly ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
                 }`}
               >
-                {isUpgrading === plan.id ? 'Processing...' : isCurrent ? 'Current Plan' : `Get ${plan.name}`}
+                Monthly
+              </button>
+              <button
+                onClick={() => setIsYearly(true)}
+                className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                  isYearly ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
+                }`}
+              >
+                Yearly
+                <span className="px-2 py-0.5 bg-emerald-500 text-white text-xs font-bold rounded-full">Save 17%</span>
               </button>
             </div>
-          );
-        })}
-      </div>
+          </div>
+
+          {/* Plans Grid */}
+          <div className="grid md:grid-cols-3 gap-6">
+            {plans.map((plan) => {
+              const isCurrent = subscription?.plan === plan.id;
+              const isHighlighted = plan.highlighted || plan.id === 'premium';
+              const price = isYearly ? plan.price.yearly : plan.price.monthly;
+
+              return (
+                <div
+                  key={plan.id}
+                  className={`relative rounded-3xl transition-all ${
+                    isHighlighted
+                      ? 'bg-gradient-to-b from-amber-500/5 via-orange-500/5 to-rose-500/5 border-2 border-amber-500/30 shadow-xl shadow-amber-500/10'
+                      : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                  } ${isCurrent ? 'ring-2 ring-sky-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
+                >
+                  {isHighlighted && (
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full text-xs font-bold text-white shadow-lg">
+                      Most Popular
+                    </div>
+                  )}
+
+                  {isCurrent && (
+                    <div className="absolute -top-4 right-4 px-3 py-1.5 bg-sky-500 rounded-full text-xs font-bold text-white shadow-lg">
+                      Current
+                    </div>
+                  )}
+
+                  <div className="p-6 pt-8">
+                    {/* Plan Header */}
+                    <div className="text-center mb-6">
+                      <div className="w-14 h-14 mx-auto mb-3 bg-slate-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center text-2xl">
+                        {getPlanIcon(plan.id)}
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">{plan.name}</h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{plan.description}</p>
+                    </div>
+
+                    {/* Price */}
+                    <div className="text-center mb-6">
+                      <div className="flex items-baseline justify-center gap-1">
+                        <span className="text-5xl font-black text-slate-900 dark:text-white">
+                          ${price}
+                        </span>
+                        {price > 0 && (
+                          <span className="text-slate-400 text-sm font-medium">/{isYearly ? 'year' : 'month'}</span>
+                        )}
+                      </div>
+                      {isYearly && price > 0 && (
+                        <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mt-1">
+                          ${(price / 12).toFixed(2)}/mo billed annually
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Features */}
+                    <div className="space-y-3 mb-6">
+                      {(plan.includes || []).slice(0, 6).map((item: string, idx: number) => (
+                        <div key={idx} className="flex items-start gap-3">
+                          <div className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <svg className="w-3 h-3 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <span className="text-sm text-slate-600 dark:text-slate-400">{item}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* CTA Button */}
+                    <button
+                      onClick={() => handleUpgrade(plan.id)}
+                      disabled={isCurrent || isUpgrading !== null}
+                      className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all ${
+                        isCurrent
+                          ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-default'
+                          : isHighlighted
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-500/25'
+                          : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90'
+                      }`}
+                    >
+                      {isUpgrading === plan.id ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Processing...
+                        </span>
+                      ) : isCurrent ? (
+                        'Current Plan'
+                      ) : plan.price.monthly === 0 ? (
+                        'Downgrade'
+                      ) : (
+                        `Upgrade to ${plan.name}`
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* FAQ Section */}
+          <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 text-center">Common Questions</h2>
+            <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5">
+                <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Can I cancel anytime?</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Yes, you can cancel your subscription at any time. You'll continue to have access until the end of your billing period.</p>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5">
+                <h3 className="font-semibold text-slate-900 dark:text-white mb-2">What happens to my data?</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Your data is always yours. Even if you downgrade, your historical data is preserved based on your plan's retention limits.</p>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5">
+                <h3 className="font-semibold text-slate-900 dark:text-white mb-2">How do upgrades work?</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">When you upgrade, you get immediate access to new features. We prorate the cost based on your remaining billing period.</p>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5">
+                <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Is my payment secure?</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">We use Stripe for payment processing - the same secure platform used by millions of businesses worldwide.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
