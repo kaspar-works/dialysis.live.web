@@ -14,6 +14,21 @@ import {
   getSeverityColor,
   getSeverityIcon,
 } from '../services/alerts';
+import {
+  getUpcomingReminders,
+  Reminder,
+  REMINDER_TYPE_ICONS,
+  formatReminderTime,
+  getScheduleDescription,
+} from '../services/reminders';
+import {
+  getUpcomingAppointments,
+  Appointment,
+  APPOINTMENT_TYPE_ICONS,
+  APPOINTMENT_TYPE_LABELS,
+  formatAppointmentTime,
+  getRelativeDate,
+} from '../services/appointments';
 
 const Dashboard: React.FC = () => {
   const { weights, fluids, profile, vitals, moods, addFluid, meals } = useStore();
@@ -25,6 +40,8 @@ const Dashboard: React.FC = () => {
   const [alertCounts, setAlertCounts] = useState<AlertCounts | null>(null);
   const [hasUrgentAlerts, setHasUrgentAlerts] = useState(false);
   const [isDismissing, setIsDismissing] = useState<string | null>(null);
+  const [upcomingReminders, setUpcomingReminders] = useState<Reminder[]>([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
   const hasFetched = useRef(false);
 
   // Fetch dashboard data and alerts from API
@@ -34,10 +51,12 @@ const Dashboard: React.FC = () => {
 
     const fetchDashboard = async () => {
       try {
-        const [dashData, alertsData, healthData] = await Promise.all([
+        const [dashData, alertsData, healthData, remindersData, appointmentsData] = await Promise.all([
           getDashboard(30),
           getDashboardAlerts().catch(() => null),
           getHealthOverview().catch(() => null),
+          getUpcomingReminders(24).catch(() => []),
+          getUpcomingAppointments(7).catch(() => []),
         ]);
 
         setDashboardData(dashData);
@@ -50,6 +69,14 @@ const Dashboard: React.FC = () => {
           setApiAlerts(alertsData.alerts);
           setAlertCounts(alertsData.counts);
           setHasUrgentAlerts(alertsData.hasUrgent);
+        }
+
+        if (remindersData) {
+          setUpcomingReminders(remindersData);
+        }
+
+        if (appointmentsData) {
+          setUpcomingAppointments(appointmentsData);
         }
       } catch (err: unknown) {
         const error = err as { message?: string };
@@ -549,6 +576,89 @@ const Dashboard: React.FC = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Upcoming Reminders & Appointments */}
+      {(upcomingReminders.length > 0 || upcomingAppointments.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Reminders */}
+          {upcomingReminders.length > 0 && (
+            <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[2rem] p-6 border border-slate-200/50 dark:border-slate-700/50">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+                    <ICONS.Bell className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900 dark:text-white">Upcoming Reminders</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Next 24 hours</p>
+                  </div>
+                </div>
+                <Link to="/reminders" className="text-amber-500 text-sm font-bold hover:underline">View All</Link>
+              </div>
+              <div className="space-y-3">
+                {upcomingReminders.slice(0, 4).map((reminder) => (
+                  <div
+                    key={reminder._id}
+                    className="flex items-center gap-4 p-3 bg-slate-50 dark:bg-slate-700/30 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                  >
+                    <span className="text-2xl">{REMINDER_TYPE_ICONS[reminder.type] || '🔔'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-900 dark:text-white truncate">{reminder.title}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {formatReminderTime(reminder.time)} • {getScheduleDescription(reminder)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Appointments */}
+          {upcomingAppointments.length > 0 && (
+            <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[2rem] p-6 border border-slate-200/50 dark:border-slate-700/50">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 flex items-center justify-center">
+                    <ICONS.Calendar className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900 dark:text-white">Upcoming Appointments</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Next 7 days</p>
+                  </div>
+                </div>
+                <Link to="/appointments" className="text-sky-500 text-sm font-bold hover:underline">View All</Link>
+              </div>
+              <div className="space-y-3">
+                {upcomingAppointments.slice(0, 4).map((appointment) => (
+                  <div
+                    key={appointment._id}
+                    className="flex items-center gap-4 p-3 bg-slate-50 dark:bg-slate-700/30 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+                  >
+                    <span className="text-2xl">{APPOINTMENT_TYPE_ICONS[appointment.type] || '📅'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-900 dark:text-white truncate">{appointment.title}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {getRelativeDate(appointment.date)} at {formatAppointmentTime(appointment.startTime)}
+                      </p>
+                      {appointment.location && (
+                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{appointment.location}</p>
+                      )}
+                    </div>
+                    <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${
+                      appointment.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+                      appointment.status === 'scheduled' ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400' :
+                      'bg-slate-100 dark:bg-slate-600 text-slate-500'
+                    }`}>
+                      {appointment.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
