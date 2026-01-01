@@ -103,55 +103,55 @@ export interface SubscriptionError {
 
 /**
  * Get current user's subscription info
- * GET /api/v1/subscription/current
+ * GET /api/v1/subscriptions/current
  */
 export async function getCurrentSubscription(): Promise<Subscription> {
-  const result = await authFetch('/subscription/current');
+  const result = await authFetch('/subscriptions/current');
   return result.data.subscription;
 }
 
 /**
  * Get usage statistics for dashboard
- * GET /api/v1/subscription/usage
+ * GET /api/v1/subscriptions/usage
  */
 export async function getUsageStats(): Promise<UsageData> {
-  const result = await authFetch('/subscription/usage');
+  const result = await authFetch('/subscriptions/usage');
   return result.data;
 }
 
 /**
  * Get feature access info
- * GET /api/v1/subscription/features
+ * GET /api/v1/subscriptions/features
  */
 export async function getFeatureAccess(): Promise<SubscriptionFeatures> {
-  const result = await authFetch('/subscription/features');
+  const result = await authFetch('/subscriptions/features');
   return result.data.features;
 }
 
 /**
  * Get available plans
- * GET /api/v1/subscription/plans
+ * GET /api/v1/subscriptions/plans
  */
 export async function getPlans(): Promise<PlanInfo[]> {
-  const result = await authFetch('/subscription/plans');
+  const result = await authFetch('/subscriptions/plans');
   return result.data.plans;
 }
 
 /**
  * Get plans with feature comparison
- * GET /api/v1/subscription/plans/features
+ * GET /api/v1/subscriptions/plans/features
  */
 export async function getPlansWithComparison(): Promise<PlansResponse> {
-  const result = await authFetch('/subscription/plans/features');
+  const result = await authFetch('/subscriptions/plans/features');
   return result.data;
 }
 
 /**
  * Subscribe to a plan
- * POST /api/v1/subscription
+ * POST /api/v1/subscriptions
  */
 export async function subscribe(plan: PlanType, billingInterval: BillingInterval = 'month'): Promise<Subscription> {
-  const result = await authFetch('/subscription', {
+  const result = await authFetch('/subscriptions', {
     method: 'POST',
     body: JSON.stringify({ plan, billingInterval }),
   });
@@ -160,10 +160,10 @@ export async function subscribe(plan: PlanType, billingInterval: BillingInterval
 
 /**
  * Update/upgrade subscription
- * PATCH /api/v1/subscription
+ * PATCH /api/v1/subscriptions
  */
 export async function updateSubscription(plan: PlanType): Promise<Subscription> {
-  const result = await authFetch('/subscription', {
+  const result = await authFetch('/subscriptions', {
     method: 'PATCH',
     body: JSON.stringify({ plan }),
   });
@@ -172,11 +172,11 @@ export async function updateSubscription(plan: PlanType): Promise<Subscription> 
 
 /**
  * Cancel subscription
- * DELETE /api/v1/subscription
+ * POST /api/v1/subscriptions/cancel
  */
 export async function cancelSubscription(): Promise<void> {
-  await authFetch('/subscription', {
-    method: 'DELETE',
+  await authFetch('/subscriptions/cancel', {
+    method: 'POST',
   });
 }
 

@@ -4,15 +4,18 @@ export interface UserProfile {
   _id?: string;
   userId?: string;
   fullName: string;
-  dateOfBirth?: string;
-  gender?: 'male' | 'female' | 'other';
-  height?: number;
-  bloodType?: string;
-  diagnosisDate?: string;
-  primaryNephrologist?: string;
-  hospitalClinic?: string;
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
+  photoUrl?: string;
+  dob?: string;
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
+  dialysisModeDefault?: 'in_center' | 'home';
+  dialysisTypeDefault?: 'in_center_hd' | 'home_hd' | 'pd_capd' | 'pd_apd' | 'pre_dialysis';
+  timezone?: string;
+  units?: 'metric' | 'imperial';
+  dryWeightKg?: number;
+  heightCm?: number;
+  dialysisStartDate?: string;
+  clinicName?: string;
+  nephrologistName?: string;
   createdAt?: string;
   updatedAt?: string;
 }
