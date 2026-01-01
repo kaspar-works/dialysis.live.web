@@ -14,6 +14,7 @@ import {
   getPlanDisplayName,
   featureDisplayNames,
   resourceDisplayNames,
+  planHasFeature,
 } from '../services/subscription';
 
 const Subscription: React.FC = () => {
@@ -73,13 +74,12 @@ const Subscription: React.FC = () => {
       free: '🎯',
       basic: '⚡',
       premium: '✨',
-      family: '👨‍👩‍👧‍👦',
     };
     return icons[plan];
   };
 
   const getPlanPrice = (plan: PlanInfo) => {
-    return isYearly ? plan.price.year : plan.price.month;
+    return isYearly ? plan.price.yearly : plan.price.monthly;
   };
 
   const UsageBar: React.FC<{ label: string; usage: UsageItem }> = ({ label, usage }) => {
@@ -169,7 +169,7 @@ const Subscription: React.FC = () => {
                 </div>
               </div>
 
-              {subscription.plan !== 'premium' && subscription.plan !== 'family' && (
+              {subscription.plan !== 'premium' && (
                 <button
                   onClick={() => handleUpgrade('premium')}
                   disabled={isUpgrading !== null}
@@ -299,7 +299,7 @@ const Subscription: React.FC = () => {
                   <span className="text-4xl font-black text-slate-900 dark:text-white">
                     ${getPlanPrice(plan)}
                   </span>
-                  {plan.price.month > 0 && (
+                  {plan.price.monthly > 0 && (
                     <span className="text-slate-400 text-sm">/{isYearly ? 'yr' : 'mo'}</span>
                   )}
                 </div>
@@ -311,7 +311,7 @@ const Subscription: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                   <span className="text-slate-600 dark:text-slate-400">
-                    {plan.limits.sessions === null ? 'Unlimited' : plan.limits.sessions} Sessions
+                    {plan.limits.maxSessions === null ? 'Unlimited' : plan.limits.maxSessions} Sessions
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -319,11 +319,11 @@ const Subscription: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                   <span className="text-slate-600 dark:text-slate-400">
-                    {plan.limits.medications === null ? 'Unlimited' : plan.limits.medications} Medications
+                    {plan.limits.maxMedications === null ? 'Unlimited' : plan.limits.maxMedications} Medications
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {plan.features.aiHealthAnalysis ? (
+                  {planHasFeature(plan, 'ai_chat') ? (
                     <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
@@ -332,12 +332,12 @@ const Subscription: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   )}
-                  <span className={plan.features.aiHealthAnalysis ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 line-through'}>
+                  <span className={planHasFeature(plan, 'ai_chat') ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 line-through'}>
                     AI Features
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {plan.features.exportData ? (
+                  {planHasFeature(plan, 'export_data') ? (
                     <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
@@ -346,7 +346,7 @@ const Subscription: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   )}
-                  <span className={plan.features.exportData ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 line-through'}>
+                  <span className={planHasFeature(plan, 'export_data') ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 line-through'}>
                     Data Export
                   </span>
                 </div>

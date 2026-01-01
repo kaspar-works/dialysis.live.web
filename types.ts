@@ -46,8 +46,7 @@ export enum SymptomType {
 export enum SubscriptionPlan {
   FREE = 'Free',
   BASIC = 'Basic',
-  PREMIUM = 'Premium',
-  FAMILY = 'Family'
+  PREMIUM = 'Premium'
 }
 
 export enum SubscriptionStatus {

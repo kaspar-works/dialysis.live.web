@@ -25,19 +25,20 @@ const Pricing: React.FC = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Default plans (fallback if API fails)
+  // Default plans (fallback if API fails) - matches backend config
   const defaultPlans: Plan[] = [
     {
       name: "Free",
       price: 0,
       yearlyPrice: 0,
-      description: "Try everything with 5 entries",
+      description: "Basic tracking for individual patients",
       features: [
-        { text: "5 Dialysis Sessions", included: true },
-        { text: "5 Weight & Fluid Logs", included: true },
-        { text: "5 Vitals & Symptoms", included: true },
+        { text: "10 Dialysis Sessions", included: true },
         { text: "5 Medications", included: true },
-        { text: "All Features Unlocked", included: true },
+        { text: "Basic Dashboard", included: true },
+        { text: "90 Days Data Retention", included: true },
+        { text: "Community Support", included: true },
+        { text: "AI Features", included: false },
         { text: "Data Export", included: false },
       ],
       cta: "Start Free",
@@ -45,53 +46,40 @@ const Pricing: React.FC = () => {
     },
     {
       name: "Basic",
-      price: 5.99,
-      yearlyPrice: 59.99,
-      description: "Unlimited essential tracking",
+      price: 9.99,
+      yearlyPrice: 99.99,
+      description: "Enhanced tracking with AI features",
       features: [
-        { text: "Unlimited Sessions", included: true },
-        { text: "Unlimited Weight Logs", included: true },
-        { text: "Unlimited Fluid Logs", included: true },
-        { text: "Basic Vitals", included: true },
-        { text: "Session History", included: true },
-        { text: "AI Analysis", included: false },
+        { text: "100 Sessions/month", included: true },
+        { text: "20 Medications", included: true },
+        { text: "AI Health Chat", included: true },
+        { text: "Nutri-Scan AI", included: true },
+        { text: "PDF Reports", included: true },
+        { text: "1 Year Data Retention", included: true },
+        { text: "Email Support", included: true },
       ],
       cta: "Get Basic",
       icon: "⚡",
     },
     {
       name: "Premium",
-      price: 9.99,
-      yearlyPrice: 99.99,
-      description: "Full AI-powered health insights",
+      price: 19.99,
+      yearlyPrice: 199.99,
+      description: "Full features for serious health management",
       features: [
-        { text: "Everything in Basic", included: true },
-        { text: "Medication Tracker", included: true },
-        { text: "Symptoms & Vitals Hub", included: true },
-        { text: "AI Health Analysis", included: true },
-        { text: "Nutri-Scan AI", included: true },
-        { text: "Export PDF/CSV", included: true },
+        { text: "Unlimited Sessions", included: true },
+        { text: "Unlimited Medications", included: true },
+        { text: "All AI Features", included: true },
+        { text: "Doctor Reports", included: true },
+        { text: "3 Patient Profiles", included: true },
+        { text: "5 Caregivers", included: true },
+        { text: "Priority Support", included: true },
+        { text: "Wearable Sync", included: true },
       ],
       cta: "Get Premium",
       icon: "✨",
       popular: true,
     },
-    {
-      name: "Family",
-      price: 14.99,
-      yearlyPrice: 149.99,
-      description: "Care for the whole household",
-      features: [
-        { text: "Everything in Premium", included: true },
-        { text: "Caregiver Access", included: true },
-        { text: "Family Dashboard", included: true },
-        { text: "Shared Analytics", included: true },
-        { text: "Priority Support", included: true },
-        { text: "Custom Alerts", included: true },
-      ],
-      cta: "Get Family",
-      icon: "👨‍👩‍👧‍👦",
-    }
   ];
 
   useEffect(() => {
@@ -100,20 +88,20 @@ const Pricing: React.FC = () => {
 
   const fetchPlans = async () => {
     try {
-      const response = await fetch('/api/v1/subscription/plans');
+      const response = await fetch('/api/v1/subscriptions/plans');
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data?.plans) {
           // Transform API plans to our format
           const transformedPlans = data.data.plans.map((p: any) => ({
             name: p.name,
-            price: p.price?.month || 0,
-            yearlyPrice: p.price?.year || 0,
+            price: p.price?.monthly || 0,
+            yearlyPrice: p.price?.yearly || 0,
             description: p.description || '',
             features: transformFeatures(p),
             cta: p.id === 'free' ? 'Start Free' : `Get ${p.name}`,
             icon: getIcon(p.id),
-            popular: p.id === 'premium',
+            popular: p.highlighted || p.id === 'premium',
           }));
           setPlans(transformedPlans);
         } else {
@@ -135,7 +123,6 @@ const Pricing: React.FC = () => {
       free: '🎯',
       basic: '⚡',
       premium: '✨',
-      family: '👨‍👩‍👧‍👦',
     };
     return icons[planId] || '📦';
   };
@@ -143,37 +130,41 @@ const Pricing: React.FC = () => {
   const transformFeatures = (plan: any): PlanFeature[] => {
     const features: PlanFeature[] = [];
     const limits = plan.limits || {};
-    const feats = plan.features || {};
+    const planFeatures = plan.features || [];
 
     // Add limit-based features
-    if (limits.sessions !== undefined) {
+    if (limits.maxSessions !== undefined) {
       features.push({
-        text: limits.sessions === null ? 'Unlimited Sessions' : `${limits.sessions} Sessions`,
+        text: limits.maxSessions === null ? 'Unlimited Sessions' : `${limits.maxSessions} Sessions`,
         included: true,
       });
     }
-    if (limits.weightLogs !== undefined || limits.fluidLogs !== undefined) {
-      const wl = limits.weightLogs;
+    if (limits.maxMedications !== undefined) {
       features.push({
-        text: wl === null ? 'Unlimited Weight & Fluid Logs' : `${wl} Weight & Fluid Logs`,
-        included: true,
-      });
-    }
-    if (limits.medications !== undefined) {
-      features.push({
-        text: limits.medications === null ? 'Unlimited Medications' : `${limits.medications} Medications`,
+        text: limits.maxMedications === null ? 'Unlimited Medications' : `${limits.maxMedications} Medications`,
         included: true,
       });
     }
 
-    // Add feature-based items
-    features.push({ text: 'AI Health Analysis', included: feats.aiHealthAnalysis === true });
-    features.push({ text: 'Nutri-Scan AI', included: feats.nutriScanAI === true });
-    features.push({ text: 'Data Export', included: feats.exportData === true });
+    // Check for AI features
+    const hasAIChat = planFeatures.includes('ai_chat');
+    const hasNutriAudit = planFeatures.includes('nutri_audit');
+    const hasExport = planFeatures.includes('export_data');
+    const hasPDFReports = planFeatures.includes('pdf_reports');
+    const hasDoctorReports = planFeatures.includes('doctor_reports');
+    const hasCaregiverAccess = planFeatures.includes('caregiver_access');
+    const hasFamilySharing = planFeatures.includes('family_sharing');
+    const hasPrioritySupport = planFeatures.includes('priority_support');
 
-    if (plan.id === 'family') {
-      features.push({ text: 'Caregiver Access', included: feats.caregiverAccess === true });
-      features.push({ text: 'Family Dashboard', included: feats.familyDashboard === true });
+    features.push({ text: 'AI Health Chat', included: hasAIChat });
+    features.push({ text: 'Nutri-Scan AI', included: hasNutriAudit });
+    features.push({ text: 'PDF Reports', included: hasPDFReports });
+    features.push({ text: 'Data Export', included: hasExport });
+
+    if (plan.id === 'premium') {
+      features.push({ text: 'Doctor Reports', included: hasDoctorReports });
+      features.push({ text: 'Caregiver Access', included: hasCaregiverAccess });
+      features.push({ text: 'Priority Support', included: hasPrioritySupport });
     }
 
     return features;
@@ -280,7 +271,7 @@ const Pricing: React.FC = () => {
               <div className="w-12 h-12 border-4 border-white/20 border-t-emerald-500 rounded-full animate-spin" />
             </div>
           ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             {(plans.length > 0 ? plans : defaultPlans).map((plan, i) => (
               <div
                 key={i}

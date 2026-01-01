@@ -1,7 +1,7 @@
 import { authFetch } from './auth';
 
 // Types
-export type PlanType = 'free' | 'basic' | 'premium' | 'family';
+export type PlanType = 'free' | 'basic' | 'premium';
 export type BillingInterval = 'month' | 'year';
 export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'trialing';
 
@@ -63,21 +63,25 @@ export interface PlanInfo {
   name: string;
   description: string;
   price: {
-    month: number;
-    year: number;
+    monthly: number;
+    yearly: number;
   };
   limits: {
-    sessions: number | null;
-    weightLogs: number | null;
-    fluidLogs: number | null;
-    vitalRecords: number | null;
-    symptomLogs: number | null;
-    medications: number | null;
-    mealLogs: number | null;
-    reports: number | null;
-    aiRequests: number | null;
+    maxSessions: number | null;
+    maxMedications: number | null;
+    maxReports: number | null;
+    maxAIRequests: number | null;
+    maxProfiles: number | null;
+    maxCaregivers: number | null;
+    dataRetentionDays: number | null;
   };
-  features: SubscriptionFeatures;
+  features: string[]; // Array of feature keys from backend
+  highlighted?: boolean;
+}
+
+// Helper to check if a plan has a specific feature
+export function planHasFeature(plan: PlanInfo, feature: string): boolean {
+  return plan.features.includes(feature);
 }
 
 export interface PlansResponse {
@@ -204,7 +208,6 @@ export function getPlanDisplayName(plan: PlanType): string {
     free: 'Free',
     basic: 'Basic',
     premium: 'Premium',
-    family: 'Family',
   };
   return names[plan] || plan;
 }
@@ -217,7 +220,6 @@ export function getPlanColor(plan: PlanType): string {
     free: 'slate',
     basic: 'sky',
     premium: 'emerald',
-    family: 'violet',
   };
   return colors[plan] || 'slate';
 }
