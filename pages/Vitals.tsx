@@ -99,12 +99,14 @@ const Vitals: React.FC = () => {
     setError(null);
     try {
       const response = await getVitalRecords({ limit: 100 });
-      setRecords(response.records);
+      // Ensure records is always an array
+      setRecords(response.records || []);
     } catch (err: any) {
       if (!err?.message?.includes('Session expired')) {
         console.error('Failed to fetch vitals:', err);
         setError('Failed to load vitals');
       }
+      setRecords([]);
     } finally {
       setIsLoading(false);
     }
@@ -247,7 +249,10 @@ const Vitals: React.FC = () => {
       spo2?: { value: number; loggedAt: string };
     } = {};
 
+    if (!records || !Array.isArray(records)) return latest;
+
     for (const r of records) {
+      if (!r) continue;
       if (r.bloodPressure && !latest.bloodPressure) {
         latest.bloodPressure = { ...r.bloodPressure, loggedAt: r.loggedAt };
       }
@@ -266,11 +271,12 @@ const Vitals: React.FC = () => {
 
   // Get records filtered by vital type
   const recordsByType = useMemo(() => {
+    const safeRecords = records || [];
     return {
-      blood_pressure: records.filter(r => r.bloodPressure),
-      heart_rate: records.filter(r => r.heartRate),
-      temperature: records.filter(r => r.temperature),
-      spo2: records.filter(r => r.spo2),
+      blood_pressure: safeRecords.filter(r => r && r.bloodPressure),
+      heart_rate: safeRecords.filter(r => r && r.heartRate),
+      temperature: safeRecords.filter(r => r && r.temperature),
+      spo2: safeRecords.filter(r => r && r.spo2),
     };
   }, [records]);
 
@@ -340,12 +346,13 @@ const Vitals: React.FC = () => {
 
   // Filter records for history based on active tab
   const filteredRecords = useMemo(() => {
-    if (activeTab === 'overview') return records;
-    if (activeTab === 'blood_pressure') return records.filter(r => r.bloodPressure);
-    if (activeTab === 'heart_rate') return records.filter(r => r.heartRate);
-    if (activeTab === 'temperature') return records.filter(r => r.temperature);
-    if (activeTab === 'spo2') return records.filter(r => r.spo2);
-    return records;
+    const safeRecords = records || [];
+    if (activeTab === 'overview') return safeRecords;
+    if (activeTab === 'blood_pressure') return safeRecords.filter(r => r && r.bloodPressure);
+    if (activeTab === 'heart_rate') return safeRecords.filter(r => r && r.heartRate);
+    if (activeTab === 'temperature') return safeRecords.filter(r => r && r.temperature);
+    if (activeTab === 'spo2') return safeRecords.filter(r => r && r.spo2);
+    return safeRecords;
   }, [records, activeTab]);
 
   const tabs: { id: ViewTab; label: string; icon: string }[] = [

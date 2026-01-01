@@ -280,7 +280,7 @@ export async function getVitalRecords(params: GetVitalRecordsParams = {}): Promi
 
   const result = await authFetch(endpoint);
   return {
-    records: result.data.records,
+    records: result.data?.records || [],
     pagination: result.meta?.pagination,
   };
 }
