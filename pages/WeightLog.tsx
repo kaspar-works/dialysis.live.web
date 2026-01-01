@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { createWeightLog, getWeightLogs, deleteWeightLog, deleteAllWeightLogs, analyzeWeightLogs, exportWeightLogs, WeightLog as WeightLogApi, WeightContext, WeightAnalysis } from '../services/weight';
+import { SubscriptionLimitError } from '../services/auth';
 
 // Map frontend display types to backend API values
 const typeToApi: Record<string, WeightContext> = {
@@ -35,6 +37,7 @@ const WeightLog: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -217,8 +220,12 @@ const WeightLog: React.FC = () => {
       setSuccessMessage(`${context.icon} ${savedWeight.toFixed(1)} kg saved!`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
-      console.error('Failed to add weight:', err);
-      setError('Failed to save weight');
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({ message: err.message, limit: err.limit });
+      } else {
+        console.error('Failed to add weight:', err);
+        setError('Failed to save weight');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -392,6 +399,35 @@ const WeightLog: React.FC = () => {
           <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-600">
             <ICONS.X className="w-5 h-5" />
           </button>
+        </div>
+      )}
+
+      {/* Subscription Limit Banner */}
+      {limitError && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-amber-700 dark:text-amber-400 text-lg">Plan Limit Reached</h3>
+              <p className="text-amber-600 dark:text-amber-500 mt-1">{limitError.message}</p>
+              <div className="flex items-center gap-3 mt-4">
+                <Link
+                  to="/pricing"
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold text-sm hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-500/20"
+                >
+                  Upgrade Plan
+                </Link>
+                <button
+                  onClick={() => setLimitError(null)}
+                  className="px-4 py-2.5 text-amber-600 dark:text-amber-400 font-medium text-sm hover:bg-amber-500/10 rounded-xl transition-all"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

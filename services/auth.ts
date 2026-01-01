@@ -211,9 +211,16 @@ export async function extendSession(): Promise<AuthResponse> {
   return result;
 }
 
-// Check if HTTP status indicates auth failure
-function isAuthError(status: number): boolean {
-  return status === 401 || status === 403;
+// Check if error is a subscription limit error
+function isSubscriptionError(result: any): boolean {
+  const code = result?.error?.code || '';
+  return code.startsWith('SUB_');
+}
+
+// Check if error is a feature restriction error (requires plan upgrade)
+function isFeatureRestrictedError(result: any): boolean {
+  const code = result?.error?.code || '';
+  return code.startsWith('RES_');
 }
 
 // Handle auth failure - dispatch event and throw
@@ -221,6 +228,40 @@ function handleAuthFailure(): never {
   // Dispatch event for AuthContext to handle
   window.dispatchEvent(new CustomEvent('auth:session-expired'));
   throw new Error('Session expired. Please login again.');
+}
+
+// Custom error class for subscription limit errors
+export class SubscriptionLimitError extends Error {
+  code: string;
+  resource?: string;
+  current?: number;
+  limit?: number;
+  upgradeRequired?: boolean;
+
+  constructor(message: string, details?: any) {
+    super(message);
+    this.name = 'SubscriptionLimitError';
+    this.code = details?.code || 'SUB_002';
+    this.resource = details?.resource;
+    this.current = details?.current;
+    this.limit = details?.limit;
+    this.upgradeRequired = details?.upgradeRequired;
+  }
+}
+
+// Custom error class for feature restriction errors (requires plan upgrade)
+export class FeatureRestrictedError extends Error {
+  code: string;
+  feature?: string;
+  requiredPlan?: string;
+
+  constructor(message: string, details?: any) {
+    super(message);
+    this.name = 'FeatureRestrictedError';
+    this.code = details?.code || 'RES_003';
+    this.feature = details?.feature;
+    this.requiredPlan = details?.requiredPlan;
+  }
 }
 
 // Authenticated fetch with cookie credentials
@@ -236,8 +277,8 @@ export async function authFetch(endpoint: string, options: RequestInit = {}): Pr
     headers,
   });
 
-  // Handle auth errors
-  if (isAuthError(response.status)) {
+  // Only 401 is an immediate auth error (not 403, which could be subscription limit)
+  if (response.status === 401) {
     handleAuthFailure();
   }
 
@@ -252,7 +293,23 @@ export async function authFetch(endpoint: string, options: RequestInit = {}): Pr
     return {};
   }
 
-  // Check for auth errors in response body
+  // Handle subscription limit errors (403 with SUB_ code)
+  if (response.status === 403 && isSubscriptionError(result)) {
+    throw new SubscriptionLimitError(
+      result.error?.message || 'You have reached your plan limit',
+      result.error?.details || { code: result.error?.code }
+    );
+  }
+
+  // Handle feature restriction errors (403 with RES_ code - requires plan upgrade)
+  if (response.status === 403 && isFeatureRestrictedError(result)) {
+    throw new FeatureRestrictedError(
+      result.error?.message || 'This feature requires a plan upgrade',
+      result.error?.details || { code: result.error?.code }
+    );
+  }
+
+  // Check for auth errors in response body (403 without subscription code)
   if (result.success === false) {
     const msg = (result.error?.message || result.message || '').toLowerCase();
     if (

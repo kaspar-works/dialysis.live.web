@@ -7,6 +7,8 @@ import {
   AreaChart, Area, ReferenceLine, CartesianGrid
 } from 'recharts';
 import { createVitalRecord, getVitalRecords, deleteVitalRecord, VitalRecord } from '../services/vitals';
+import { SubscriptionLimitError } from '../services/auth';
+import { Link } from 'react-router-dom';
 
 type ViewTab = 'overview' | 'blood_pressure' | 'heart_rate' | 'temperature' | 'spo2';
 
@@ -24,6 +26,7 @@ const Vitals: React.FC = () => {
   const [deleteModalRecord, setDeleteModalRecord] = useState<VitalRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
   const hasFetched = useRef(false);
 
   const vitalConfig = {
@@ -147,6 +150,7 @@ const Vitals: React.FC = () => {
       const newRecord = await createVitalRecord(recordData);
       setRecords(prev => [newRecord, ...prev]);
       setShowForm(false);
+      setLimitError(null);
 
       // Reset to defaults for next entry
       const config = vitalConfig[selectedType];
@@ -154,7 +158,17 @@ const Vitals: React.FC = () => {
       setVal2(config.defaultVal2 || '80');
     } catch (err) {
       console.error('Failed to add vital:', err);
-      setError('Failed to add vital');
+
+      // Handle subscription limit error
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({
+          message: err.message,
+          limit: err.limit,
+        });
+        setShowForm(false);
+      } else {
+        setError('Failed to add vital');
+      }
     } finally {
       setIsLogging(false);
     }
@@ -399,6 +413,37 @@ const Vitals: React.FC = () => {
           <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-600">
             <ICONS.X className="w-5 h-5" />
           </button>
+        </div>
+      )}
+
+      {/* Subscription Limit Banner */}
+      {limitError && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5 animate-in slide-in-from-top">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center shrink-0">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-amber-700 dark:text-amber-400 text-lg">Plan Limit Reached</h3>
+              <p className="text-amber-600 dark:text-amber-300/80 mt-1">
+                {limitError.message}
+              </p>
+              <div className="flex items-center gap-3 mt-4">
+                <Link
+                  to="/pricing"
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
+                >
+                  Upgrade Plan
+                </Link>
+                <button
+                  onClick={() => setLimitError(null)}
+                  className="px-4 py-2.5 text-amber-600 dark:text-amber-400 font-medium text-sm hover:bg-amber-500/10 rounded-xl transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

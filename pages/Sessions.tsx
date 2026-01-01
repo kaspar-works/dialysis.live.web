@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
 import { ICONS } from '../constants';
+import { SubscriptionLimitError } from '../services/auth';
 import {
   LineChart,
   Line,
@@ -92,6 +94,7 @@ const Sessions: React.FC = () => {
   const [vitalsSuccess, setVitalsSuccess] = useState('');
   const [sessionVitals, setSessionVitals] = useState<VitalRecord[]>([]);
   const [isLoadingVitals, setIsLoadingVitals] = useState(false);
+  const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
 
   const hasFetched = useRef(false);
 
@@ -197,8 +200,13 @@ const Sessions: React.FC = () => {
 
       setViewMode('active');
     } catch (err) {
-      console.error('Failed to create session:', err);
-      alert('Failed to start session. Please try again.');
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({ message: err.message, limit: err.limit });
+        setViewMode('list');
+      } else {
+        console.error('Failed to create session:', err);
+        alert('Failed to start session. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -316,8 +324,13 @@ const Sessions: React.FC = () => {
       fetchSessionVitals(activeSession._id);
       setTimeout(() => setVitalsSuccess(''), 3000);
     } catch (err) {
-      console.error('Failed to log vitals:', err);
-      alert('Failed to log vitals');
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({ message: err.message, limit: err.limit });
+        setShowVitalsForm(false);
+      } else {
+        console.error('Failed to log vitals:', err);
+        alert('Failed to log vitals');
+      }
     } finally {
       setIsLoggingVitals(false);
     }
@@ -375,6 +388,35 @@ const Sessions: React.FC = () => {
           </button>
         )}
       </header>
+
+      {/* Subscription Limit Banner */}
+      {limitError && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-amber-700 dark:text-amber-400 text-lg">Plan Limit Reached</h3>
+              <p className="text-amber-600 dark:text-amber-500 mt-1">{limitError.message}</p>
+              <div className="flex items-center gap-3 mt-4">
+                <Link
+                  to="/pricing"
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold text-sm hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-500/20"
+                >
+                  Upgrade Plan
+                </Link>
+                <button
+                  onClick={() => setLimitError(null)}
+                  className="px-4 py-2.5 text-amber-600 dark:text-amber-400 font-medium text-sm hover:bg-amber-500/10 rounded-xl transition-all"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* List View */}
       {viewMode === 'list' && (

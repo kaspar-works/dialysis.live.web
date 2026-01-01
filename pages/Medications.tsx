@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { ICONS } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
+import { SubscriptionLimitError } from '../services/auth';
 import {
   Medication,
   MedicationDose,
@@ -34,6 +36,7 @@ const Medications: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stats, setStats] = useState({ total: 0, taken: 0, completionRate: 0 });
+  const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
 
   // New medication form
   const [newMed, setNewMed] = useState({
@@ -137,8 +140,13 @@ const Medications: React.FC = () => {
       // Refresh data
       fetchData();
     } catch (err) {
-      console.error('Failed to add medication:', err);
-      alert('Failed to add medication');
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({ message: err.message, limit: err.limit });
+        setIsModalOpen(false);
+      } else {
+        console.error('Failed to add medication:', err);
+        alert('Failed to add medication');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -204,6 +212,35 @@ const Medications: React.FC = () => {
 
   return (
     <div className="space-y-8 md:space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700 pb-20">
+      {/* Subscription Limit Banner */}
+      {limitError && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5 mx-2">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-amber-700 dark:text-amber-400 text-lg">Plan Limit Reached</h3>
+              <p className="text-amber-600 dark:text-amber-500 mt-1">{limitError.message}</p>
+              <div className="flex items-center gap-3 mt-4">
+                <Link
+                  to="/pricing"
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold text-sm hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-500/20"
+                >
+                  Upgrade Plan
+                </Link>
+                <button
+                  onClick={() => setLimitError(null)}
+                  className="px-4 py-2.5 text-amber-600 dark:text-amber-400 font-medium text-sm hover:bg-amber-500/10 rounded-xl transition-all"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
         <div className="space-y-2">

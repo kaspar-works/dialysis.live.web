@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { createFluidLog, getTodayFluidIntake, getFluidLogs, deleteFluidLog, FluidLog as FluidLogType, FluidSource, FluidPagination } from '../services/fluid';
+import { SubscriptionLimitError } from '../services/auth';
 
 const beverages: { name: string; source: FluidSource; icon: string; color: string; gradient: string }[] = [
   { name: 'Water', source: 'water', icon: '💧', color: 'sky', gradient: 'from-sky-400 to-cyan-500' },
@@ -28,6 +30,7 @@ const FluidLog: React.FC = () => {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [pagination, setPagination] = useState<FluidPagination | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
   const hasFetched = useRef(false);
 
   useEffect(() => {
@@ -139,7 +142,11 @@ const FluidLog: React.FC = () => {
       setRecentlyAdded(newLog._id);
       setTimeout(() => setRecentlyAdded(null), 2000);
     } catch (err) {
-      setError('Failed to add');
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({ message: err.message, limit: err.limit });
+      } else {
+        setError('Failed to add');
+      }
     } finally {
       setIsAdding(false);
     }
@@ -242,6 +249,35 @@ const FluidLog: React.FC = () => {
           <button onClick={() => setError(null)} className="hover:bg-rose-500/10 p-1 rounded-lg transition-colors">
             <ICONS.X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {/* Subscription Limit Banner */}
+      {limitError && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-amber-700 dark:text-amber-400 text-lg">Plan Limit Reached</h3>
+              <p className="text-amber-600 dark:text-amber-500 mt-1">{limitError.message}</p>
+              <div className="flex items-center gap-3 mt-4">
+                <Link
+                  to="/pricing"
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold text-sm hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-500/20"
+                >
+                  Upgrade Plan
+                </Link>
+                <button
+                  onClick={() => setLimitError(null)}
+                  className="px-4 py-2.5 text-amber-600 dark:text-amber-400 font-medium text-sm hover:bg-amber-500/10 rounded-xl transition-all"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

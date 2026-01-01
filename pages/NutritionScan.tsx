@@ -1,20 +1,20 @@
 
-import React, { useState, useRef, useMemo } from 'react';
-import { useStore } from '../store';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { ICONS } from '../constants';
 import { MealNutrients } from '../types';
-
-// Dummy API until ready
-const analyzeNutritionImage = async (_base64Image: string, _mimeType: string) => {
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  return {
-    foodName: 'Grilled Chicken Salad',
-    nutrients: { sodium: 380, potassium: 520, phosphorus: 210, protein: 28 },
-    isKidneyFriendly: true,
-    renalImpactSummary: 'This meal is within recommended limits for dialysis patients. The protein content supports muscle maintenance while keeping phosphorus moderate.',
-    tips: ['Consider pairing with low-potassium vegetables', 'Stay hydrated within your fluid limits']
-  };
-};
+import {
+  analyzeMealImage,
+  createMeal,
+  getTodayMeals,
+  deleteMeal,
+  Meal,
+  MealType,
+  MealAnalysisResult,
+  TodayMealsResponse,
+  DAILY_LIMITS,
+} from '../services/nutrition';
+import { SubscriptionLimitError, FeatureRestrictedError } from '../services/auth';
 
 interface ScanResult {
   foodName: string;
@@ -35,10 +35,9 @@ const COMMON_FOODS = [
   { name: 'Blueberries', sodium: 1, potassium: 77, phosphorus: 12, protein: 0.7 },
 ];
 
-const LIMITS = { sodium: 2000, potassium: 3000, phosphorus: 1000, protein: 60 };
+const LIMITS = { sodium: DAILY_LIMITS.sodium, potassium: DAILY_LIMITS.potassium, phosphorus: DAILY_LIMITS.phosphorus, protein: DAILY_LIMITS.protein };
 
 const NutritionScan: React.FC = () => {
-  const { addMeal, meals, removeMeal } = useStore();
   const [image, setImage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -47,7 +46,33 @@ const NutritionScan: React.FC = () => {
   const [mealName, setMealName] = useState('');
   const [manualNutrients, setManualNutrients] = useState<MealNutrients>({ sodium: 0, potassium: 0, phosphorus: 0, protein: 0 });
   const [activeTab, setActiveTab] = useState<'scan' | 'manual'>('scan');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLogging, setIsLogging] = useState(false);
+  const [todayData, setTodayData] = useState<TodayMealsResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
+  const [featureError, setFeatureError] = useState<{ message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasFetched = useRef(false);
+
+  // Fetch today's meals on mount
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
+    const fetchTodayMeals = async () => {
+      try {
+        const data = await getTodayMeals();
+        setTodayData(data);
+      } catch (err) {
+        console.error('Failed to fetch today meals:', err);
+        setError('Failed to load meals');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchTodayMeals();
+  }, []);
 
   const suggestions = useMemo(() => {
     if (!searchQuery) return [];
@@ -55,18 +80,12 @@ const NutritionScan: React.FC = () => {
   }, [searchQuery]);
 
   const todayMeals = useMemo(() => {
-    const today = new Date().toDateString();
-    return meals.filter(m => new Date(m.time).toDateString() === today);
-  }, [meals]);
+    return todayData?.meals || [];
+  }, [todayData]);
 
   const totals = useMemo(() => {
-    return todayMeals.reduce((acc, m) => ({
-      sodium: acc.sodium + (m.nutrients.sodium || 0),
-      potassium: acc.potassium + (m.nutrients.potassium || 0),
-      phosphorus: acc.phosphorus + (m.nutrients.phosphorus || 0),
-      protein: acc.protein + (m.nutrients.protein || 0),
-    }), { sodium: 0, potassium: 0, phosphorus: 0, protein: 0 });
-  }, [todayMeals]);
+    return todayData?.totals || { sodium: 0, potassium: 0, phosphorus: 0, protein: 0, calories: 0 };
+  }, [todayData]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,10 +102,42 @@ const NutritionScan: React.FC = () => {
   const handleScan = async () => {
     if (!image) return;
     setIsScanning(true);
-    const mimeType = image.split(';')[0].split(':')[1];
-    const response = await analyzeNutritionImage(image, mimeType);
-    if (response) setScanResult(response);
-    setIsScanning(false);
+    setError(null);
+
+    try {
+      // Extract base64 data and mime type from data URL
+      const mimeType = image.split(';')[0].split(':')[1] || 'image/jpeg';
+      const base64Data = image.includes(',') ? image.split(',')[1] : image;
+
+      const response = await analyzeMealImage(base64Data, mimeType);
+
+      // Map the API response to the ScanResult format
+      const result: ScanResult = {
+        foodName: response.foodItems?.join(', ') || 'Unknown Food',
+        nutrients: {
+          sodium: response.estimatedNutrients?.sodium || 0,
+          potassium: response.estimatedNutrients?.potassium || 0,
+          phosphorus: response.estimatedNutrients?.phosphorus || 0,
+          protein: response.estimatedNutrients?.protein || 0,
+        },
+        isKidneyFriendly: response.warnings?.length === 0,
+        renalImpactSummary: response.recommendations?.join(' ') || 'Analysis complete.',
+        tips: response.warnings || [],
+      };
+
+      setScanResult(result);
+    } catch (err) {
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({ message: err.message, limit: err.limit });
+      } else if (err instanceof FeatureRestrictedError) {
+        setFeatureError({ message: err.message });
+      } else {
+        console.error('Failed to analyze image:', err);
+        setError('Failed to analyze image. Please try again.');
+      }
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const handleSelectFood = (food: typeof COMMON_FOODS[0]) => {
@@ -97,9 +148,49 @@ const NutritionScan: React.FC = () => {
     setActiveTab('manual');
   };
 
-  const handleLogMeal = (name: string, nutrients: MealNutrients) => {
-    addMeal({ id: Date.now().toString(), time: new Date().toISOString(), name, nutrients, isCustom: true });
-    resetForm();
+  const handleLogMeal = async (name: string, nutrients: MealNutrients, isAiScanned: boolean = false) => {
+    setIsLogging(true);
+    setError(null);
+
+    try {
+      const newMeal = await createMeal({
+        mealType: MealType.SNACK, // Default to snack, could be enhanced with a selector
+        name,
+        nutrients: {
+          sodium: nutrients.sodium,
+          potassium: nutrients.potassium,
+          phosphorus: nutrients.phosphorus,
+          protein: nutrients.protein,
+        },
+      });
+
+      // Refresh today's data
+      const data = await getTodayMeals();
+      setTodayData(data);
+
+      resetForm();
+    } catch (err) {
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({ message: err.message, limit: err.limit });
+      } else {
+        console.error('Failed to log meal:', err);
+        setError('Failed to log meal. Please try again.');
+      }
+    } finally {
+      setIsLogging(false);
+    }
+  };
+
+  const handleRemoveMeal = async (mealId: string) => {
+    try {
+      await deleteMeal(mealId);
+      // Refresh today's data
+      const data = await getTodayMeals();
+      setTodayData(data);
+    } catch (err) {
+      console.error('Failed to delete meal:', err);
+      setError('Failed to delete meal');
+    }
   };
 
   const resetForm = () => {
@@ -132,6 +223,17 @@ const NutritionScan: React.FC = () => {
     );
   };
 
+  if (isLoading) {
+    return (
+      <div className="w-full flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500">Loading meals...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full space-y-6 pb-24 px-4 animate-in fade-in duration-500">
 
@@ -143,6 +245,74 @@ const NutritionScan: React.FC = () => {
         </div>
         <span className="text-xs text-slate-400">{todayMeals.length} meals today</span>
       </header>
+
+      {/* Subscription Limit Banner */}
+      {limitError && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-amber-700 dark:text-amber-400 text-lg">Plan Limit Reached</h3>
+              <p className="text-amber-600 dark:text-amber-500 mt-1">{limitError.message}</p>
+              <div className="flex items-center gap-3 mt-4">
+                <Link
+                  to="/pricing"
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold text-sm hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-500/20"
+                >
+                  Upgrade Plan
+                </Link>
+                <button
+                  onClick={() => setLimitError(null)}
+                  className="px-4 py-2.5 text-amber-600 dark:text-amber-400 font-medium text-sm hover:bg-amber-500/10 rounded-xl transition-all"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feature Restriction Banner */}
+      {featureError && (
+        <div className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 rounded-2xl p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">🔒</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-purple-700 dark:text-purple-400 text-lg">Premium Feature</h3>
+              <p className="text-purple-600 dark:text-purple-500 mt-1">{featureError.message}</p>
+              <div className="flex items-center gap-3 mt-4">
+                <Link
+                  to="/pricing"
+                  className="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-bold text-sm hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg shadow-purple-500/20"
+                >
+                  View Plans
+                </Link>
+                <button
+                  onClick={() => setFeatureError(null)}
+                  className="px-4 py-2.5 text-purple-600 dark:text-purple-400 font-medium text-sm hover:bg-purple-500/10 rounded-xl transition-all"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 flex items-center justify-between">
+          <p className="text-rose-500 font-medium">{error}</p>
+          <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-600">
+            <ICONS.X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
       {/* Today's Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -269,11 +439,16 @@ const NutritionScan: React.FC = () => {
                       <h3 className="text-2xl font-black text-slate-900 dark:text-white">{scanResult.foodName}</h3>
                     </div>
                     <button
-                      onClick={() => handleLogMeal(scanResult.foodName, scanResult.nutrients)}
-                      className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all flex items-center gap-2"
+                      onClick={() => handleLogMeal(scanResult.foodName, scanResult.nutrients, true)}
+                      disabled={isLogging}
+                      className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all flex items-center gap-2 disabled:opacity-50"
                     >
-                      <ICONS.Plus className="w-4 h-4" />
-                      Log Meal
+                      {isLogging ? (
+                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <ICONS.Plus className="w-4 h-4" />
+                      )}
+                      {isLogging ? 'Logging...' : 'Log Meal'}
                     </button>
                   </div>
 
@@ -351,12 +526,16 @@ const NutritionScan: React.FC = () => {
               </div>
 
               <button
-                onClick={() => handleLogMeal(mealName, manualNutrients)}
-                disabled={!mealName}
+                onClick={() => handleLogMeal(mealName, manualNutrients, false)}
+                disabled={!mealName || isLogging}
                 className="w-full py-4 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                <ICONS.Plus className="w-5 h-5" />
-                Log Meal
+                {isLogging ? (
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <ICONS.Plus className="w-5 h-5" />
+                )}
+                {isLogging ? 'Logging...' : 'Log Meal'}
               </button>
             </div>
           )}
@@ -369,17 +548,18 @@ const NutritionScan: React.FC = () => {
           {todayMeals.length > 0 ? (
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
               {[...todayMeals].reverse().map(meal => (
-                <div key={meal.id} className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-700 group">
+                <div key={meal._id} className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-700 group">
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <p className="font-bold text-slate-900 dark:text-white">{meal.name}</p>
                       <p className="text-xs text-slate-400">
-                        {new Date(meal.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        {!meal.isCustom && <span className="ml-2 text-emerald-500">AI</span>}
+                        {new Date(meal.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {meal.aiAnalyzed && <span className="ml-2 text-emerald-500">AI</span>}
+                        <span className="ml-2 capitalize text-slate-300">{meal.mealType}</span>
                       </p>
                     </div>
                     <button
-                      onClick={() => removeMeal(meal.id)}
+                      onClick={() => handleRemoveMeal(meal._id)}
                       className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-rose-500 transition-all"
                     >
                       <ICONS.X className="w-4 h-4" />
@@ -388,19 +568,19 @@ const NutritionScan: React.FC = () => {
 
                   <div className="grid grid-cols-4 gap-2 text-center">
                     <div>
-                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.sodium}</p>
+                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.sodium || 0}</p>
                       <p className="text-[9px] text-slate-400 uppercase">Na</p>
                     </div>
                     <div>
-                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.potassium}</p>
+                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.potassium || 0}</p>
                       <p className="text-[9px] text-slate-400 uppercase">K</p>
                     </div>
                     <div>
-                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.phosphorus}</p>
+                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.phosphorus || 0}</p>
                       <p className="text-[9px] text-slate-400 uppercase">P</p>
                     </div>
                     <div>
-                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.protein}g</p>
+                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.protein || 0}g</p>
                       <p className="text-[9px] text-slate-400 uppercase">Pr</p>
                     </div>
                   </div>
