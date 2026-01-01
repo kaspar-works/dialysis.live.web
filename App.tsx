@@ -21,6 +21,7 @@ import Reports from './pages/Reports';
 import NutritionScan from './pages/NutritionScan';
 import Symptoms from './pages/Symptoms';
 import Reminders from './pages/Reminders';
+import Appointments from './pages/Appointments';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -99,6 +100,14 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <Layout><SEO title="Reminders" /><Reminders /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/appointments"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Appointments" /><Appointments /></Layout>
               </ProtectedRoute>
             }
           />
