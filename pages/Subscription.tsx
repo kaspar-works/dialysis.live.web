@@ -11,17 +11,30 @@ const Subscription: React.FC = () => {
 
   const plans = [
     {
-      tier: SubscriptionPlan.BASIC,
-      price: billingCycle === BillingInterval.MONTH ? 5.99 : 4.99,
-      description: "Essential tools for dialysis patients.",
+      tier: SubscriptionPlan.FREE,
+      price: 0,
+      description: "Try all features with limited entries.",
       features: [
-        "Session Tracking",
-        "Weight Monitoring",
-        "Fluid Intake Logs",
-        "Basic Reports",
-        "Unlimited Session History"
+        "5 Dialysis Sessions",
+        "5 Weight & Fluid Logs",
+        "5 Vitals & Symptoms",
+        "5 Medications",
+        "All Features Included"
       ],
       color: "slate",
+      buttonText: profile.subscription.plan === SubscriptionPlan.FREE ? "Current Plan" : "Start Free"
+    },
+    {
+      tier: SubscriptionPlan.BASIC,
+      price: billingCycle === BillingInterval.MONTH ? 5.99 : 4.99,
+      description: "Unlimited essential tracking.",
+      features: [
+        "Unlimited Sessions",
+        "Unlimited Weight & Fluid Logs",
+        "Basic Vitals Monitoring",
+        "Session History"
+      ],
+      color: "sky",
       buttonText: profile.subscription.plan === SubscriptionPlan.BASIC ? "Current Plan" : "Select Basic"
     },
     {
@@ -32,9 +45,9 @@ const Subscription: React.FC = () => {
         "Everything in Basic",
         "Medication Tracker",
         "Symptoms & Vitals Hub",
-        "Advanced AI Analysis",
-        "Data Export (PDF/CSV)",
-        "Priority Support Line"
+        "AI Health Analysis",
+        "Nutri-Scan AI",
+        "Data Export (PDF/CSV)"
       ],
       color: "sky",
       highlight: true,
@@ -45,12 +58,9 @@ const Subscription: React.FC = () => {
       price: billingCycle === BillingInterval.MONTH ? 14.99 : 12.49,
       description: "Comprehensive care for households.",
       features: [
-        "Up to 4 Patient Profiles",
-        "Shared Caregiver Access",
-        "Consolidated Dashboard",
-        "Full History for All",
-        "Priority Support Line",
-        "All Premium Features"
+        "Everything in Premium",
+        "Caregiver Access",
+        "Family Dashboard"
       ],
       color: "indigo",
       buttonText: profile.subscription.plan === SubscriptionPlan.FAMILY ? "Current Plan" : "Join Family"
@@ -59,7 +69,7 @@ const Subscription: React.FC = () => {
 
   const handleUpgrade = (tier: SubscriptionPlan) => {
     const limits = {
-        [SubscriptionPlan.FREE]: { s: 10, m: 5, r: 1 },
+        [SubscriptionPlan.FREE]: { s: 5, m: 5, r: 5 },
         [SubscriptionPlan.BASIC]: { s: null, m: 5, r: 5 },
         [SubscriptionPlan.PREMIUM]: { s: null, m: null, r: null },
         [SubscriptionPlan.FAMILY]: { s: null, m: null, r: null }
@@ -76,8 +86,8 @@ const Subscription: React.FC = () => {
         billingInterval: billingCycle,
         features: {
             ...profile.subscription.features,
-            advancedAnalytics: tier === SubscriptionPlan.PREMIUM || tier === SubscriptionPlan.FAMILY,
-            exportData: tier === SubscriptionPlan.PREMIUM || tier === SubscriptionPlan.FAMILY,
+            advancedAnalytics: true,
+            exportData: tier !== SubscriptionPlan.FREE,
             multipleProfiles: tier === SubscriptionPlan.FAMILY,
             prioritySupport: tier === SubscriptionPlan.PREMIUM || tier === SubscriptionPlan.FAMILY,
             customReminders: true,

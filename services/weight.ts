@@ -60,7 +60,10 @@ export async function getWeightLogs(params: GetWeightsParams = {}): Promise<Weig
   const endpoint = queryString ? `/weights?${queryString}` : '/weights';
 
   const result = await authFetch(endpoint);
-  return result.data;
+  return {
+    logs: result.data?.logs || [],
+    pagination: result.meta?.pagination || result.data?.pagination || { total: 0, limit: 10, offset: 0 },
+  };
 }
 
 export async function deleteWeightLog(logId: string): Promise<void> {

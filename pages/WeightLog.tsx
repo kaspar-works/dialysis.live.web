@@ -74,13 +74,13 @@ const WeightLog: React.FC = () => {
     try {
       // Fetch paginated data for table
       const tableResponse = await getWeightLogs({ limit: ITEMS_PER_PAGE, offset: 0 });
-      setWeights(tableResponse.logs);
-      setTotalItems(tableResponse.pagination.total);
+      setWeights(tableResponse.logs || []);
+      setTotalItems(tableResponse.pagination?.total || 0);
       setCurrentPage(1);
 
       // Fetch more data for charts (last 100 entries)
       const chartResponse = await getWeightLogs({ limit: 100 });
-      setAllWeights(chartResponse.logs);
+      setAllWeights(chartResponse.logs || []);
     } catch (err) {
       console.error('Failed to fetch weights:', err);
       setError('Failed to load weight data');
@@ -94,8 +94,8 @@ const WeightLog: React.FC = () => {
     try {
       const offset = (page - 1) * ITEMS_PER_PAGE;
       const response = await getWeightLogs({ limit: ITEMS_PER_PAGE, offset });
-      setWeights(response.logs);
-      setTotalItems(response.pagination.total);
+      setWeights(response.logs || []);
+      setTotalItems(response.pagination?.total || 0);
       setCurrentPage(page);
     } catch (err) {
       console.error('Failed to fetch weights:', err);
@@ -183,8 +183,9 @@ const WeightLog: React.FC = () => {
   };
 
   // Stats calculations
-  const currentWeight = allWeights[0]?.weightKg || profile.weightGoal;
-  const previousWeight = allWeights[1]?.weightKg || currentWeight;
+  const safeWeights = allWeights && Array.isArray(allWeights) ? allWeights : [];
+  const currentWeight = safeWeights[0]?.weightKg || profile.weightGoal;
+  const previousWeight = safeWeights[1]?.weightKg || currentWeight;
   const weightChange = currentWeight - previousWeight;
   const targetDiff = currentWeight - profile.weightGoal;
 
@@ -225,12 +226,16 @@ const WeightLog: React.FC = () => {
 
   // Chart data
   const chartData = useMemo(() => {
+    if (!allWeights || !Array.isArray(allWeights) || allWeights.length === 0) {
+      return [];
+    }
+
     const days = parseInt(timeRange);
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
 
     return [...allWeights]
-      .filter(w => new Date(w.loggedAt) >= cutoff)
+      .filter(w => w && new Date(w.loggedAt) >= cutoff)
       .reverse()
       .map(w => ({
         date: new Date(w.loggedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
@@ -251,7 +256,10 @@ const WeightLog: React.FC = () => {
 
   // Confidence calculation
   const confidence = useMemo(() => {
-    const postWeights = allWeights.filter(w => w.context === 'post_dialysis').slice(0, 5);
+    if (!allWeights || !Array.isArray(allWeights)) {
+      return { status: 'Calibrating', color: 'slate', percent: 0 };
+    }
+    const postWeights = allWeights.filter(w => w && w.context === 'post_dialysis').slice(0, 5);
     if (postWeights.length < 3) return { status: 'Calibrating', color: 'slate', percent: 0 };
 
     const avg = postWeights.reduce((acc, w) => acc + w.weightKg, 0) / postWeights.length;
@@ -265,12 +273,14 @@ const WeightLog: React.FC = () => {
 
   // Context breakdown for today
   const todayBreakdown = useMemo(() => {
+    if (!allWeights || !Array.isArray(allWeights)) return [];
     const today = new Date().toDateString();
-    return allWeights.filter(w => new Date(w.loggedAt).toDateString() === today);
+    return allWeights.filter(w => w && new Date(w.loggedAt).toDateString() === today);
   }, [allWeights]);
 
   // Weekly trend
   const weeklyTrend = useMemo(() => {
+    if (!allWeights || !Array.isArray(allWeights)) return 0;
     const last7 = allWeights.slice(0, 7);
     if (last7.length < 2) return 0;
     const oldest = last7[last7.length - 1]?.weightKg || 0;
