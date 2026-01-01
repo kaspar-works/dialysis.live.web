@@ -217,9 +217,19 @@ export async function getLatestVitals(): Promise<VitalLog[]> {
 // New Consolidated Vital Record API Functions
 // ============================================
 
+export type BPContext = 'pre_dialysis' | 'post_dialysis' | 'home' | 'clinic' | 'other';
+
+export interface BloodPressureWithContext extends BloodPressure {
+  context?: BPContext;
+}
+
+export interface VitalRecordInputWithContext extends Omit<VitalRecordInput, 'bloodPressure'> {
+  bloodPressure?: BloodPressureWithContext;
+}
+
 /**
  * Create a vital record with any combination of vitals
- * POST /api/v1/vitals/record
+ * POST /api/v1/vitals
  *
  * @example
  * // Log blood pressure and heart rate together
@@ -235,17 +245,17 @@ export async function getLatestVitals(): Promise<VitalLog[]> {
  *   bloodSugar: { value: 110, unit: 'mg/dL', timing: 'fasting' }
  * });
  */
-export async function createVitalRecord(data: VitalRecordInput): Promise<VitalRecord> {
-  const result = await authFetch('/vitals/record', {
+export async function createVitalRecord(data: VitalRecordInputWithContext): Promise<VitalRecord> {
+  const result = await authFetch('/vitals', {
     method: 'POST',
     body: JSON.stringify(data),
   });
-  return result.data.vitalRecord;
+  return result.data.record;
 }
 
 /**
  * Get vital records with optional filtering
- * GET /api/v1/vitals/records
+ * GET /api/v1/vitals
  *
  * @param params - Filter options
  * @param params.from - Start date (ISO string)
@@ -266,7 +276,7 @@ export async function getVitalRecords(params: GetVitalRecordsParams = {}): Promi
   if (params.offset) searchParams.append('offset', params.offset.toString());
 
   const queryString = searchParams.toString();
-  const endpoint = queryString ? `/vitals/records?${queryString}` : '/vitals/records';
+  const endpoint = queryString ? `/vitals?${queryString}` : '/vitals';
 
   const result = await authFetch(endpoint);
   return {
@@ -277,19 +287,19 @@ export async function getVitalRecords(params: GetVitalRecordsParams = {}): Promi
 
 /**
  * Get a single vital record by ID
- * GET /api/v1/vitals/records/:recordId
+ * GET /api/v1/vitals/:recordId
  */
 export async function getVitalRecord(recordId: string): Promise<VitalRecord> {
-  const result = await authFetch(`/vitals/records/${recordId}`);
+  const result = await authFetch(`/vitals/${recordId}`);
   return result.data.record;
 }
 
 /**
  * Update a vital record
- * PATCH /api/v1/vitals/records/:recordId
+ * PATCH /api/v1/vitals/:recordId
  */
-export async function updateVitalRecord(recordId: string, data: Partial<VitalRecordInput>): Promise<VitalRecord> {
-  const result = await authFetch(`/vitals/records/${recordId}`, {
+export async function updateVitalRecord(recordId: string, data: Partial<VitalRecordInputWithContext>): Promise<VitalRecord> {
+  const result = await authFetch(`/vitals/${recordId}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -298,35 +308,84 @@ export async function updateVitalRecord(recordId: string, data: Partial<VitalRec
 
 /**
  * Delete a vital record
- * DELETE /api/v1/vitals/records/:recordId
+ * DELETE /api/v1/vitals/:recordId
  */
 export async function deleteVitalRecord(recordId: string): Promise<void> {
-  await authFetch(`/vitals/records/${recordId}`, {
+  await authFetch(`/vitals/${recordId}`, {
     method: 'DELETE',
   });
 }
 
 /**
  * Get today's vital records with latest values for each vital type
- * GET /api/v1/vitals/records/today
+ * GET /api/v1/vitals/today
  *
  * Returns all records for today plus extracted latest values for quick display
  */
 export async function getTodayVitals(): Promise<TodayVitalsResponse> {
-  const result = await authFetch('/vitals/records/today');
+  const result = await authFetch('/vitals/today');
   return result.data;
 }
 
 /**
  * Get vital statistics summary for a date range
- * GET /api/v1/vitals/records/summary
+ * GET /api/v1/vitals/summary
  *
  * @param days - Number of days to include (default 7, max 365)
  * @returns Statistics including averages, min/max for each vital type
  */
 export async function getVitalSummary(days: number = 7): Promise<VitalSummary> {
-  const result = await authFetch(`/vitals/records/summary?days=${days}`);
+  const result = await authFetch(`/vitals/summary?days=${days}`);
   return result.data.summary;
+}
+
+/**
+ * Get BP trend data for sparkline visualization
+ * GET /api/v1/vitals/bp/trends
+ */
+export interface BPTrendData {
+  readings: Array<{
+    date: string;
+    systolic: number;
+    diastolic: number;
+    context?: BPContext;
+  }>;
+  sparkline: {
+    systolic: number[];
+    diastolic: number[];
+  };
+  averages: {
+    overall: { systolic: number; diastolic: number };
+    byContext?: Record<BPContext, { systolic: number; diastolic: number; count: number }>;
+  };
+  trend: 'improving' | 'stable' | 'worsening';
+}
+
+export async function getBPTrends(days: number = 30, context?: BPContext): Promise<BPTrendData> {
+  const params = new URLSearchParams();
+  params.append('days', days.toString());
+  if (context) params.append('context', context);
+
+  const result = await authFetch(`/vitals/bp/trends?${params.toString()}`);
+  return result.data;
+}
+
+/**
+ * AI-powered BP trend analysis
+ * GET /api/v1/vitals/bp/analyze
+ */
+export interface BPAnalysis {
+  summary: string;
+  patterns: string[];
+  concerns: string[];
+  positives: string[];
+  recommendations: string[];
+  riskLevel: 'low' | 'moderate' | 'high';
+}
+
+export async function analyzeBPTrends(days: number = 30): Promise<BPAnalysis> {
+  const result = await authFetch(`/vitals/bp/analyze?days=${days}`);
+  return result.data.analysis;
 }
 
 // ============================================
