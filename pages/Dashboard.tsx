@@ -4,7 +4,7 @@ import { ICONS } from '../constants';
 import { Link } from 'react-router-dom';
 import { MoodType, VitalType, FluidIntake, VitalLog } from '../types';
 import OnboardingModal from '../components/OnboardingModal';
-import { getDashboard, DashboardStats } from '../services/dashboard';
+import { getDashboard, getHealthOverview, DashboardStats, HealthOverview } from '../services/dashboard';
 import {
   getDashboardAlerts,
   dismissAlert,
@@ -18,6 +18,7 @@ import {
 const Dashboard: React.FC = () => {
   const { weights, fluids, profile, vitals, moods, addFluid, meals } = useStore();
   const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
+  const [healthOverview, setHealthOverview] = useState<HealthOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeQuickAdd, setActiveQuickAdd] = useState<number | null>(null);
   const [apiAlerts, setApiAlerts] = useState<Alert[]>([]);
@@ -33,12 +34,17 @@ const Dashboard: React.FC = () => {
 
     const fetchDashboard = async () => {
       try {
-        const [dashData, alertsData] = await Promise.all([
+        const [dashData, alertsData, healthData] = await Promise.all([
           getDashboard(30),
           getDashboardAlerts().catch(() => null),
+          getHealthOverview().catch(() => null),
         ]);
 
         setDashboardData(dashData);
+
+        if (healthData) {
+          setHealthOverview(healthData);
+        }
 
         if (alertsData) {
           setApiAlerts(alertsData.alerts);
@@ -172,8 +178,14 @@ const Dashboard: React.FC = () => {
     }), { sodium: 0, potassium: 0, phosphorus: 0, protein: 0 });
   }, [meals]);
 
-  // Health Score calculation
+  // Health Score calculation - prefer API data over local calculation
   const healthScore = useMemo(() => {
+    // Use API health overview if available
+    if (healthOverview?.score !== undefined) {
+      return healthOverview.score;
+    }
+
+    // Fallback to client-side calculation
     let score = 92;
     const latestMood = moods[0]?.type || 'Good';
 
@@ -196,15 +208,28 @@ const Dashboard: React.FC = () => {
     }
 
     return Math.max(Math.min(score, 100), 20);
-  }, [fluidPercentage, moods, currentWeight, dryWeight, latestBP]);
+  }, [healthOverview, fluidPercentage, moods, currentWeight, dryWeight, latestBP]);
 
-  // Health status
+  // Health status - prefer API data over local calculation
   const healthStatus = useMemo(() => {
+    // Use API health overview if available
+    if (healthOverview) {
+      const statusMap: Record<string, { label: string; color: string }> = {
+        excellent: { label: 'Excellent', color: 'emerald' },
+        good: { label: 'Good', color: 'sky' },
+        fair: { label: 'Fair', color: 'amber' },
+        poor: { label: 'Needs Attention', color: 'rose' },
+      };
+      const status = statusMap[healthOverview.status] || statusMap.good;
+      return { ...status, message: healthOverview.message };
+    }
+
+    // Fallback to local calculation
     if (healthScore >= 85) return { label: 'Excellent', color: 'emerald', message: 'You\'re doing great! Keep up the excellent work.' };
     if (healthScore >= 70) return { label: 'Good', color: 'sky', message: 'Looking good. Stay consistent with your routine.' };
     if (healthScore >= 55) return { label: 'Fair', color: 'amber', message: 'Some areas need attention. Review your logs.' };
     return { label: 'Needs Attention', color: 'rose', message: 'Please review your health metrics and consult your care team.' };
-  }, [healthScore]);
+  }, [healthOverview, healthScore]);
 
   // Combine API alerts with local fallback alerts
   const displayAlerts = useMemo(() => {

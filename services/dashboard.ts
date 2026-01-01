@@ -118,6 +118,19 @@ export interface RecentActivity {
   metadata?: any;
 }
 
+export interface HealthOverview {
+  score: number;
+  status: 'excellent' | 'good' | 'fair' | 'poor';
+  message: string;
+  factors: {
+    name: string;
+    score: number;
+    status: 'good' | 'warning' | 'critical';
+    detail: string;
+  }[];
+  lastUpdated: string;
+}
+
 export interface DashboardStats {
   overview: OverviewStats;
   sessions: SessionStats;
@@ -180,5 +193,11 @@ export async function getVitalStats(days: number = 30): Promise<VitalStats> {
 // Get recent activity
 export async function getRecentActivity(limit: number = 10): Promise<RecentActivity[]> {
   const result = await authFetch(`/dashboard/activity?limit=${limit}`);
+  return result.data;
+}
+
+// Get health overview - calculated health score based on all patient data
+export async function getHealthOverview(): Promise<HealthOverview> {
+  const result = await authFetch('/dashboard/health-overview');
   return result.data;
 }

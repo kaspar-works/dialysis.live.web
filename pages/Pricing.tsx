@@ -1,13 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Logo from '../components/Logo';
 import SEO from '../components/SEO';
 
+interface PlanFeature {
+  text: string;
+  included: boolean;
+}
+
+interface Plan {
+  name: string;
+  price: number;
+  yearlyPrice: number;
+  description: string;
+  features: PlanFeature[];
+  cta: string;
+  icon: string;
+  popular?: boolean;
+}
+
 const Pricing: React.FC = () => {
   const [isYearly, setIsYearly] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const plans = [
+  // Default plans (fallback if API fails)
+  const defaultPlans: Plan[] = [
     {
       name: "Free",
       price: 0,
@@ -74,6 +93,91 @@ const Pricing: React.FC = () => {
       icon: "👨‍👩‍👧‍👦",
     }
   ];
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const fetchPlans = async () => {
+    try {
+      const response = await fetch('/api/v1/subscription/plans');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data?.plans) {
+          // Transform API plans to our format
+          const transformedPlans = data.data.plans.map((p: any) => ({
+            name: p.name,
+            price: p.price?.month || 0,
+            yearlyPrice: p.price?.year || 0,
+            description: p.description || '',
+            features: transformFeatures(p),
+            cta: p.id === 'free' ? 'Start Free' : `Get ${p.name}`,
+            icon: getIcon(p.id),
+            popular: p.id === 'premium',
+          }));
+          setPlans(transformedPlans);
+        } else {
+          setPlans(defaultPlans);
+        }
+      } else {
+        setPlans(defaultPlans);
+      }
+    } catch (err) {
+      console.error('Failed to fetch plans:', err);
+      setPlans(defaultPlans);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getIcon = (planId: string): string => {
+    const icons: Record<string, string> = {
+      free: '🎯',
+      basic: '⚡',
+      premium: '✨',
+      family: '👨‍👩‍👧‍👦',
+    };
+    return icons[planId] || '📦';
+  };
+
+  const transformFeatures = (plan: any): PlanFeature[] => {
+    const features: PlanFeature[] = [];
+    const limits = plan.limits || {};
+    const feats = plan.features || {};
+
+    // Add limit-based features
+    if (limits.sessions !== undefined) {
+      features.push({
+        text: limits.sessions === null ? 'Unlimited Sessions' : `${limits.sessions} Sessions`,
+        included: true,
+      });
+    }
+    if (limits.weightLogs !== undefined || limits.fluidLogs !== undefined) {
+      const wl = limits.weightLogs;
+      features.push({
+        text: wl === null ? 'Unlimited Weight & Fluid Logs' : `${wl} Weight & Fluid Logs`,
+        included: true,
+      });
+    }
+    if (limits.medications !== undefined) {
+      features.push({
+        text: limits.medications === null ? 'Unlimited Medications' : `${limits.medications} Medications`,
+        included: true,
+      });
+    }
+
+    // Add feature-based items
+    features.push({ text: 'AI Health Analysis', included: feats.aiHealthAnalysis === true });
+    features.push({ text: 'Nutri-Scan AI', included: feats.nutriScanAI === true });
+    features.push({ text: 'Data Export', included: feats.exportData === true });
+
+    if (plan.id === 'family') {
+      features.push({ text: 'Caregiver Access', included: feats.caregiverAccess === true });
+      features.push({ text: 'Family Dashboard', included: feats.familyDashboard === true });
+    }
+
+    return features;
+  };
 
   const faqs = [
     {
@@ -171,8 +275,13 @@ const Pricing: React.FC = () => {
       {/* Pricing Cards */}
       <section className="px-6 pb-32">
         <div className="max-w-6xl mx-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="w-12 h-12 border-4 border-white/20 border-t-emerald-500 rounded-full animate-spin" />
+            </div>
+          ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {plans.map((plan, i) => (
+            {(plans.length > 0 ? plans : defaultPlans).map((plan, i) => (
               <div
                 key={i}
                 className={`relative group rounded-3xl p-8 transition-all duration-300 ${
@@ -251,6 +360,7 @@ const Pricing: React.FC = () => {
               </div>
             ))}
           </div>
+          )}
         </div>
       </section>
 
