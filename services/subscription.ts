@@ -62,6 +62,7 @@ export interface PlanInfo {
   id: PlanType;
   name: string;
   description: string;
+  badge?: string | null;
   price: {
     monthly: number;
     yearly: number;
@@ -71,17 +72,25 @@ export interface PlanInfo {
     maxMedications: number | null;
     maxReports: number | null;
     maxAIRequests: number | null;
-    maxProfiles: number | null;
-    maxCaregivers: number | null;
-    dataRetentionDays: number | null;
+    maxProfiles?: number | null;
+    maxCaregivers?: number | null;
+    dataRetentionDays?: number | null;
+    dataRetention?: string;
   };
-  features: string[]; // Array of feature keys from backend
+  features: string[] | Record<string, boolean | string | number>; // Can be array or object from backend
+  includes?: string[]; // Human-readable feature list
   highlighted?: boolean;
 }
 
 // Helper to check if a plan has a specific feature
 export function planHasFeature(plan: PlanInfo, feature: string): boolean {
-  return plan.features.includes(feature);
+  // Handle both array format (from /plans/features) and object format (from /plans)
+  if (Array.isArray(plan.features)) {
+    return plan.features.includes(feature);
+  }
+  // Object format: check if the key exists and is truthy
+  const featureValue = plan.features[feature];
+  return featureValue === true || (typeof featureValue === 'string' && featureValue !== '');
 }
 
 export interface PlansResponse {
@@ -268,3 +277,112 @@ export const resourceDisplayNames: Record<string, string> = {
   reports: 'Reports',
   aiRequests: 'AI Requests',
 };
+
+/**
+ * Plan configuration - matches backend features.ts
+ */
+export interface PlanConfig {
+  id: PlanType;
+  name: string;
+  description: string;
+  price: { monthly: number; yearly: number };
+  limits: {
+    maxSessions: number | null;
+    maxMedications: number | null;
+    maxReports: number | null;
+    maxAIRequests: number | null;
+  };
+  features: {
+    aiHealthAnalysis: boolean;
+    nutriScanAI: boolean;
+    exportData: boolean;
+    caregiverAccess: boolean;
+  };
+}
+
+export const PLAN_CONFIGS: Record<PlanType, PlanConfig> = {
+  free: {
+    id: 'free',
+    name: 'Free',
+    description: 'Basic tracking to get started',
+    price: { monthly: 0, yearly: 0 },
+    limits: {
+      maxSessions: 10,
+      maxMedications: 5,
+      maxReports: 1,
+      maxAIRequests: 10,
+    },
+    features: {
+      aiHealthAnalysis: false,
+      nutriScanAI: false,
+      exportData: false,
+      caregiverAccess: false,
+    },
+  },
+  basic: {
+    id: 'basic',
+    name: 'Basic',
+    description: 'Enhanced tracking with AI features',
+    price: { monthly: 9.99, yearly: 99.99 },
+    limits: {
+      maxSessions: 100,
+      maxMedications: 20,
+      maxReports: 10,
+      maxAIRequests: 50,
+    },
+    features: {
+      aiHealthAnalysis: true,
+      nutriScanAI: true,
+      exportData: true,
+      caregiverAccess: false,
+    },
+  },
+  premium: {
+    id: 'premium',
+    name: 'Premium',
+    description: 'Full features for serious health management',
+    price: { monthly: 19.99, yearly: 199.99 },
+    limits: {
+      maxSessions: null,
+      maxMedications: null,
+      maxReports: null,
+      maxAIRequests: null,
+    },
+    features: {
+      aiHealthAnalysis: true,
+      nutriScanAI: true,
+      exportData: true,
+      caregiverAccess: true,
+    },
+  },
+};
+
+/**
+ * Check if a feature requires upgrade from current plan
+ */
+export function requiresUpgrade(currentPlan: PlanType, feature: keyof PlanConfig['features']): boolean {
+  return !PLAN_CONFIGS[currentPlan].features[feature];
+}
+
+/**
+ * Get minimum plan required for a feature
+ */
+export function getMinimumPlanForFeature(feature: keyof PlanConfig['features']): PlanType {
+  if (PLAN_CONFIGS.free.features[feature]) return 'free';
+  if (PLAN_CONFIGS.basic.features[feature]) return 'basic';
+  return 'premium';
+}
+
+/**
+ * Check if user has reached limit
+ */
+export function isAtLimit(usage: UsageItem): boolean {
+  return !usage.unlimited && usage.remaining <= 0;
+}
+
+/**
+ * Check if user is near limit (80%+)
+ */
+export function isNearLimit(usage: UsageItem): boolean {
+  return !usage.unlimited && usage.percentUsed >= 80;
+}

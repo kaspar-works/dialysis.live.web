@@ -128,44 +128,25 @@ const Pricing: React.FC = () => {
   };
 
   const transformFeatures = (plan: any): PlanFeature[] => {
+    // Use the includes array from API if available
+    if (plan.includes && Array.isArray(plan.includes)) {
+      return plan.includes.map((item: string) => ({
+        text: item,
+        included: true,
+      }));
+    }
+
+    // Fallback for old format
     const features: PlanFeature[] = [];
-    const limits = plan.limits || {};
-    const planFeatures = plan.features || [];
+    const planFeatures = Array.isArray(plan.features) ? plan.features : [];
 
-    // Add limit-based features
-    if (limits.maxSessions !== undefined) {
-      features.push({
-        text: limits.maxSessions === null ? 'Unlimited Sessions' : `${limits.maxSessions} Sessions`,
-        included: true,
-      });
-    }
-    if (limits.maxMedications !== undefined) {
-      features.push({
-        text: limits.maxMedications === null ? 'Unlimited Medications' : `${limits.maxMedications} Medications`,
-        included: true,
-      });
-    }
-
-    // Check for AI features
     const hasAIChat = planFeatures.includes('ai_chat');
-    const hasNutriAudit = planFeatures.includes('nutri_audit');
     const hasExport = planFeatures.includes('export_data');
-    const hasPDFReports = planFeatures.includes('pdf_reports');
-    const hasDoctorReports = planFeatures.includes('doctor_reports');
-    const hasCaregiverAccess = planFeatures.includes('caregiver_access');
-    const hasFamilySharing = planFeatures.includes('family_sharing');
-    const hasPrioritySupport = planFeatures.includes('priority_support');
 
-    features.push({ text: 'AI Health Chat', included: hasAIChat });
-    features.push({ text: 'Nutri-Scan AI', included: hasNutriAudit });
-    features.push({ text: 'PDF Reports', included: hasPDFReports });
+    features.push({ text: plan.limits?.maxSessions === null ? 'Unlimited Sessions' : `${plan.limits?.maxSessions || 10} Sessions`, included: true });
+    features.push({ text: plan.limits?.maxMedications === null ? 'Unlimited Medications' : `${plan.limits?.maxMedications || 5} Medications`, included: true });
+    features.push({ text: 'AI Features', included: hasAIChat });
     features.push({ text: 'Data Export', included: hasExport });
-
-    if (plan.id === 'premium') {
-      features.push({ text: 'Doctor Reports', included: hasDoctorReports });
-      features.push({ text: 'Caregiver Access', included: hasCaregiverAccess });
-      features.push({ text: 'Priority Support', included: hasPrioritySupport });
-    }
 
     return features;
   };
