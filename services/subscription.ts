@@ -175,10 +175,14 @@ export async function subscribe(plan: PlanType, billingInterval: BillingInterval
  * Update/upgrade subscription
  * PATCH /api/v1/subscriptions
  */
-export async function updateSubscription(plan: PlanType): Promise<Subscription> {
+export async function updateSubscription(
+  plan: PlanType,
+  paymentMethodId?: string,
+  billingInterval?: BillingInterval
+): Promise<Subscription> {
   const result = await authFetch('/subscriptions', {
     method: 'PATCH',
-    body: JSON.stringify({ plan }),
+    body: JSON.stringify({ plan, paymentMethodId, billingInterval }),
   });
   return result.data.subscription;
 }

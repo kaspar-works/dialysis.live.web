@@ -13,7 +13,9 @@ import {
   UsageItem,
   getPlanDisplayName,
   PLAN_CONFIGS,
+  BillingInterval,
 } from '../services/subscription';
+import PaymentModal from '../components/PaymentModal';
 
 const Subscription: React.FC = () => {
   const [isYearly, setIsYearly] = useState(false);
@@ -24,6 +26,8 @@ const Subscription: React.FC = () => {
   const [isUpgrading, setIsUpgrading] = useState<PlanType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'plans'>('overview');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<PlanType | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -51,6 +55,15 @@ const Subscription: React.FC = () => {
 
   const handleUpgrade = async (plan: PlanType) => {
     if (!subscription || subscription.plan === plan) return;
+
+    // If upgrading from FREE to a paid plan, show payment modal
+    if (subscription.plan === 'free' && plan !== 'free') {
+      setSelectedPlanForPayment(plan);
+      setShowPaymentModal(true);
+      return;
+    }
+
+    // For plan changes between paid plans or downgrade to free
     setIsUpgrading(plan);
     try {
       const updated = await updateSubscription(plan);
@@ -60,6 +73,27 @@ const Subscription: React.FC = () => {
     } catch (err) {
       console.error('Failed to upgrade:', err);
       setError('Failed to upgrade plan. Please try again.');
+    } finally {
+      setIsUpgrading(null);
+    }
+  };
+
+  const handlePaymentSuccess = async (paymentMethodId: string) => {
+    if (!selectedPlanForPayment) return;
+
+    setShowPaymentModal(false);
+    setIsUpgrading(selectedPlanForPayment);
+
+    try {
+      const billingInterval: BillingInterval = isYearly ? 'year' : 'month';
+      const updated = await updateSubscription(selectedPlanForPayment, paymentMethodId, billingInterval);
+      setSubscription(updated);
+      const newUsage = await getUsageStats();
+      setUsage(newUsage);
+      setSelectedPlanForPayment(null);
+    } catch (err: any) {
+      console.error('Failed to upgrade:', err);
+      setError(err.message || 'Failed to upgrade plan. Please try again.');
     } finally {
       setIsUpgrading(null);
     }
@@ -537,6 +571,20 @@ const Subscription: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Payment Modal */}
+      {selectedPlanForPayment && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedPlanForPayment(null);
+          }}
+          selectedPlan={selectedPlanForPayment}
+          isYearly={isYearly}
+          onSuccess={handlePaymentSuccess}
+        />
       )}
     </div>
   );
