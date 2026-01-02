@@ -360,12 +360,12 @@ const Vitals: React.FC = () => {
 
   // Filter records for history based on active tab
   const filteredRecords = useMemo(() => {
-    const safeRecords = records || [];
+    const safeRecords = (records || []).filter(r => r != null);
     if (activeTab === 'overview') return safeRecords;
-    if (activeTab === 'blood_pressure') return safeRecords.filter(r => r && r.bloodPressure);
-    if (activeTab === 'heart_rate') return safeRecords.filter(r => r && r.heartRate);
-    if (activeTab === 'temperature') return safeRecords.filter(r => r && r.temperature);
-    if (activeTab === 'spo2') return safeRecords.filter(r => r && r.spo2);
+    if (activeTab === 'blood_pressure') return safeRecords.filter(r => r.bloodPressure);
+    if (activeTab === 'heart_rate') return safeRecords.filter(r => r.heartRate);
+    if (activeTab === 'temperature') return safeRecords.filter(r => r.temperature);
+    if (activeTab === 'spo2') return safeRecords.filter(r => r.spo2);
     return safeRecords;
   }, [records, activeTab]);
 

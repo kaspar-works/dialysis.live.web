@@ -3,19 +3,34 @@ import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { Link } from 'react-router-dom';
 import { getSettings, updateSettings, UserSettings, defaultSettings } from '../services/settings';
+import {
+  getCurrentSubscription,
+  updateSubscription,
+  Subscription,
+  PlanType,
+  BillingInterval,
+  PLAN_CONFIGS,
+  getPlanDisplayName,
+} from '../services/subscription';
+import PaymentModal from '../components/PaymentModal';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const Settings: React.FC = () => {
   const { profile } = useStore();
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const [activeSection, setActiveSection] = useState<string>('dialysis');
   const hasFetched = useRef(false);
 
-  const sub = profile.subscription;
+  // Plan upgrade state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (hasFetched.current) return;
@@ -26,8 +41,12 @@ const Settings: React.FC = () => {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const data = await getSettings();
-      setSettings(data);
+      const [settingsData, subData] = await Promise.all([
+        getSettings(),
+        getCurrentSubscription(),
+      ]);
+      setSettings(settingsData);
+      setSubscription(subData);
     } catch (err: any) {
       // Don't log session expiration errors - redirect is already happening
       if (!err?.message?.includes('Session expired')) {
@@ -35,6 +54,43 @@ const Settings: React.FC = () => {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePlanChange = (plan: PlanType) => {
+    if (!subscription || subscription.plan === plan) return;
+
+    // If upgrading from free to paid, show payment modal
+    if (subscription.plan === 'free' && plan !== 'free') {
+      setSelectedPlan(plan);
+      setShowPaymentModal(true);
+      return;
+    }
+
+    // For downgrades or changes between paid plans
+    handlePlanUpdate(plan);
+  };
+
+  const handlePlanUpdate = async (plan: PlanType, paymentMethodId?: string) => {
+    setIsUpgrading(true);
+    setUpgradeError(null);
+
+    try {
+      const updated = await updateSubscription(plan, paymentMethodId, 'month');
+      setSubscription(updated);
+      setShowPaymentModal(false);
+      setSelectedPlan(null);
+    } catch (err: any) {
+      console.error('Failed to update plan:', err);
+      setUpgradeError(err.message || 'Failed to update plan');
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
+  const handlePaymentSuccess = async (paymentMethodId: string) => {
+    if (selectedPlan) {
+      await handlePlanUpdate(selectedPlan, paymentMethodId);
     }
   };
 
@@ -121,32 +177,106 @@ const Settings: React.FC = () => {
         </button>
       </header>
 
-      {/* Account Section */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-sky-500/10 rounded-2xl flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-sky-500">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{sub.plan} Plan</h3>
-              <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-xs font-bold rounded-lg">Active</span>
+      {/* Account Section - Plan Management */}
+      {subscription && (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 space-y-6">
+          {/* Current Plan Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
+                subscription.plan === 'premium'
+                  ? 'bg-gradient-to-br from-amber-400 to-orange-500'
+                  : subscription.plan === 'basic'
+                  ? 'bg-gradient-to-br from-sky-400 to-blue-500'
+                  : 'bg-slate-100 dark:bg-slate-700'
+              }`}>
+                {subscription.plan === 'premium' ? '👑' : subscription.plan === 'basic' ? '⚡' : '🎯'}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white capitalize">
+                    {getPlanDisplayName(subscription.plan)} Plan
+                  </h3>
+                  <span className={`px-2 py-0.5 text-xs font-bold rounded-lg ${
+                    subscription.status === 'active'
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : 'bg-amber-500/10 text-amber-500'
+                  }`}>
+                    {subscription.status === 'active' ? 'Active' : subscription.status}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-400">
+                  {subscription.currentPeriodEnd
+                    ? `Renews ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
+                    : subscription.plan === 'free' ? 'Free forever' : 'N/A'}
+                </p>
+              </div>
             </div>
-            <p className="text-sm text-slate-400">
-              Renews {sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : 'N/A'}
-            </p>
+            <Link
+              to="/subscription"
+              className="px-4 py-2 text-sm text-sky-500 hover:text-sky-600 font-semibold"
+            >
+              View Details →
+            </Link>
+          </div>
+
+          {/* Plan Selector */}
+          <div className="space-y-3">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Change Plan</label>
+
+            {upgradeError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-xl">
+                <p className="text-sm text-rose-600 dark:text-rose-400">{upgradeError}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {(['free', 'basic', 'premium'] as PlanType[]).map((plan) => {
+                const config = PLAN_CONFIGS[plan];
+                const isCurrent = subscription.plan === plan;
+                const isDowngrade =
+                  (subscription.plan === 'premium' && plan !== 'premium') ||
+                  (subscription.plan === 'basic' && plan === 'free');
+
+                return (
+                  <button
+                    key={plan}
+                    onClick={() => handlePlanChange(plan)}
+                    disabled={isCurrent || isUpgrading}
+                    className={`relative p-4 rounded-2xl border-2 text-left transition-all ${
+                      isCurrent
+                        ? 'border-sky-500 bg-sky-50 dark:bg-sky-500/10'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                    } ${isUpgrading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {isCurrent && (
+                      <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-sky-500 text-white text-xs font-bold rounded-full">
+                        Current
+                      </span>
+                    )}
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">
+                        {plan === 'premium' ? '👑' : plan === 'basic' ? '⚡' : '🎯'}
+                      </span>
+                      <span className="font-bold text-slate-900 dark:text-white capitalize">{config.name}</span>
+                    </div>
+                    <p className="text-sm text-slate-500 mb-2">{config.description}</p>
+                    <p className="text-lg font-black text-slate-900 dark:text-white">
+                      ${config.price.monthly}
+                      <span className="text-sm font-normal text-slate-400">/mo</span>
+                    </p>
+                    {!isCurrent && (
+                      <p className="text-xs text-sky-500 font-semibold mt-2">
+                        {isDowngrade ? 'Downgrade' : 'Upgrade'} →
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-        <Link
-          to="/subscription"
-          className="px-6 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
-        >
-          Manage Plan
-        </Link>
-      </div>
+      )}
 
       {/* Section Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -592,6 +722,20 @@ const Settings: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Payment Modal for Upgrades */}
+      {selectedPlan && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedPlan(null);
+          }}
+          selectedPlan={selectedPlan}
+          isYearly={false}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   );
 };

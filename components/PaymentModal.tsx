@@ -20,16 +20,17 @@ interface PaymentModalProps {
   onSuccess: (paymentMethodId: string) => Promise<void>;
 }
 
-// Card Element styling
+// Card Element styling - white text for visibility
 const cardElementOptions = {
   style: {
     base: {
       fontSize: '16px',
-      color: '#1e293b',
+      color: '#ffffff',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       '::placeholder': {
         color: '#94a3b8',
       },
+      iconColor: '#94a3b8',
     },
     invalid: {
       color: '#ef4444',
@@ -129,7 +130,7 @@ const PaymentForm: React.FC<{
         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
           Card Details
         </label>
-        <div className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-transparent transition-all">
+        <div className="p-4 bg-slate-900 border border-slate-700 rounded-xl focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-transparent transition-all">
           <CardElement options={cardElementOptions} />
         </div>
       </div>
