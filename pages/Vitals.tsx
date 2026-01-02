@@ -447,80 +447,313 @@ const Vitals: React.FC = () => {
         </div>
       )}
 
-      {/* Add Vital Form */}
+      {/* Add Vital Form - Redesigned for Easy Entry */}
       {showForm && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 animate-in slide-in-from-top duration-300 shadow-xl">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Log New Reading</h3>
-          <form onSubmit={handleAddVital} className="space-y-5">
-            {/* Type Selection */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {Object.entries(vitalConfig).map(([type, config]) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setSelectedType(type as VitalType)}
-                  className={`p-4 rounded-2xl text-center transition-all ${
-                    selectedType === type
-                      ? `bg-gradient-to-br ${config.gradient} text-white shadow-lg scale-[1.02]`
-                      : 'bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  <span className="text-3xl block mb-2">{config.emoji}</span>
-                  <span className={`text-xs font-bold ${selectedType === type ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`}>
-                    {config.shortLabel}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Value Input */}
-            <div className={`rounded-2xl p-6 text-center bg-gradient-to-br ${vitalConfig[selectedType].gradient}/10`}>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
-                {vitalConfig[selectedType].label}
-              </p>
-              <div className="flex items-center justify-center gap-3">
-                <input
-                  type="number"
-                  value={val1}
-                  onChange={e => setVal1(e.target.value)}
-                  className="w-28 bg-white dark:bg-slate-800 text-5xl font-black text-slate-900 dark:text-white text-center outline-none rounded-xl p-2"
-                  step="0.1"
-                  autoFocus
-                />
-                {selectedType === VitalType.BLOOD_PRESSURE && (
-                  <>
-                    <span className="text-4xl font-bold text-slate-300 dark:text-slate-600">/</span>
-                    <input
-                      type="number"
-                      value={val2}
-                      onChange={e => setVal2(e.target.value)}
-                      className="w-28 bg-white dark:bg-slate-800 text-5xl font-black text-slate-900 dark:text-white text-center outline-none rounded-xl p-2"
-                    />
-                  </>
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 animate-in slide-in-from-top duration-300 shadow-xl overflow-hidden">
+          {/* Type Selection Tabs */}
+          <div className="flex border-b border-slate-100 dark:border-slate-700">
+            {Object.entries(vitalConfig).map(([type, config]) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setSelectedType(type as VitalType)}
+                className={`flex-1 py-4 px-2 text-center transition-all relative ${
+                  selectedType === type
+                    ? 'bg-white dark:bg-slate-800'
+                    : 'bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span className="text-2xl block mb-1">{config.emoji}</span>
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                  selectedType === type ? config.textColor : 'text-slate-400'
+                }`}>
+                  {config.shortLabel}
+                </span>
+                {selectedType === type && (
+                  <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${config.gradient}`} />
                 )}
-              </div>
-              <p className="text-slate-400 text-sm font-medium mt-3">{vitalConfig[selectedType].unit}</p>
+              </button>
+            ))}
+          </div>
 
-              {/* Normal range hint */}
-              <p className="text-xs text-slate-400 mt-2">
-                Normal range: {vitalConfig[selectedType].normalRange.min}-{vitalConfig[selectedType].normalRange.max}
-                {vitalConfig[selectedType].normalRange2 && ` / ${vitalConfig[selectedType].normalRange2.min}-${vitalConfig[selectedType].normalRange2.max}`}
-                {' '}{vitalConfig[selectedType].unit}
-              </p>
+          <form onSubmit={handleAddVital} className="p-6 space-y-6">
+            {/* Live Status Indicator */}
+            {(() => {
+              const v1 = parseFloat(val1);
+              const v2 = parseFloat(val2);
+              if (!v1 || isNaN(v1)) return null;
+
+              const status = getVitalStatus(selectedType, v1, selectedType === VitalType.BLOOD_PRESSURE ? v2 : undefined);
+              const statusConfig: Record<string, { bg: string; text: string; icon: string; message: string }> = {
+                'Normal': { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', icon: '✓', message: 'This reading is within normal range' },
+                'Elevated': { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', icon: '⚠', message: 'This reading is slightly elevated' },
+                'High': { bg: 'bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400', icon: '⚠', message: 'This reading is high - consult your doctor if persistent' },
+                'Low': { bg: 'bg-sky-500/10', text: 'text-sky-600 dark:text-sky-400', icon: 'ℹ', message: 'This reading is below normal range' },
+                'Fever': { bg: 'bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400', icon: '🌡', message: 'Temperature indicates fever' },
+                'Critical': { bg: 'bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400', icon: '🚨', message: 'Critical level - seek immediate medical attention' },
+              };
+              const sc = statusConfig[status.label] || statusConfig['Normal'];
+
+              return (
+                <div className={`${sc.bg} rounded-2xl p-4 flex items-center gap-3 animate-in fade-in duration-300`}>
+                  <span className="text-xl">{sc.icon}</span>
+                  <div className="flex-1">
+                    <p className={`font-bold ${sc.text}`}>{status.label}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{sc.message}</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Main Input Area */}
+            <div className="space-y-4">
+              {selectedType === VitalType.BLOOD_PRESSURE ? (
+                /* Blood Pressure: Two Values */
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Systolic */}
+                  <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-4">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3 text-center">
+                      Systolic (Top)
+                    </label>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setVal1(String(Math.max(60, parseInt(val1) - 5)))}
+                        className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-500 transition-all active:scale-95"
+                      >
+                        <span className="text-2xl font-bold">−</span>
+                      </button>
+                      <input
+                        type="number"
+                        value={val1}
+                        onChange={e => setVal1(e.target.value)}
+                        className="w-24 h-16 bg-white dark:bg-slate-800 text-4xl font-black text-slate-900 dark:text-white text-center outline-none rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-rose-500 transition-colors"
+                        min="60"
+                        max="250"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setVal1(String(Math.min(250, parseInt(val1) + 5)))}
+                        className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-500 transition-all active:scale-95"
+                      >
+                        <span className="text-2xl font-bold">+</span>
+                      </button>
+                    </div>
+                    <p className="text-center text-xs text-slate-400 mt-2">Normal: 90-120</p>
+                  </div>
+
+                  {/* Diastolic */}
+                  <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-4">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3 text-center">
+                      Diastolic (Bottom)
+                    </label>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setVal2(String(Math.max(40, parseInt(val2) - 5)))}
+                        className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-pink-500 hover:border-pink-500 transition-all active:scale-95"
+                      >
+                        <span className="text-2xl font-bold">−</span>
+                      </button>
+                      <input
+                        type="number"
+                        value={val2}
+                        onChange={e => setVal2(e.target.value)}
+                        className="w-24 h-16 bg-white dark:bg-slate-800 text-4xl font-black text-slate-900 dark:text-white text-center outline-none rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-pink-500 transition-colors"
+                        min="40"
+                        max="150"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setVal2(String(Math.min(150, parseInt(val2) + 5)))}
+                        className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-pink-500 hover:border-pink-500 transition-all active:scale-95"
+                      >
+                        <span className="text-2xl font-bold">+</span>
+                      </button>
+                    </div>
+                    <p className="text-center text-xs text-slate-400 mt-2">Normal: 60-80</p>
+                  </div>
+                </div>
+              ) : (
+                /* Single Value Vitals */
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-6">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-4 text-center">
+                    {vitalConfig[selectedType].label}
+                  </label>
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const step = selectedType === VitalType.TEMPERATURE ? 0.1 : 1;
+                        const min = selectedType === VitalType.TEMPERATURE ? 35 : selectedType === VitalType.HEART_RATE ? 40 : 80;
+                        setVal1(String(Math.max(min, parseFloat(val1) - step).toFixed(selectedType === VitalType.TEMPERATURE ? 1 : 0)));
+                      }}
+                      className={`w-14 h-14 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:${vitalConfig[selectedType].textColor} hover:border-current transition-all active:scale-95`}
+                    >
+                      <span className="text-3xl font-bold">−</span>
+                    </button>
+                    <div className="text-center">
+                      <input
+                        type="number"
+                        value={val1}
+                        onChange={e => setVal1(e.target.value)}
+                        className={`w-32 h-20 bg-white dark:bg-slate-800 text-5xl font-black text-slate-900 dark:text-white text-center outline-none rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-current transition-colors ${vitalConfig[selectedType].textColor.replace('text-', 'focus:border-')}`}
+                        step={selectedType === VitalType.TEMPERATURE ? 0.1 : 1}
+                        autoFocus
+                      />
+                      <p className="text-slate-400 text-sm font-medium mt-2">{vitalConfig[selectedType].unit}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const step = selectedType === VitalType.TEMPERATURE ? 0.1 : 1;
+                        const max = selectedType === VitalType.TEMPERATURE ? 42 : selectedType === VitalType.HEART_RATE ? 200 : 100;
+                        setVal1(String(Math.min(max, parseFloat(val1) + step).toFixed(selectedType === VitalType.TEMPERATURE ? 1 : 0)));
+                      }}
+                      className={`w-14 h-14 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:${vitalConfig[selectedType].textColor} hover:border-current transition-all active:scale-95`}
+                    >
+                      <span className="text-3xl font-bold">+</span>
+                    </button>
+                  </div>
+                  <p className="text-center text-xs text-slate-400 mt-3">
+                    Normal: {vitalConfig[selectedType].normalRange.min}-{vitalConfig[selectedType].normalRange.max} {vitalConfig[selectedType].unit}
+                  </p>
+                </div>
+              )}
+
+              {/* Quick Presets */}
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Quick Select</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedType === VitalType.BLOOD_PRESSURE && (
+                    <>
+                      {[
+                        { label: 'Normal', v1: '120', v2: '80' },
+                        { label: 'Elevated', v1: '130', v2: '85' },
+                        { label: 'High', v1: '140', v2: '90' },
+                        { label: 'Low', v1: '100', v2: '65' },
+                      ].map(preset => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => { setVal1(preset.v1); setVal2(preset.v2); }}
+                          className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-rose-500/10 hover:text-rose-500 rounded-xl text-sm font-bold transition-all"
+                        >
+                          {preset.label} ({preset.v1}/{preset.v2})
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {selectedType === VitalType.HEART_RATE && (
+                    <>
+                      {[
+                        { label: 'Resting', v1: '65' },
+                        { label: 'Normal', v1: '75' },
+                        { label: 'Active', v1: '90' },
+                        { label: 'Exercise', v1: '120' },
+                      ].map(preset => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => setVal1(preset.v1)}
+                          className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-orange-500/10 hover:text-orange-500 rounded-xl text-sm font-bold transition-all"
+                        >
+                          {preset.label} ({preset.v1})
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {selectedType === VitalType.TEMPERATURE && (
+                    <>
+                      {[
+                        { label: 'Normal', v1: profile.settings.units === 'metric' ? '36.6' : '98.6' },
+                        { label: 'Low Fever', v1: profile.settings.units === 'metric' ? '37.5' : '99.5' },
+                        { label: 'Fever', v1: profile.settings.units === 'metric' ? '38.5' : '101.3' },
+                        { label: 'High Fever', v1: profile.settings.units === 'metric' ? '39.5' : '103.1' },
+                      ].map(preset => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => setVal1(preset.v1)}
+                          className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-purple-500/10 hover:text-purple-500 rounded-xl text-sm font-bold transition-all"
+                        >
+                          {preset.label} ({preset.v1})
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {selectedType === VitalType.SPO2 && (
+                    <>
+                      {[
+                        { label: 'Excellent', v1: '99' },
+                        { label: 'Normal', v1: '97' },
+                        { label: 'Borderline', v1: '94' },
+                        { label: 'Low', v1: '90' },
+                      ].map(preset => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => setVal1(preset.v1)}
+                          className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-emerald-500/10 hover:text-emerald-500 rounded-xl text-sm font-bold transition-all"
+                        >
+                          {preset.label} ({preset.v1}%)
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Validation Messages */}
+              {(() => {
+                const v1 = parseFloat(val1);
+                const v2 = parseFloat(val2);
+                const errors: string[] = [];
+
+                if (selectedType === VitalType.BLOOD_PRESSURE) {
+                  if (v1 && (v1 < 60 || v1 > 250)) errors.push('Systolic should be between 60-250 mmHg');
+                  if (v2 && (v2 < 40 || v2 > 150)) errors.push('Diastolic should be between 40-150 mmHg');
+                  if (v1 && v2 && v2 >= v1) errors.push('Diastolic should be lower than systolic');
+                }
+                if (selectedType === VitalType.HEART_RATE) {
+                  if (v1 && (v1 < 30 || v1 > 220)) errors.push('Heart rate should be between 30-220 bpm');
+                }
+                if (selectedType === VitalType.TEMPERATURE) {
+                  const min = profile.settings.units === 'metric' ? 34 : 93;
+                  const max = profile.settings.units === 'metric' ? 43 : 109;
+                  if (v1 && (v1 < min || v1 > max)) errors.push(`Temperature should be between ${min}-${max}${vitalConfig[selectedType].unit}`);
+                }
+                if (selectedType === VitalType.SPO2) {
+                  if (v1 && (v1 < 70 || v1 > 100)) errors.push('SpO2 should be between 70-100%');
+                }
+
+                if (errors.length === 0) return null;
+
+                return (
+                  <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 space-y-1">
+                    {errors.map((err, i) => (
+                      <p key={i} className="text-rose-500 text-sm flex items-center gap-2">
+                        <span>⚠</span> {err}
+                      </p>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* Submit */}
+            {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLogging || !val1}
-              className={`w-full py-4 rounded-2xl font-bold text-white transition-all bg-gradient-to-r ${vitalConfig[selectedType].gradient} hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg`}
+              disabled={isLogging || !val1 || (selectedType === VitalType.BLOOD_PRESSURE && !val2)}
+              className={`w-full py-4 rounded-2xl font-bold text-white transition-all bg-gradient-to-r ${vitalConfig[selectedType].gradient} hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-${vitalConfig[selectedType].color}-500/20`}
             >
               {isLogging ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  <ICONS.Plus className="w-5 h-5" />
-                  Log {vitalConfig[selectedType].shortLabel}
+                  <span className="text-xl">{vitalConfig[selectedType].emoji}</span>
+                  Save {vitalConfig[selectedType].label}
                 </>
               )}
             </button>
