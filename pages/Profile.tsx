@@ -112,25 +112,25 @@ const Profile: React.FC = () => {
       {/* Header */}
       <section className="space-y-2">
         <div className="flex items-center gap-3">
-          <span className="px-3 py-1 bg-white text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg border border-slate-100 shadow-sm">Identity Management</span>
+          <span className="px-3 py-1 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm">Identity Management</span>
         </div>
-        <h2 className="text-4xl font-black text-slate-900 tracking-tight">User Configuration</h2>
-        <p className="text-slate-500 font-medium text-lg leading-relaxed">Customize your clinical targets and personal information.</p>
+        <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">User Configuration</h2>
+        <p className="text-slate-500 dark:text-slate-400 font-medium text-lg leading-relaxed">Customize your clinical targets and personal information.</p>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         {/* Avatar Card */}
         <div className="lg:col-span-4 space-y-8">
-          <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm text-center space-y-6">
+          <div className="bg-white dark:bg-slate-800 p-10 rounded-[3.5rem] border border-slate-100 dark:border-slate-700 shadow-sm text-center space-y-6">
             <div className="relative inline-block group">
-              <img 
-                src={formData.avatarUrl || defaultAvatar} 
-                className="w-32 h-32 rounded-[2.5rem] ring-8 ring-slate-50 shadow-xl mx-auto object-cover transition-all duration-300 group-hover:brightness-75" 
+              <img
+                src={formData.avatarUrl || defaultAvatar}
+                className="w-32 h-32 rounded-[2.5rem] ring-8 ring-slate-50 dark:ring-slate-700 shadow-xl mx-auto object-cover transition-all duration-300 group-hover:brightness-75"
                 alt="Profile"
               />
-              <button 
+              <button
                 onClick={triggerUpload}
-                className="absolute -bottom-2 -right-2 w-10 h-10 bg-sky-500 border-4 border-white rounded-2xl flex items-center justify-center text-white shadow-lg hover:bg-sky-600 transition-all active:scale-95"
+                className="absolute -bottom-2 -right-2 w-10 h-10 bg-sky-500 border-4 border-white dark:border-slate-800 rounded-2xl flex items-center justify-center text-white shadow-lg hover:bg-sky-600 transition-all active:scale-95"
                 title="Upload Photo"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
@@ -152,11 +152,11 @@ const Profile: React.FC = () => {
             </div>
             <div className="pt-4 flex flex-wrap gap-2 justify-center">
               {apiUser ? (
-                <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-tight border border-emerald-100">Synced</span>
+                <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg text-[9px] font-black uppercase tracking-tight border border-emerald-100 dark:border-emerald-500/20">Synced</span>
               ) : (
-                <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[9px] font-black uppercase tracking-tight border border-amber-100">Local Only</span>
+                <span className="px-3 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg text-[9px] font-black uppercase tracking-tight border border-amber-100 dark:border-amber-500/20">Local Only</span>
               )}
-              <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[9px] font-black uppercase tracking-tight border border-indigo-100">{formData.preferredDialysisType || 'Home HD'}</span>
+              <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg text-[9px] font-black uppercase tracking-tight border border-indigo-100 dark:border-indigo-500/20">{formData.preferredDialysisType || 'Home HD'}</span>
             </div>
           </div>
 
@@ -188,7 +188,7 @@ const Profile: React.FC = () => {
         </div>
 
         {/* Form Area */}
-        <div className="lg:col-span-8 bg-white p-12 rounded-[4rem] border border-slate-100 shadow-sm">
+        <div className="lg:col-span-8 bg-white dark:bg-slate-800 p-12 rounded-[4rem] border border-slate-100 dark:border-slate-700 shadow-sm">
           {isLoading && (
               <div className="flex items-center gap-3 p-4 bg-sky-50 dark:bg-sky-500/10 rounded-2xl border border-sky-100 dark:border-sky-500/20 mb-6">
                 <div className="w-5 h-5 border-2 border-sky-500/30 border-t-sky-500 rounded-full animate-spin"></div>
@@ -225,40 +225,40 @@ const Profile: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fluid Intake Limit (ml)</label>
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Fluid Intake Limit (ml)</label>
                 <div className="relative">
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     value={formData.dailyFluidLimit}
                     onChange={(e) => setFormData({...formData, dailyFluidLimit: parseInt(e.target.value)})}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:ring-4 focus:ring-sky-50 focus:border-sky-500 transition-all outline-none"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-900 dark:text-white focus:ring-4 focus:ring-sky-50 dark:focus:ring-sky-500/10 focus:border-sky-500 transition-all outline-none"
                     placeholder="1500"
                   />
-                  <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">ml / Day</div>
+                  <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase">ml / Day</div>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dry Weight Goal (kg)</label>
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Dry Weight Goal (kg)</label>
                 <div className="relative">
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="0.1"
                     value={formData.weightGoal}
                     onChange={(e) => setFormData({...formData, weightGoal: parseFloat(e.target.value)})}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:ring-4 focus:ring-sky-50 focus:border-sky-500 transition-all outline-none"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-900 dark:text-white focus:ring-4 focus:ring-sky-50 dark:focus:ring-sky-500/10 focus:border-sky-500 transition-all outline-none"
                     placeholder="75.0"
                   />
-                  <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">Target kg</div>
+                  <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase">Target kg</div>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Primary Modality</label>
-                <select 
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Primary Modality</label>
+                <select
                   value={formData.preferredDialysisType}
                   onChange={(e) => setFormData({...formData, preferredDialysisType: e.target.value as DialysisType})}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:ring-4 focus:ring-sky-50 focus:border-sky-500 transition-all outline-none appearance-none cursor-pointer"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-900 dark:text-white focus:ring-4 focus:ring-sky-50 dark:focus:ring-sky-500/10 focus:border-sky-500 transition-all outline-none appearance-none cursor-pointer"
                 >
                   <option value={DialysisType.HOME_HD}>{DialysisType.HOME_HD}</option>
                   <option value={DialysisType.IN_CENTER_HD}>{DialysisType.IN_CENTER_HD}</option>
@@ -269,21 +269,21 @@ const Profile: React.FC = () => {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dialysis Commencement Date</label>
-                <input 
-                  type="date" 
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Dialysis Commencement Date</label>
+                <input
+                  type="date"
                   value={formData.dialysisStartDate ? formData.dialysisStartDate.split('T')[0] : ''}
                   onChange={(e) => setFormData({...formData, dialysisStartDate: e.target.value ? new Date(e.target.value).toISOString() : undefined})}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-900 focus:ring-4 focus:ring-sky-50 focus:border-sky-500 transition-all outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-4 font-bold text-slate-900 dark:text-white focus:ring-4 focus:ring-sky-50 dark:focus:ring-sky-500/10 focus:border-sky-500 transition-all outline-none"
                 />
               </div>
             </div>
 
-            <div className="p-8 bg-sky-50 rounded-[2.5rem] border border-sky-100 flex items-start gap-6">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-sky-500 shadow-sm shrink-0 border border-sky-100">
+            <div className="p-8 bg-sky-50 dark:bg-sky-500/10 rounded-[2.5rem] border border-sky-100 dark:border-sky-500/20 flex items-start gap-6">
+              <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-sky-500 shadow-sm shrink-0 border border-sky-100 dark:border-sky-500/20">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
               </div>
-              <p className="text-xs font-semibold text-sky-800 leading-relaxed">
+              <p className="text-xs font-semibold text-sky-800 dark:text-sky-300 leading-relaxed">
                 Targets set here will propagate through the dashboard, fluid monitor, and weight tracking systems. Consult your nephrologist before adjusting clinical limits.
               </p>
             </div>

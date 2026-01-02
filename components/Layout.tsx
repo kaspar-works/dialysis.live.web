@@ -35,6 +35,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Nutri-Scan', path: '/nutri-scan', icon: (props: any) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
     )},
+    { name: 'Labs', path: '/labs', icon: (props: any) => (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>
+    )},
     { name: 'Meds', path: '/meds', icon: ICONS.Pill },
     { name: 'Reminders', path: '/reminders', icon: ICONS.Bell },
     { name: 'Appointments', path: '/appointments', icon: ICONS.Calendar },

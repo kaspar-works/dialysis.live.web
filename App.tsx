@@ -19,6 +19,7 @@ import Subscription from './pages/Subscription';
 import SubscriptionDetail from './pages/SubscriptionDetail';
 import Reports from './pages/Reports';
 import NutritionScan from './pages/NutritionScan';
+import LabReports from './pages/LabReports';
 import Symptoms from './pages/Symptoms';
 import Reminders from './pages/Reminders';
 import Appointments from './pages/Appointments';
@@ -140,6 +141,14 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <Layout><SEO title="AI Nutrition Scan" /><NutritionScan /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/labs"
+            element={
+              <ProtectedRoute>
+                <Layout><SEO title="Lab Reports" /><LabReports /></Layout>
               </ProtectedRoute>
             }
           />

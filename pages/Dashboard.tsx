@@ -29,6 +29,11 @@ import {
   formatAppointmentTime,
   getRelativeDate,
 } from '../services/appointments';
+import {
+  getTodayMeals,
+  TodayMealsResponse,
+  DAILY_LIMITS,
+} from '../services/nutrition';
 
 const Dashboard: React.FC = () => {
   const { weights, fluids, profile, vitals, moods, addFluid, meals } = useStore();
@@ -42,6 +47,7 @@ const Dashboard: React.FC = () => {
   const [isDismissing, setIsDismissing] = useState<string | null>(null);
   const [upcomingReminders, setUpcomingReminders] = useState<Reminder[]>([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
+  const [nutritionData, setNutritionData] = useState<TodayMealsResponse | null>(null);
   const hasFetched = useRef(false);
 
   // Fetch dashboard data and alerts from API
@@ -51,12 +57,13 @@ const Dashboard: React.FC = () => {
 
     const fetchDashboard = async () => {
       try {
-        const [dashData, alertsData, healthData, remindersData, appointmentsData] = await Promise.all([
+        const [dashData, alertsData, healthData, remindersData, appointmentsData, nutriData] = await Promise.all([
           getDashboard(30),
           getDashboardAlerts().catch(() => null),
           getHealthOverview().catch(() => null),
           getUpcomingReminders(24).catch(() => []),
           getUpcomingAppointments(7).catch(() => []),
+          getTodayMeals().catch(() => null),
         ]);
 
         setDashboardData(dashData);
@@ -77,6 +84,10 @@ const Dashboard: React.FC = () => {
 
         if (appointmentsData) {
           setUpcomingAppointments(appointmentsData);
+        }
+
+        if (nutriData) {
+          setNutritionData(nutriData);
         }
       } catch (err: unknown) {
         const error = err as { message?: string };
@@ -193,8 +204,19 @@ const Dashboard: React.FC = () => {
     return hours.slice(6, 22);
   }, [fluids]);
 
-  // Nutrition totals
+  // Nutrition totals - prefer API data over local store
   const nutritionTotals = useMemo(() => {
+    // Use API data if available
+    if (nutritionData?.totals) {
+      return {
+        sodium: nutritionData.totals.sodium || 0,
+        potassium: nutritionData.totals.potassium || 0,
+        phosphorus: nutritionData.totals.phosphorus || 0,
+        protein: nutritionData.totals.protein || 0,
+      };
+    }
+
+    // Fallback to local store
     const today = new Date().toDateString();
     const todayMeals = meals?.filter(m => new Date(m.time).toDateString() === today) || [];
     return todayMeals.reduce((acc, m) => ({
@@ -203,7 +225,18 @@ const Dashboard: React.FC = () => {
       phosphorus: acc.phosphorus + (m.nutrients?.phosphorus || 0),
       protein: acc.protein + (m.nutrients?.protein || 0),
     }), { sodium: 0, potassium: 0, phosphorus: 0, protein: 0 });
-  }, [meals]);
+  }, [nutritionData, meals]);
+
+  // Nutrition limits - use API data if available
+  const nutritionLimits = useMemo(() => {
+    if (nutritionData?.dailyLimits) {
+      return nutritionData.dailyLimits;
+    }
+    return DAILY_LIMITS;
+  }, [nutritionData]);
+
+  // Total meals count today
+  const todayMealCount = nutritionData?.totalMeals || 0;
 
   // Health Score calculation - prefer API data over local calculation
   const healthScore = useMemo(() => {
@@ -943,36 +976,57 @@ const Dashboard: React.FC = () => {
         {/* Nutrition Summary */}
         <div className="col-span-12 bg-white dark:bg-slate-800/50 glass-light rounded-[2rem] p-6 border border-slate-200/50 dark:border-slate-700/50">
           <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white">Today's Nutrition</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm">Key nutrients tracked</p>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <span className="text-xl">🥗</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">Today's Nutrition</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  {todayMealCount > 0 ? `${todayMealCount} meal${todayMealCount > 1 ? 's' : ''} logged` : 'No meals logged yet'}
+                </p>
+              </div>
             </div>
-            <Link to="/nutri-scan" className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors">
-              + Scan Food
+            <Link to="/nutri-scan" className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors flex items-center gap-2">
+              <span>+</span> Scan Food
             </Link>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'Sodium', value: nutritionTotals.sodium, limit: 2000, unit: 'mg', color: 'sky', icon: '🧂' },
-              { label: 'Potassium', value: nutritionTotals.potassium, limit: 3000, unit: 'mg', color: 'orange', icon: '🍌' },
-              { label: 'Phosphorus', value: nutritionTotals.phosphorus, limit: 1000, unit: 'mg', color: 'purple', icon: '🥩' },
-              { label: 'Protein', value: nutritionTotals.protein, limit: 60, unit: 'g', color: 'emerald', icon: '🥚' },
+              { label: 'Sodium', value: nutritionTotals.sodium, limit: nutritionLimits.sodium, unit: 'mg', color: 'sky', icon: '🧂' },
+              { label: 'Potassium', value: nutritionTotals.potassium, limit: nutritionLimits.potassium, unit: 'mg', color: 'orange', icon: '🍌' },
+              { label: 'Phosphorus', value: nutritionTotals.phosphorus, limit: nutritionLimits.phosphorus, unit: 'mg', color: 'purple', icon: '🥩' },
+              { label: 'Protein', value: nutritionTotals.protein, limit: nutritionLimits.protein, unit: 'g', color: 'emerald', icon: '🥚' },
             ].map((n, i) => {
               const percent = Math.min((n.value / n.limit) * 100, 100);
+              const isOverLimit = n.value > n.limit;
+              const isWarning = percent >= 80 && percent < 100;
               return (
-                <div key={i} className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl p-4 hover:shadow-lg transition-shadow">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-2xl">{n.icon}</span>
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{n.label}</span>
+                <div key={i} className={`bg-slate-50 dark:bg-slate-700/30 rounded-2xl p-4 hover:shadow-lg transition-shadow ${isOverLimit ? 'ring-2 ring-rose-500/50' : ''}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{n.icon}</span>
+                      <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{n.label}</span>
+                    </div>
+                    {isOverLimit && (
+                      <span className="px-2 py-0.5 bg-rose-500/10 text-rose-500 text-[10px] font-bold rounded-full">OVER</span>
+                    )}
+                    {isWarning && !isOverLimit && (
+                      <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 text-[10px] font-bold rounded-full">HIGH</span>
+                    )}
                   </div>
                   <div className="flex items-baseline gap-1 mb-2">
-                    <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">{n.value}</span>
+                    <span className={`text-2xl font-black tabular-nums ${isOverLimit ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
+                      {Math.round(n.value)}
+                    </span>
                     <span className="text-slate-400 text-sm">/ {n.limit}{n.unit}</span>
                   </div>
                   <div className="h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-1000 ${
+                        isOverLimit ? 'bg-rose-500' :
+                        isWarning ? 'bg-amber-500' :
                         n.color === 'sky' ? 'bg-sky-500' :
                         n.color === 'orange' ? 'bg-orange-500' :
                         n.color === 'purple' ? 'bg-purple-500' : 'bg-emerald-500'
@@ -980,6 +1034,7 @@ const Dashboard: React.FC = () => {
                       style={{ width: `${percent}%` }}
                     />
                   </div>
+                  <p className="text-xs text-slate-400 mt-1 text-right">{Math.round(percent)}% of daily limit</p>
                 </div>
               );
             })}
