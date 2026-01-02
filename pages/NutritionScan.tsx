@@ -4,25 +4,18 @@ import { Link } from 'react-router-dom';
 import { ICONS } from '../constants';
 import { MealNutrients } from '../types';
 import {
-  analyzeMealImage,
+  analyzeFoodByText,
+  searchCachedFoods,
   createMeal,
   getTodayMeals,
   deleteMeal,
-  Meal,
   MealType,
-  MealAnalysisResult,
   TodayMealsResponse,
   DAILY_LIMITS,
+  NutriAuditResult,
+  CachedFood,
 } from '../services/nutrition';
-import { SubscriptionLimitError, FeatureRestrictedError } from '../services/auth';
-
-interface ScanResult {
-  foodName: string;
-  nutrients: { sodium: number; potassium: number; phosphorus: number; protein: number };
-  isKidneyFriendly: boolean;
-  renalImpactSummary: string;
-  tips: string[];
-}
+import { authFetch, SubscriptionLimitError, FeatureRestrictedError } from '../services/auth';
 
 const COMMON_FOODS = [
   { name: 'Apple', sodium: 1, potassium: 107, phosphorus: 11, protein: 0.3 },
@@ -40,12 +33,12 @@ const LIMITS = { sodium: DAILY_LIMITS.sodium, potassium: DAILY_LIMITS.potassium,
 const NutritionScan: React.FC = () => {
   const [image, setImage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [scanResult, setScanResult] = useState<NutriAuditResult | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [mealName, setMealName] = useState('');
   const [manualNutrients, setManualNutrients] = useState<MealNutrients>({ sodium: 0, potassium: 0, phosphorus: 0, protein: 0 });
-  const [activeTab, setActiveTab] = useState<'scan' | 'manual'>('scan');
+  const [activeTab, setActiveTab] = useState<'scan' | 'search' | 'manual'>('search');
   const [isLoading, setIsLoading] = useState(true);
   const [isLogging, setIsLogging] = useState(false);
   const [todayData, setTodayData] = useState<TodayMealsResponse | null>(null);
@@ -54,6 +47,13 @@ const NutritionScan: React.FC = () => {
   const [featureError, setFeatureError] = useState<{ message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasFetched = useRef(false);
+
+  // Text-based search state
+  const [cachedSuggestions, setCachedSuggestions] = useState<CachedFood[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [textAnalysisResult, setTextAnalysisResult] = useState<NutriAuditResult | null>(null);
+  const [isAnalyzingText, setIsAnalyzingText] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch today's meals on mount
   useEffect(() => {
@@ -74,10 +74,45 @@ const NutritionScan: React.FC = () => {
     fetchTodayMeals();
   }, []);
 
+  // Search cached foods when query changes
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (!searchQuery || searchQuery.length < 2) {
+      setCachedSuggestions([]);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const result = await searchCachedFoods(searchQuery, 5);
+        setCachedSuggestions(result.foods);
+      } catch (err) {
+        console.error('Failed to search foods:', err);
+        setCachedSuggestions([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
+
+  // Combined suggestions (API + local fallback)
   const suggestions = useMemo(() => {
     if (!searchQuery) return [];
+    // If we have API results, use those
+    if (cachedSuggestions.length > 0) return cachedSuggestions;
+    // Fallback to local common foods while API is loading or if no results
     return COMMON_FOODS.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5);
-  }, [searchQuery]);
+  }, [searchQuery, cachedSuggestions]);
 
   const todayMeals = useMemo(() => {
     return todayData?.meals || [];
@@ -109,23 +144,14 @@ const NutritionScan: React.FC = () => {
       const mimeType = image.split(';')[0].split(':')[1] || 'image/jpeg';
       const base64Data = image.includes(',') ? image.split(',')[1] : image;
 
-      const response = await analyzeMealImage(base64Data, mimeType);
+      // Call analyze endpoint directly
+      const response = await authFetch('/nutri-audit/analyze', {
+        method: 'POST',
+        body: JSON.stringify({ image: base64Data, mimeType }),
+      });
 
-      // Map the API response to the ScanResult format
-      const result: ScanResult = {
-        foodName: response.foodItems?.join(', ') || 'Unknown Food',
-        nutrients: {
-          sodium: response.estimatedNutrients?.sodium || 0,
-          potassium: response.estimatedNutrients?.potassium || 0,
-          phosphorus: response.estimatedNutrients?.phosphorus || 0,
-          protein: response.estimatedNutrients?.protein || 0,
-        },
-        isKidneyFriendly: response.warnings?.length === 0,
-        renalImpactSummary: response.recommendations?.join(' ') || 'Analysis complete.',
-        tips: response.warnings || [],
-      };
-
-      setScanResult(result);
+      // Store the NutriAuditResult directly
+      setScanResult(response.data as NutriAuditResult);
     } catch (err) {
       if (err instanceof SubscriptionLimitError) {
         setLimitError({ message: err.message, limit: err.limit });
@@ -140,12 +166,83 @@ const NutritionScan: React.FC = () => {
     }
   };
 
-  const handleSelectFood = (food: typeof COMMON_FOODS[0]) => {
-    setMealName(food.name);
-    setManualNutrients({ sodium: food.sodium, potassium: food.potassium, phosphorus: food.phosphorus, protein: food.protein });
+  const handleSelectFood = (food: typeof COMMON_FOODS[0] | CachedFood) => {
+    // Check if it's a cached food from API (has _id)
+    if ('_id' in food) {
+      // It's a CachedFood
+      setMealName(food.name);
+      setManualNutrients({
+        sodium: food.sodium.amount,
+        potassium: food.potassium.amount,
+        phosphorus: food.phosphorus.amount,
+        protein: 0, // Not tracked in NutriFood model
+      });
+    } else {
+      // It's a local common food
+      setMealName(food.name);
+      setManualNutrients({ sodium: food.sodium, potassium: food.potassium, phosphorus: food.phosphorus, protein: food.protein });
+    }
     setSearchQuery('');
     setIsSearchFocused(false);
+    setCachedSuggestions([]);
     setActiveTab('manual');
+  };
+
+  // Analyze food by text
+  const handleAnalyzeText = async () => {
+    if (!searchQuery || searchQuery.length < 2) return;
+
+    setIsAnalyzingText(true);
+    setError(null);
+    setTextAnalysisResult(null);
+
+    try {
+      const result = await analyzeFoodByText(searchQuery);
+      setTextAnalysisResult(result);
+      setSearchQuery('');
+      setIsSearchFocused(false);
+      setCachedSuggestions([]);
+    } catch (err) {
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({ message: err.message, limit: err.limit });
+      } else if (err instanceof FeatureRestrictedError) {
+        setFeatureError({ message: err.message });
+      } else {
+        console.error('Failed to analyze food:', err);
+        setError('Failed to analyze food. Please try again.');
+      }
+    } finally {
+      setIsAnalyzingText(false);
+    }
+  };
+
+  // Log meal from text analysis result
+  const handleLogTextAnalysisResult = async () => {
+    if (!textAnalysisResult || !textAnalysisResult.foods.length) return;
+
+    const food = textAnalysisResult.foods[0];
+    await handleLogMeal(food.name, {
+      sodium: food.sodium.amount,
+      potassium: food.potassium.amount,
+      phosphorus: food.phosphorus.amount,
+      protein: 0,
+    }, true);
+    setTextAnalysisResult(null);
+  };
+
+  // Log meal from image scan result
+  const handleLogScanResult = async () => {
+    if (!scanResult || !scanResult.foods.length) return;
+
+    const food = scanResult.foods[0];
+    await handleLogMeal(food.name, {
+      sodium: food.sodium.amount,
+      potassium: food.potassium.amount,
+      phosphorus: food.phosphorus.amount,
+      protein: 0,
+    }, true);
+    setScanResult(null);
+    setImage(null);
   };
 
   const handleLogMeal = async (name: string, nutrients: MealNutrients, isAiScanned: boolean = false) => {
@@ -328,55 +425,218 @@ const NutritionScan: React.FC = () => {
         {/* Left: Input Section */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Search Bar */}
-          <div className="relative">
-            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-              <ICONS.Activity className="w-5 h-5 text-slate-300 dark:text-slate-600" />
-            </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-              placeholder="Search foods..."
-              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 pl-12 pr-4 font-medium text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all"
-            />
-
-            {isSearchFocused && suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl z-50 overflow-hidden">
-                {suggestions.map(food => (
-                  <button
-                    key={food.name}
-                    onClick={() => handleSelectFood(food)}
-                    className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-between border-b last:border-b-0 border-slate-100 dark:border-slate-700 transition-colors"
-                  >
-                    <span className="font-bold text-slate-900 dark:text-white">{food.name}</span>
-                    <div className="flex gap-4 text-xs text-slate-400">
-                      <span>K: {food.potassium}mg</span>
-                      <span>Na: {food.sodium}mg</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Tabs */}
           <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+            <button
+              onClick={() => setActiveTab('search')}
+              className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${activeTab === 'search' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow' : 'text-slate-400'}`}
+            >
+              Text Search
+            </button>
             <button
               onClick={() => setActiveTab('scan')}
               className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${activeTab === 'scan' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow' : 'text-slate-400'}`}
             >
-              AI Scan
+              Photo Scan
             </button>
             <button
               onClick={() => setActiveTab('manual')}
               className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${activeTab === 'manual' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow' : 'text-slate-400'}`}
             >
-              Manual Entry
+              Manual
             </button>
           </div>
+
+          {/* Text Search Tab */}
+          {activeTab === 'search' && (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              {/* Search Input */}
+              <div className="p-6 space-y-4">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                    {isSearching || isAnalyzingText ? (
+                      <div className="w-5 h-5 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                    ) : (
+                      <ICONS.Activity className="w-5 h-5 text-slate-300 dark:text-slate-600" />
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                    onKeyDown={e => e.key === 'Enter' && handleAnalyzeText()}
+                    placeholder="Search or type any food (e.g., banana, pizza, chicken curry)..."
+                    className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-xl py-4 pl-12 pr-4 font-medium text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all"
+                  />
+                </div>
+
+                {/* Suggestions Dropdown */}
+                {isSearchFocused && suggestions.length > 0 && (
+                  <div className="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                      {cachedSuggestions.length > 0 ? 'Previously Analyzed' : 'Common Foods'}
+                    </div>
+                    {suggestions.map((food, idx) => {
+                      const isCached = '_id' in food;
+                      return (
+                        <button
+                          key={isCached ? food._id : idx}
+                          onClick={() => handleSelectFood(food)}
+                          className="w-full px-4 py-3 text-left hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between border-b last:border-b-0 border-slate-100 dark:border-slate-700 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            {isCached && (
+                              <span className={`w-2 h-2 rounded-full ${
+                                food.renalRisk === 'safe' ? 'bg-emerald-500' :
+                                food.renalRisk === 'caution' ? 'bg-amber-500' : 'bg-rose-500'
+                              }`} />
+                            )}
+                            <span className="font-bold text-slate-900 dark:text-white">{food.name}</span>
+                            {isCached && food.portion && (
+                              <span className="text-xs text-slate-400">({food.portion})</span>
+                            )}
+                          </div>
+                          <div className="flex gap-4 text-xs text-slate-400">
+                            <span>K: {isCached ? food.potassium.amount : food.potassium}mg</span>
+                            <span>Na: {isCached ? food.sodium.amount : food.sodium}mg</span>
+                            <span>P: {isCached ? food.phosphorus.amount : food.phosphorus}mg</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Analyze Button */}
+                <button
+                  onClick={handleAnalyzeText}
+                  disabled={!searchQuery || searchQuery.length < 2 || isAnalyzingText}
+                  className="w-full py-4 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isAnalyzingText ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <ICONS.Activity className="w-5 h-5" />
+                      Analyze Food
+                    </>
+                  )}
+                </button>
+
+                <p className="text-xs text-slate-400 text-center">
+                  Type any food name and press Enter or click Analyze. Results are cached for faster lookups.
+                </p>
+              </div>
+
+              {/* Text Analysis Result */}
+              {textAnalysisResult && textAnalysisResult.foods.length > 0 && (
+                <div className="border-t border-slate-100 dark:border-slate-700">
+                  {/* Header */}
+                  <div className="p-6 bg-slate-50 dark:bg-slate-900 flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          textAnalysisResult.overallRisk === 'safe' ? 'bg-emerald-500' :
+                          textAnalysisResult.overallRisk === 'caution' ? 'bg-amber-500' : 'bg-rose-500'
+                        }`} />
+                        <span className={`text-xs font-bold uppercase ${
+                          textAnalysisResult.overallRisk === 'safe' ? 'text-emerald-500' :
+                          textAnalysisResult.overallRisk === 'caution' ? 'text-amber-500' : 'text-rose-500'
+                        }`}>
+                          {textAnalysisResult.overallRisk === 'safe' ? 'Kidney Friendly' :
+                           textAnalysisResult.overallRisk === 'caution' ? 'Use Caution' : 'High Risk'}
+                        </span>
+                        {textAnalysisResult.fromCache && (
+                          <span className="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full text-slate-500">Cached</span>
+                        )}
+                      </div>
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-white">{textAnalysisResult.foods[0].name}</h3>
+                      {textAnalysisResult.foods[0].portion && (
+                        <p className="text-sm text-slate-400 mt-1">Portion: {textAnalysisResult.foods[0].portion}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleLogTextAnalysisResult}
+                      disabled={isLogging}
+                      className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isLogging ? (
+                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <ICONS.Plus className="w-4 h-4" />
+                      )}
+                      {isLogging ? 'Logging...' : 'Log Meal'}
+                    </button>
+                  </div>
+
+                  {/* Nutrients with Risk Levels */}
+                  <div className="p-6 grid grid-cols-3 gap-4">
+                    {[
+                      { key: 'sodium', label: 'Sodium', icon: '🧂', color: 'sky' },
+                      { key: 'potassium', label: 'Potassium', icon: '🍌', color: 'orange' },
+                      { key: 'phosphorus', label: 'Phosphorus', icon: '🥩', color: 'purple' },
+                    ].map(n => {
+                      const nutrient = textAnalysisResult.foods[0][n.key as keyof typeof textAnalysisResult.foods[0]] as { amount: number; unit: string; level: string; dailyLimitPercent: number };
+                      const levelColor = nutrient.level === 'low' ? 'text-emerald-500' :
+                                        nutrient.level === 'moderate' ? 'text-amber-500' :
+                                        nutrient.level === 'high' ? 'text-orange-500' : 'text-rose-500';
+                      return (
+                        <div key={n.key} className="text-center">
+                          <span className="text-2xl block mb-1">{n.icon}</span>
+                          <p className={`text-2xl font-black text-${n.color}-500`}>{nutrient.amount}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">{n.label}</p>
+                          <p className={`text-xs font-bold ${levelColor} capitalize`}>{nutrient.level.replace('_', ' ')}</p>
+                          <p className="text-xs text-slate-400">{nutrient.dailyLimitPercent}% daily</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Recommendations & Alternatives */}
+                  <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-700 space-y-4">
+                    {textAnalysisResult.foods[0].notes && (
+                      <p className="text-sm text-slate-600 dark:text-slate-400">{textAnalysisResult.foods[0].notes}</p>
+                    )}
+
+                    {textAnalysisResult.recommendations.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recommendations</h4>
+                        <div className="space-y-2">
+                          {textAnalysisResult.recommendations.map((rec, i) => (
+                            <div key={i} className="flex items-start gap-2 text-sm">
+                              <span className="text-emerald-500 mt-0.5">•</span>
+                              <span className="text-slate-600 dark:text-slate-400">{rec}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {textAnalysisResult.alternatives.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Kidney-Friendly Alternatives</h4>
+                        <div className="space-y-2">
+                          {textAnalysisResult.alternatives.map((alt, i) => (
+                            <div key={i} className="flex items-start gap-2 text-sm">
+                              <span className="text-sky-500 mt-0.5">→</span>
+                              <span className="text-slate-600 dark:text-slate-400">{alt}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-slate-400 italic">{textAnalysisResult.disclaimer}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* AI Scan Tab */}
           {activeTab === 'scan' && (
@@ -425,21 +685,31 @@ const NutritionScan: React.FC = () => {
               </div>
 
               {/* Scan Result */}
-              {scanResult && (
+              {scanResult && scanResult.foods && scanResult.foods.length > 0 && (
                 <div className="border-t border-slate-100 dark:border-slate-700">
                   {/* Header */}
                   <div className="p-6 bg-slate-50 dark:bg-slate-900 flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
-                        <div className={`w-2 h-2 rounded-full ${scanResult.isKidneyFriendly ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        <span className={`text-xs font-bold uppercase ${scanResult.isKidneyFriendly ? 'text-emerald-500' : 'text-rose-500'}`}>
-                          {scanResult.isKidneyFriendly ? 'Kidney Friendly' : 'Use Caution'}
+                        <div className={`w-2 h-2 rounded-full ${
+                          scanResult.overallRisk === 'safe' ? 'bg-emerald-500' :
+                          scanResult.overallRisk === 'caution' ? 'bg-amber-500' : 'bg-rose-500'
+                        }`} />
+                        <span className={`text-xs font-bold uppercase ${
+                          scanResult.overallRisk === 'safe' ? 'text-emerald-500' :
+                          scanResult.overallRisk === 'caution' ? 'text-amber-500' : 'text-rose-500'
+                        }`}>
+                          {scanResult.overallRisk === 'safe' ? 'Kidney Friendly' :
+                           scanResult.overallRisk === 'caution' ? 'Use Caution' : 'High Risk'}
                         </span>
                       </div>
-                      <h3 className="text-2xl font-black text-slate-900 dark:text-white">{scanResult.foodName}</h3>
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-white">{scanResult.mealDescription || scanResult.foods[0].name}</h3>
+                      {scanResult.foods[0].portion && (
+                        <p className="text-sm text-slate-400 mt-1">Portion: {scanResult.foods[0].portion}</p>
+                      )}
                     </div>
                     <button
-                      onClick={() => handleLogMeal(scanResult.foodName, scanResult.nutrients, true)}
+                      onClick={handleLogScanResult}
                       disabled={isLogging}
                       className="px-5 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all flex items-center gap-2 disabled:opacity-50"
                     >
@@ -452,34 +722,83 @@ const NutritionScan: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Nutrients */}
-                  <div className="p-6 grid grid-cols-4 gap-4">
-                    {[
-                      { key: 'sodium', label: 'Sodium', icon: '🧂', unit: 'mg', color: 'text-sky-500' },
-                      { key: 'potassium', label: 'Potassium', icon: '🍌', unit: 'mg', color: 'text-orange-500' },
-                      { key: 'phosphorus', label: 'Phosphorus', icon: '🥩', unit: 'mg', color: 'text-purple-500' },
-                      { key: 'protein', label: 'Protein', icon: '🥚', unit: 'g', color: 'text-emerald-500' },
-                    ].map(n => (
-                      <div key={n.key} className="text-center">
-                        <span className="text-2xl block mb-1">{n.icon}</span>
-                        <p className={`text-2xl font-black ${n.color}`}>{scanResult.nutrients[n.key as keyof typeof scanResult.nutrients]}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">{n.label}</p>
-                      </div>
-                    ))}
-                  </div>
+                  {/* Foods List */}
+                  {scanResult.foods.map((food, foodIdx) => (
+                    <div key={foodIdx} className="border-t border-slate-100 dark:border-slate-700">
+                      {scanResult.foods.length > 1 && (
+                        <div className="px-6 pt-4 flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${
+                            food.renalRisk === 'safe' ? 'bg-emerald-500' :
+                            food.renalRisk === 'caution' ? 'bg-amber-500' : 'bg-rose-500'
+                          }`} />
+                          <span className="font-bold text-slate-900 dark:text-white">{food.name}</span>
+                          {food.portion && <span className="text-xs text-slate-400">({food.portion})</span>}
+                        </div>
+                      )}
 
-                  {/* Summary */}
-                  <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-700">
-                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{scanResult.renalImpactSummary}</p>
-                    {scanResult.tips.length > 0 && (
-                      <div className="mt-4 space-y-2">
-                        {scanResult.tips.map((tip, i) => (
-                          <div key={i} className="flex items-start gap-2 text-sm">
-                            <span className="text-emerald-500 mt-0.5">•</span>
-                            <span className="text-slate-500 dark:text-slate-400">{tip}</span>
-                          </div>
-                        ))}
+                      {/* Nutrients with Risk Levels */}
+                      <div className="p-6 grid grid-cols-3 gap-4">
+                        {[
+                          { key: 'sodium', label: 'Sodium', icon: '🧂', color: 'sky' },
+                          { key: 'potassium', label: 'Potassium', icon: '🍌', color: 'orange' },
+                          { key: 'phosphorus', label: 'Phosphorus', icon: '🥩', color: 'purple' },
+                        ].map(n => {
+                          const nutrient = food[n.key as keyof typeof food] as { amount: number; unit: string; level: string; dailyLimitPercent: number };
+                          const levelColor = nutrient.level === 'low' ? 'text-emerald-500' :
+                                            nutrient.level === 'moderate' ? 'text-amber-500' :
+                                            nutrient.level === 'high' ? 'text-orange-500' : 'text-rose-500';
+                          return (
+                            <div key={n.key} className="text-center">
+                              <span className="text-2xl block mb-1">{n.icon}</span>
+                              <p className={`text-2xl font-black text-${n.color}-500`}>{nutrient.amount}</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase">{n.label}</p>
+                              <p className={`text-xs font-bold ${levelColor} capitalize`}>{nutrient.level.replace('_', ' ')}</p>
+                              <p className="text-xs text-slate-400">{nutrient.dailyLimitPercent}% daily</p>
+                            </div>
+                          );
+                        })}
                       </div>
+
+                      {food.notes && (
+                        <div className="px-6 pb-4">
+                          <p className="text-sm text-slate-600 dark:text-slate-400 italic">{food.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Recommendations & Alternatives */}
+                  <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-700 space-y-4">
+                    {scanResult.recommendations && scanResult.recommendations.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recommendations</h4>
+                        <div className="space-y-2">
+                          {scanResult.recommendations.map((rec, i) => (
+                            <div key={i} className="flex items-start gap-2 text-sm">
+                              <span className="text-emerald-500 mt-0.5">•</span>
+                              <span className="text-slate-600 dark:text-slate-400">{rec}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {scanResult.alternatives && scanResult.alternatives.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Kidney-Friendly Alternatives</h4>
+                        <div className="space-y-2">
+                          {scanResult.alternatives.map((alt, i) => (
+                            <div key={i} className="flex items-start gap-2 text-sm">
+                              <span className="text-sky-500 mt-0.5">→</span>
+                              <span className="text-slate-600 dark:text-slate-400">{alt}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {scanResult.disclaimer && (
+                      <p className="text-xs text-slate-400 italic">{scanResult.disclaimer}</p>
                     )}
                   </div>
                 </div>

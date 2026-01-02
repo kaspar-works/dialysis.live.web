@@ -399,6 +399,90 @@ export async function getKidneyFriendlyFoods(): Promise<KidneyFriendlyFood[]> {
 }
 
 // ============================================
+// Text-based Food Analysis (with DB caching)
+// ============================================
+
+export interface NutrientLevel {
+  amount: number;
+  unit: string;
+  level: 'low' | 'moderate' | 'high' | 'very_high';
+  dailyLimitPercent: number;
+  warning?: string;
+}
+
+export interface FoodItem {
+  name: string;
+  portion: string;
+  potassium: NutrientLevel;
+  sodium: NutrientLevel;
+  phosphorus: NutrientLevel;
+  renalRisk: 'safe' | 'caution' | 'avoid';
+  notes?: string;
+}
+
+export interface NutriAuditResult {
+  success: boolean;
+  mealDescription: string;
+  overallRisk: 'safe' | 'caution' | 'high_risk';
+  foods: FoodItem[];
+  totals: {
+    potassium: NutrientLevel;
+    sodium: NutrientLevel;
+    phosphorus: NutrientLevel;
+  };
+  recommendations: string[];
+  alternatives: string[];
+  disclaimer: string;
+  fromCache?: boolean;
+}
+
+export interface CachedFood {
+  _id: string;
+  name: string;
+  normalizedName: string;
+  portion: string;
+  potassium: NutrientLevel;
+  sodium: NutrientLevel;
+  phosphorus: NutrientLevel;
+  renalRisk: 'safe' | 'caution' | 'avoid';
+  notes?: string;
+  source: 'openai' | 'manual' | 'usda';
+  searchCount: number;
+  lastSearchedAt: string;
+  createdAt: string;
+}
+
+/**
+ * Analyze food by text description (with DB caching)
+ * POST /api/v1/nutri-audit/analyze-text
+ *
+ * If the food has been analyzed before, returns cached result from DB.
+ * Otherwise, analyzes with AI and caches the result.
+ */
+export async function analyzeFoodByText(foodName: string): Promise<NutriAuditResult> {
+  const result = await authFetch('/nutri-audit/analyze-text', {
+    method: 'POST',
+    body: JSON.stringify({ foodName }),
+  });
+  return result.data;
+}
+
+/**
+ * Search cached foods in database
+ * GET /api/v1/nutri-audit/search?q=banana&limit=10
+ *
+ * Searches the cached food database (no AI call).
+ * Returns previously analyzed foods that match the query.
+ */
+export async function searchCachedFoods(query: string, limit: number = 10): Promise<{
+  foods: CachedFood[];
+  count: number;
+}> {
+  const result = await authFetch(`/nutri-audit/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  return result.data;
+}
+
+// ============================================
 // Convenience Functions
 // ============================================
 
