@@ -44,6 +44,7 @@ const Dashboard: React.FC = () => {
   const [apiAlerts, setApiAlerts] = useState<Alert[]>([]);
   const [alertCounts, setAlertCounts] = useState<AlertCounts | null>(null);
   const [hasUrgentAlerts, setHasUrgentAlerts] = useState(false);
+  const [hasAlertsFetched, setHasAlertsFetched] = useState(false);
   const [isDismissing, setIsDismissing] = useState<string | null>(null);
   const [upcomingReminders, setUpcomingReminders] = useState<Reminder[]>([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
@@ -58,6 +59,7 @@ const Dashboard: React.FC = () => {
         setApiAlerts(alertsData.alerts);
         setAlertCounts(alertsData.counts);
         setHasUrgentAlerts(alertsData.hasUrgent);
+        setHasAlertsFetched(true);
       }
     } catch (err) {
       // Silently fail for alert refresh
@@ -90,6 +92,7 @@ const Dashboard: React.FC = () => {
           setApiAlerts(alertsData.alerts);
           setAlertCounts(alertsData.counts);
           setHasUrgentAlerts(alertsData.hasUrgent);
+          setHasAlertsFetched(true);
         }
 
         if (remindersData) {
@@ -167,8 +170,8 @@ const Dashboard: React.FC = () => {
   };
 
   // Current data - prefer API data over local store
-  const currentWeight = dashboardData?.weight?.current || weights[0]?.value || profile.weightGoal;
-  const dryWeight = dashboardData?.weight?.dryWeight || profile.weightGoal;
+  const currentWeight = dashboardData?.weight?.current ?? null;
+  const dryWeight = dashboardData?.weight?.dryWeight ?? null;
   const weightTrend = dashboardData?.weight?.trend || 'stable';
 
   const weightChange = useMemo(() => {
@@ -181,9 +184,9 @@ const Dashboard: React.FC = () => {
     return 0;
   }, [dashboardData, weights]);
 
-  // Fluid data
-  const todayFluid = dashboardData?.fluid?.todayTotal || fluids.reduce((acc: number, f: FluidIntake) => acc + f.amount, 0);
-  const dailyFluidLimit = dashboardData?.fluid?.dailyLimit || profile.dailyFluidLimit || 0;
+  // Fluid data - use ?? to handle 0 as valid value, only fallback on null/undefined
+  const todayFluid = dashboardData?.fluid?.todayTotal ?? 0;
+  const dailyFluidLimit = dashboardData?.fluid?.dailyLimit ?? 0;
   const fluidPercentage = dailyFluidLimit > 0 ? Math.min(Math.round((todayFluid / dailyFluidLimit) * 100), 100) : 0;
   const fluidRemaining = dailyFluidLimit > 0 ? Math.max(dailyFluidLimit - todayFluid, 0) : 0;
 
@@ -289,28 +292,43 @@ const Dashboard: React.FC = () => {
   // Total meals count today
   const todayMealCount = nutritionData?.totalMeals || 0;
 
-  // Health Score calculation - prefer API data over local calculation
-  const healthScore = useMemo(() => {
+  // Health Score calculation - prefer API data, show null when no data
+  const healthScore = useMemo((): number | null => {
     // Use API health overview if available
     if (healthOverview?.score !== undefined) {
       return healthOverview.score;
+    }
+
+    // Check if we have enough data to calculate a score
+    const hasWeightData = currentWeight !== null;
+    const hasFluidData = dailyFluidLimit > 0;
+    const hasVitalData = latestBP !== null;
+    const hasAnyData = hasWeightData || hasFluidData || hasVitalData;
+
+    // If no data at all, return null (will show "No Data")
+    if (!hasAnyData) {
+      return null;
     }
 
     // Fallback to client-side calculation
     let score = 92;
     const latestMood = moods[0]?.type || 'Good';
 
-    // Fluid balance
-    if (fluidPercentage > 100) score -= 15;
-    else if (fluidPercentage > 90) score -= 5;
+    // Fluid balance (only if limit is set)
+    if (dailyFluidLimit > 0) {
+      if (fluidPercentage > 100) score -= 15;
+      else if (fluidPercentage > 90) score -= 5;
+    }
 
     // Mood factor
     if (latestMood === MoodType.UNWELL) score -= 10;
 
-    // Weight deviation
-    const weightDev = Math.abs(currentWeight - dryWeight);
-    if (weightDev > 2) score -= 15;
-    else if (weightDev > 1) score -= 8;
+    // Weight deviation (only if both weights exist)
+    if (currentWeight !== null && dryWeight !== null) {
+      const weightDev = Math.abs(currentWeight - dryWeight);
+      if (weightDev > 2) score -= 15;
+      else if (weightDev > 1) score -= 8;
+    }
 
     // BP check
     if (latestBP) {
@@ -319,7 +337,7 @@ const Dashboard: React.FC = () => {
     }
 
     return Math.max(Math.min(score, 100), 20);
-  }, [healthOverview, fluidPercentage, moods, currentWeight, dryWeight, latestBP]);
+  }, [healthOverview, fluidPercentage, dailyFluidLimit, moods, currentWeight, dryWeight, latestBP]);
 
   // Health status - prefer API data over local calculation
   const healthStatus = useMemo(() => {
@@ -335,6 +353,11 @@ const Dashboard: React.FC = () => {
       return { ...status, message: healthOverview.message };
     }
 
+    // No data available
+    if (healthScore === null) {
+      return { label: 'No Data', color: 'slate', message: 'Start logging your health data to see your score.' };
+    }
+
     // Fallback to local calculation
     if (healthScore >= 85) return { label: 'Excellent', color: 'emerald', message: 'You\'re doing great! Keep up the excellent work.' };
     if (healthScore >= 70) return { label: 'Good', color: 'sky', message: 'Looking good. Stay consistent with your routine.' };
@@ -342,10 +365,10 @@ const Dashboard: React.FC = () => {
     return { label: 'Needs Attention', color: 'rose', message: 'Please review your health metrics and consult your care team.' };
   }, [healthOverview, healthScore]);
 
-  // Combine API alerts with local fallback alerts
+  // Display alerts from API only (no local fallback)
   const displayAlerts = useMemo(() => {
-    // If we have API alerts, use those
-    if (apiAlerts.length > 0) {
+    // If we've fetched from API, use API alerts only (even if empty)
+    if (hasAlertsFetched) {
       return apiAlerts.slice(0, 4).map(alert => ({
         id: alert._id,
         type: alert.severity === 'critical' || alert.severity === 'high' ? 'warning' as const :
@@ -358,24 +381,9 @@ const Dashboard: React.FC = () => {
       }));
     }
 
-    // Fallback to local alerts if no API alerts
-    const items: { id: string; type: 'warning' | 'info' | 'success'; severity?: string; title?: string; message: string; action?: string; canDismiss: boolean }[] = [];
-
-    if (dailyFluidLimit > 0 && fluidPercentage > 95) {
-      items.push({ id: 'fluid-limit', type: 'warning', message: 'Approaching daily fluid limit', action: 'View Hydration', canDismiss: false });
-    }
-    if (Math.abs(currentWeight - dryWeight) > 1.5) {
-      items.push({ id: 'weight-range', type: 'warning', message: `Weight ${currentWeight > dryWeight ? 'above' : 'below'} target range`, action: 'View Weight', canDismiss: false });
-    }
-    if (sessionStats?.thisWeek === 0) {
-      items.push({ id: 'no-sessions', type: 'info', message: 'No sessions logged this week', action: 'Log Session', canDismiss: false });
-    }
-    if (healthScore >= 85) {
-      items.push({ id: 'health-good', type: 'success', message: 'Great job maintaining your health this week!', canDismiss: false });
-    }
-
-    return items.slice(0, 3);
-  }, [apiAlerts, dailyFluidLimit, fluidPercentage, currentWeight, dryWeight, sessionStats, healthScore]);
+    // Return empty while loading (no local fallback alerts)
+    return [];
+  }, [hasAlertsFetched, apiAlerts]);
 
   const handleQuickFluid = (amount: number) => {
     setActiveQuickAdd(amount);
@@ -522,20 +530,20 @@ const Dashboard: React.FC = () => {
                   stroke={`url(#healthGradient-${healthStatus.color})`}
                   strokeWidth="12"
                   strokeLinecap="round"
-                  strokeDasharray={`${healthScore * 5.34} 534`}
+                  strokeDasharray={`${(healthScore ?? 0) * 5.34} 534`}
                   className="transition-all duration-1000 ease-out"
                 />
                 <defs>
                   <linearGradient id={`healthGradient-${healthStatus.color}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor={healthStatus.color === 'emerald' ? '#10b981' : healthStatus.color === 'sky' ? '#0ea5e9' : healthStatus.color === 'amber' ? '#f59e0b' : '#f43f5e'} />
-                    <stop offset="100%" stopColor={healthStatus.color === 'emerald' ? '#059669' : healthStatus.color === 'sky' ? '#0284c7' : healthStatus.color === 'amber' ? '#d97706' : '#e11d48'} />
+                    <stop offset="0%" stopColor={healthStatus.color === 'emerald' ? '#10b981' : healthStatus.color === 'sky' ? '#0ea5e9' : healthStatus.color === 'amber' ? '#f59e0b' : healthStatus.color === 'slate' ? '#64748b' : '#f43f5e'} />
+                    <stop offset="100%" stopColor={healthStatus.color === 'emerald' ? '#059669' : healthStatus.color === 'sky' ? '#0284c7' : healthStatus.color === 'amber' ? '#d97706' : healthStatus.color === 'slate' ? '#475569' : '#e11d48'} />
                   </linearGradient>
                 </defs>
               </svg>
               {/* Center Content */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                 <div className="animate-float">
-                  <span className="text-6xl font-black tabular-nums">{healthScore}</span>
+                  <span className="text-6xl font-black tabular-nums">{healthScore ?? '--'}</span>
                 </div>
                 <span className={`text-sm font-bold text-${healthStatus.color}-400 mt-1`}>{healthStatus.label}</span>
               </div>
@@ -559,7 +567,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-white/50 text-xs font-medium">Hydration</p>
-                  <p className="text-white font-bold">{fluidPercentage}%</p>
+                  <p className="text-white font-bold">{dailyFluidLimit > 0 ? `${fluidPercentage}%` : '--'}</p>
                 </div>
               </div>
               <div className="glass rounded-2xl px-4 py-3 flex items-center gap-3">
@@ -568,7 +576,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-white/50 text-xs font-medium">Weight</p>
-                  <p className="text-white font-bold">{currentWeight} kg</p>
+                  <p className="text-white font-bold">{currentWeight !== null ? `${currentWeight} kg` : '--'}</p>
                 </div>
               </div>
               <div className="glass rounded-2xl px-4 py-3 flex items-center gap-3">
@@ -852,16 +860,22 @@ const Dashboard: React.FC = () => {
                 <p className="text-white/60 text-xs font-bold uppercase tracking-wider">Today's Hydration</p>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-4xl font-black text-white tabular-nums">{todayFluid}</span>
-                  <span className="text-white/60 font-medium">/ {dailyFluidLimit} ml</span>
+                  <span className="text-white/60 font-medium">{dailyFluidLimit > 0 ? `/ ${dailyFluidLimit} ml` : 'ml'}</span>
                 </div>
               </div>
               <div className="text-right">
-                <div className={`text-4xl font-black tabular-nums ${
-                  fluidPercentage >= 100 ? 'text-rose-200' : 'text-white'
-                }`}>
-                  {fluidPercentage}%
-                </div>
-                <p className="text-white/60 text-sm">{fluidRemaining} ml left</p>
+                {dailyFluidLimit > 0 ? (
+                  <>
+                    <div className={`text-4xl font-black tabular-nums ${
+                      fluidPercentage >= 100 ? 'text-rose-200' : 'text-white'
+                    }`}>
+                      {fluidPercentage}%
+                    </div>
+                    <p className="text-white/60 text-sm">{fluidRemaining} ml left</p>
+                  </>
+                ) : (
+                  <p className="text-white/60 text-sm">No limit set</p>
+                )}
               </div>
             </div>
 
