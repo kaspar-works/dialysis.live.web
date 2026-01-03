@@ -183,9 +183,9 @@ const Dashboard: React.FC = () => {
 
   // Fluid data
   const todayFluid = dashboardData?.fluid?.todayTotal || fluids.reduce((acc: number, f: FluidIntake) => acc + f.amount, 0);
-  const dailyFluidLimit = dashboardData?.fluid?.dailyLimit || profile.dailyFluidLimit;
-  const fluidPercentage = Math.min(Math.round((todayFluid / dailyFluidLimit) * 100), 100);
-  const fluidRemaining = Math.max(dailyFluidLimit - todayFluid, 0);
+  const dailyFluidLimit = dashboardData?.fluid?.dailyLimit || profile.dailyFluidLimit || 0;
+  const fluidPercentage = dailyFluidLimit > 0 ? Math.min(Math.round((todayFluid / dailyFluidLimit) * 100), 100) : 0;
+  const fluidRemaining = dailyFluidLimit > 0 ? Math.max(dailyFluidLimit - todayFluid, 0) : 0;
 
   // Vitals
   const latestBP = useMemo(() => {
@@ -361,7 +361,7 @@ const Dashboard: React.FC = () => {
     // Fallback to local alerts if no API alerts
     const items: { id: string; type: 'warning' | 'info' | 'success'; severity?: string; title?: string; message: string; action?: string; canDismiss: boolean }[] = [];
 
-    if (fluidPercentage > 95) {
+    if (dailyFluidLimit > 0 && fluidPercentage > 95) {
       items.push({ id: 'fluid-limit', type: 'warning', message: 'Approaching daily fluid limit', action: 'View Hydration', canDismiss: false });
     }
     if (Math.abs(currentWeight - dryWeight) > 1.5) {
@@ -375,7 +375,7 @@ const Dashboard: React.FC = () => {
     }
 
     return items.slice(0, 3);
-  }, [apiAlerts, fluidPercentage, currentWeight, dryWeight, sessionStats, healthScore]);
+  }, [apiAlerts, dailyFluidLimit, fluidPercentage, currentWeight, dryWeight, sessionStats, healthScore]);
 
   const handleQuickFluid = (amount: number) => {
     setActiveQuickAdd(amount);
