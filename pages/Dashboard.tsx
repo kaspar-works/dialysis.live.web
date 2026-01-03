@@ -50,7 +50,21 @@ const Dashboard: React.FC = () => {
   const [nutritionData, setNutritionData] = useState<TodayMealsResponse | null>(null);
   const hasFetched = useRef(false);
 
-  // Fetch dashboard data and alerts from API
+  // Function to fetch/refresh alerts - can be called anytime
+  const fetchAlerts = async () => {
+    try {
+      const alertsData = await getDashboardAlerts();
+      if (alertsData) {
+        setApiAlerts(alertsData.alerts);
+        setAlertCounts(alertsData.counts);
+        setHasUrgentAlerts(alertsData.hasUrgent);
+      }
+    } catch (err) {
+      // Silently fail for alert refresh
+    }
+  };
+
+  // Fetch dashboard data on initial mount
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
@@ -100,6 +114,43 @@ const Dashboard: React.FC = () => {
     };
 
     fetchDashboard();
+  }, []);
+
+  // Refresh alerts when page becomes visible (user returns to tab/page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && hasFetched.current) {
+        fetchAlerts();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // Refresh alerts periodically (every 60 seconds) when dashboard is visible
+  useEffect(() => {
+    if (!hasFetched.current) return;
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchAlerts();
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Refresh alerts when window gains focus (user navigates back from another page)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (hasFetched.current) {
+        fetchAlerts();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   // Handle dismiss alert

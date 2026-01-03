@@ -38,6 +38,13 @@ export interface SymptomsResponse {
   };
 }
 
+export interface SymptomTypeConfig {
+  type: SymptomType;
+  label: string;
+  icon: string;
+  color: string;
+}
+
 export async function createSymptomLog(data: CreateSymptomData): Promise<SymptomLog> {
   const result = await authFetch('/symptoms', {
     method: 'POST',
@@ -60,4 +67,9 @@ export async function getSymptomLogs(params: GetSymptomsParams = {}): Promise<Sy
 
   const result = await authFetch(endpoint);
   return result.data;
+}
+
+export async function getSymptomTypes(): Promise<SymptomTypeConfig[]> {
+  const result = await authFetch('/symptoms/types');
+  return result.data.types;
 }

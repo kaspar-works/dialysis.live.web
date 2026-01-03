@@ -264,6 +264,33 @@ export class FeatureRestrictedError extends Error {
   }
 }
 
+// Delete account permanently
+export async function deleteAccount(): Promise<void> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/account`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result.success === false) {
+      throw new Error(result.error?.message || result.message || 'Failed to delete account');
+    }
+
+    // Clear all local auth state
+    localStorage.removeItem('renalcare_data');
+    localStorage.removeItem('lifeondialysis_auth');
+    setCsrfToken(null);
+  } catch (error: any) {
+    console.error('Delete account error:', error);
+    throw error;
+  }
+}
+
 // Authenticated fetch with cookie credentials
 export async function authFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
   const headers: Record<string, string> = {

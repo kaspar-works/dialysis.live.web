@@ -96,6 +96,14 @@ const Sessions: React.FC = () => {
   const [isLoadingVitals, setIsLoadingVitals] = useState(false);
   const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
 
+  // Selected session vitals (for detail view)
+  const [selectedSessionVitals, setSelectedSessionVitals] = useState<VitalRecord[]>([]);
+  const [isLoadingSelectedVitals, setIsLoadingSelectedVitals] = useState(false);
+
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+
   const hasFetched = useRef(false);
 
   // Fetch sessions on mount
@@ -170,6 +178,14 @@ const Sessions: React.FC = () => {
   }, [activeSession?._id, viewMode]);
 
   const handleCreateSession = async () => {
+    // Validate before submitting
+    const errors = validateCreateSession();
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setShowValidationModal(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // Build payload without empty optional fields
@@ -199,13 +215,15 @@ const Sessions: React.FC = () => {
       }
 
       setViewMode('active');
-    } catch (err) {
+    } catch (err: any) {
       if (err instanceof SubscriptionLimitError) {
         setLimitError({ message: err.message, limit: err.limit });
         setViewMode('list');
       } else {
         console.error('Failed to create session:', err);
-        alert('Failed to start session. Please try again.');
+        const errorMessage = err?.message || 'Failed to start session. Please try again.';
+        setValidationErrors([errorMessage]);
+        setShowValidationModal(true);
       }
     } finally {
       setIsSubmitting(false);
@@ -214,6 +232,14 @@ const Sessions: React.FC = () => {
 
   const handleEndSession = async () => {
     if (!activeSession) return;
+
+    // Validate before submitting
+    const errors = validateEndSession();
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setShowValidationModal(true);
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -236,9 +262,11 @@ const Sessions: React.FC = () => {
       setActiveSession(null);
       setViewMode('list');
       resetForms();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to end session:', err);
-      alert('Failed to end session. Please try again.');
+      const errorMessage = err?.message || 'Failed to end session. Please try again.';
+      setValidationErrors([errorMessage]);
+      setShowValidationModal(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -246,12 +274,16 @@ const Sessions: React.FC = () => {
 
   const handleViewDetails = async (session: DialysisSession) => {
     try {
+      setIsLoadingSelectedVitals(true);
       const details = await getSessionDetails(session._id);
       setSelectedSession(details.session);
       setSessionEvents(details.events);
+      setSelectedSessionVitals(details.vitals || []);
       setViewMode('detail');
     } catch (err) {
       console.error('Failed to fetch session details:', err);
+    } finally {
+      setIsLoadingSelectedVitals(false);
     }
   };
 
@@ -267,9 +299,196 @@ const Sessions: React.FC = () => {
     setPostData({ postWeightKg: '', actualUfMl: '', postBpSystolic: '', postBpDiastolic: '', postHeartRate: '', sessionRating: '', notes: '', complications: [] });
   };
 
+  // Validation functions
+  const validateCreateSession = (): string[] => {
+    const errors: string[] = [];
+
+    // Duration validation
+    if (newSession.plannedDurationMin < 30) {
+      errors.push('Planned duration must be at least 30 minutes');
+    }
+    if (newSession.plannedDurationMin > 480) {
+      errors.push('Planned duration cannot exceed 8 hours (480 minutes)');
+    }
+
+    // Pre-weight validation (required)
+    if (!preData.preWeightKg || preData.preWeightKg.trim() === '') {
+      errors.push('Pre-weight is required');
+    } else {
+      const weight = parseFloat(preData.preWeightKg);
+      if (isNaN(weight) || weight < 20 || weight > 250) {
+        errors.push('Pre-weight must be between 20 and 250 kg');
+      }
+    }
+
+    // Target UF validation
+    if (preData.targetUfMl) {
+      const uf = parseInt(preData.targetUfMl);
+      if (isNaN(uf) || uf < 0) {
+        errors.push('Target UF cannot be negative');
+      }
+      if (uf > 6000) {
+        errors.push('Target UF exceeds safe limit (6000 ml). Please verify this value.');
+      }
+    }
+
+    // BP validation
+    if (preData.preBpSystolic || preData.preBpDiastolic) {
+      const sys = parseInt(preData.preBpSystolic);
+      const dia = parseInt(preData.preBpDiastolic);
+
+      if (preData.preBpSystolic && (isNaN(sys) || sys < 60 || sys > 250)) {
+        errors.push('Systolic blood pressure must be between 60 and 250 mmHg');
+      }
+      if (preData.preBpDiastolic && (isNaN(dia) || dia < 30 || dia > 150)) {
+        errors.push('Diastolic blood pressure must be between 30 and 150 mmHg');
+      }
+      if (sys && dia && sys <= dia) {
+        errors.push('Systolic pressure must be higher than diastolic pressure');
+      }
+    }
+
+    // Heart rate validation
+    if (preData.preHeartRate) {
+      const hr = parseInt(preData.preHeartRate);
+      if (isNaN(hr) || hr < 30 || hr > 220) {
+        errors.push('Heart rate must be between 30 and 220 bpm');
+      }
+    }
+
+    return errors;
+  };
+
+  const validateEndSession = (): string[] => {
+    const errors: string[] = [];
+
+    // Post-weight validation
+    if (postData.postWeightKg) {
+      const weight = parseFloat(postData.postWeightKg);
+      if (isNaN(weight) || weight < 20 || weight > 250) {
+        errors.push('Post-weight must be between 20 and 250 kg');
+      }
+
+      // Check if post weight is reasonable compared to pre weight
+      if (activeSession?.preWeightKg && weight) {
+        const diff = activeSession.preWeightKg - weight;
+        if (diff < -2) {
+          errors.push('Post-weight is higher than pre-weight by more than 2 kg. Please verify.');
+        }
+        if (diff > 10) {
+          errors.push('Weight loss exceeds 10 kg. Please verify the values.');
+        }
+      }
+    }
+
+    // Actual UF validation
+    if (postData.actualUfMl) {
+      const uf = parseInt(postData.actualUfMl);
+      if (isNaN(uf) || uf < 0) {
+        errors.push('Actual UF cannot be negative');
+      }
+      if (uf > 8000) {
+        errors.push('Actual UF exceeds 8000 ml. Please verify this value.');
+      }
+    }
+
+    // Post BP validation
+    if (postData.postBpSystolic || postData.postBpDiastolic) {
+      const sys = parseInt(postData.postBpSystolic);
+      const dia = parseInt(postData.postBpDiastolic);
+
+      if (postData.postBpSystolic && (isNaN(sys) || sys < 60 || sys > 250)) {
+        errors.push('Post systolic blood pressure must be between 60 and 250 mmHg');
+      }
+      if (postData.postBpDiastolic && (isNaN(dia) || dia < 30 || dia > 150)) {
+        errors.push('Post diastolic blood pressure must be between 30 and 150 mmHg');
+      }
+      if (sys && dia && sys <= dia) {
+        errors.push('Systolic pressure must be higher than diastolic pressure');
+      }
+    }
+
+    // Post heart rate validation
+    if (postData.postHeartRate) {
+      const hr = parseInt(postData.postHeartRate);
+      if (isNaN(hr) || hr < 30 || hr > 220) {
+        errors.push('Post heart rate must be between 30 and 220 bpm');
+      }
+    }
+
+    return errors;
+  };
+
+  const validateVitals = (): string[] => {
+    const errors: string[] = [];
+
+    // Check if at least one vital is provided
+    if (!vitalsData.bpSystolic && !vitalsData.bpDiastolic && !vitalsData.heartRate && !vitalsData.spo2 && !vitalsData.temperature) {
+      errors.push('Please enter at least one vital sign');
+      return errors;
+    }
+
+    // BP validation
+    if (vitalsData.bpSystolic || vitalsData.bpDiastolic) {
+      const sys = parseFloat(vitalsData.bpSystolic);
+      const dia = parseFloat(vitalsData.bpDiastolic);
+
+      if (vitalsData.bpSystolic && !vitalsData.bpDiastolic) {
+        errors.push('Please enter both systolic and diastolic blood pressure');
+      }
+      if (!vitalsData.bpSystolic && vitalsData.bpDiastolic) {
+        errors.push('Please enter both systolic and diastolic blood pressure');
+      }
+      if (vitalsData.bpSystolic && (isNaN(sys) || sys < 60 || sys > 250)) {
+        errors.push('Systolic blood pressure must be between 60 and 250 mmHg');
+      }
+      if (vitalsData.bpDiastolic && (isNaN(dia) || dia < 30 || dia > 150)) {
+        errors.push('Diastolic blood pressure must be between 30 and 150 mmHg');
+      }
+      if (sys && dia && sys <= dia) {
+        errors.push('Systolic pressure must be higher than diastolic pressure');
+      }
+    }
+
+    // Heart rate validation
+    if (vitalsData.heartRate) {
+      const hr = parseFloat(vitalsData.heartRate);
+      if (isNaN(hr) || hr < 30 || hr > 220) {
+        errors.push('Heart rate must be between 30 and 220 bpm');
+      }
+    }
+
+    // SpO2 validation
+    if (vitalsData.spo2) {
+      const spo2 = parseFloat(vitalsData.spo2);
+      if (isNaN(spo2) || spo2 < 50 || spo2 > 100) {
+        errors.push('SpO2 must be between 50% and 100%');
+      }
+    }
+
+    // Temperature validation
+    if (vitalsData.temperature) {
+      const temp = parseFloat(vitalsData.temperature);
+      if (isNaN(temp) || temp < 30 || temp > 43) {
+        errors.push('Temperature must be between 30°C and 43°C');
+      }
+    }
+
+    return errors;
+  };
+
   // Log vitals during session using new consolidated API
   const handleLogVitals = async () => {
     if (!activeSession) return;
+
+    // Validate before submitting
+    const errors = validateVitals();
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setShowValidationModal(true);
+      return;
+    }
+
     setIsLoggingVitals(true);
     setVitalsSuccess('');
 
@@ -312,24 +531,21 @@ const Sessions: React.FC = () => {
         vitalCount++;
       }
 
-      if (vitalCount === 0) {
-        alert('Please enter at least one vital sign');
-        return;
-      }
-
       await createVitalRecord(recordData);
       setVitalsSuccess(`${vitalCount} vital(s) logged!`);
       setVitalsData({ bpSystolic: '', bpDiastolic: '', heartRate: '', spo2: '', temperature: '' });
       // Refresh the vitals list
       fetchSessionVitals(activeSession._id);
       setTimeout(() => setVitalsSuccess(''), 3000);
-    } catch (err) {
+    } catch (err: any) {
       if (err instanceof SubscriptionLimitError) {
         setLimitError({ message: err.message, limit: err.limit });
         setShowVitalsForm(false);
       } else {
         console.error('Failed to log vitals:', err);
-        alert('Failed to log vitals');
+        const errorMessage = err?.message || 'Failed to log vitals. Please try again.';
+        setValidationErrors([errorMessage]);
+        setShowValidationModal(true);
       }
     } finally {
       setIsLoggingVitals(false);
@@ -710,13 +926,16 @@ const Sessions: React.FC = () => {
 
             {/* Pre Weight */}
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Pre-Weight (kg)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
+                Pre-Weight (kg) <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="number"
                 step="0.1"
                 value={preData.preWeightKg}
                 onChange={e => setPreData({ ...preData, preWeightKg: e.target.value })}
                 placeholder="e.g. 76.5"
+                required
                 className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
               />
             </div>
@@ -1207,7 +1426,7 @@ const Sessions: React.FC = () => {
                 {new Date(selectedSession.startedAt).toLocaleDateString()} at {new Date(selectedSession.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
-            <button onClick={() => { setViewMode('list'); setSelectedSession(null); }} className="text-slate-400 hover:text-slate-600">
+            <button onClick={() => { setViewMode('list'); setSelectedSession(null); setSelectedSessionVitals([]); }} className="text-slate-400 hover:text-slate-600">
               <ICONS.X className="w-6 h-6" />
             </button>
           </div>
@@ -1291,6 +1510,80 @@ const Sessions: React.FC = () => {
             </div>
           </div>
 
+          {/* Session Vitals */}
+          {(selectedSessionVitals.length > 0 || isLoadingSelectedVitals) && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-400 uppercase">Session Vitals</h3>
+                {isLoadingSelectedVitals ? (
+                  <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                ) : (
+                  <span className="text-xs text-slate-400">{selectedSessionVitals.length} reading{selectedSessionVitals.length !== 1 ? 's' : ''}</span>
+                )}
+              </div>
+              {selectedSessionVitals.length > 0 && (
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl overflow-hidden">
+                  <div className="max-h-64 overflow-y-auto divide-y divide-slate-200 dark:divide-slate-600">
+                    {selectedSessionVitals.map((vital, index) => (
+                      <div key={vital._id} className="p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                            Reading #{index + 1}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {new Date(vital.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {vital.bloodPressure && (
+                            <div className="flex items-center gap-2">
+                              <span className="w-8 h-8 bg-rose-500/10 rounded-lg flex items-center justify-center text-sm">🫀</span>
+                              <div>
+                                <p className="text-[10px] text-slate-400 uppercase">BP</p>
+                                <p className="font-bold text-slate-900 dark:text-white text-sm">
+                                  {vital.bloodPressure.systolic}/{vital.bloodPressure.diastolic}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          {vital.heartRate && (
+                            <div className="flex items-center gap-2">
+                              <span className="w-8 h-8 bg-orange-500/10 rounded-lg flex items-center justify-center text-sm">💓</span>
+                              <div>
+                                <p className="text-[10px] text-slate-400 uppercase">HR</p>
+                                <p className="font-bold text-slate-900 dark:text-white text-sm">{vital.heartRate} bpm</p>
+                              </div>
+                            </div>
+                          )}
+                          {vital.spo2 && (
+                            <div className="flex items-center gap-2">
+                              <span className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center text-sm">🩸</span>
+                              <div>
+                                <p className="text-[10px] text-slate-400 uppercase">SpO2</p>
+                                <p className="font-bold text-slate-900 dark:text-white text-sm">{vital.spo2}%</p>
+                              </div>
+                            </div>
+                          )}
+                          {vital.temperature && (
+                            <div className="flex items-center gap-2">
+                              <span className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center text-sm">🌡️</span>
+                              <div>
+                                <p className="text-[10px] text-slate-400 uppercase">Temp</p>
+                                <p className="font-bold text-slate-900 dark:text-white text-sm">
+                                  {vital.temperature.value}°{vital.temperature.unit === 'celsius' ? 'C' : 'F'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* UF Safety Indicator - Show if we have the required data */}
           {selectedSession.actualUfMl && selectedSession.preWeightKg && selectedSession.actualDurationMin && (
             <UFSafetyIndicator
@@ -1322,11 +1615,54 @@ const Sessions: React.FC = () => {
           )}
 
           <button
-            onClick={() => { setViewMode('list'); setSelectedSession(null); }}
+            onClick={() => { setViewMode('list'); setSelectedSession(null); setSelectedSessionVitals([]); }}
             className="w-full py-4 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
           >
             Back to Sessions
           </button>
+        </div>
+      )}
+
+      {/* Validation Error Modal */}
+      {showValidationModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center">
+                <svg className="w-6 h-6 text-rose-600 dark:text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Validation Error</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Please fix the following issues</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-6">
+              {validationErrors.map((error, index) => (
+                <div
+                  key={index}
+                  className="flex items-start gap-3 p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl"
+                >
+                  <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                    {index + 1}
+                  </span>
+                  <p className="text-sm text-rose-700 dark:text-rose-300">{error}</p>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                setShowValidationModal(false);
+                setValidationErrors([]);
+              }}
+              className="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+            >
+              Got it
+            </button>
+          </div>
         </div>
       )}
     </div>

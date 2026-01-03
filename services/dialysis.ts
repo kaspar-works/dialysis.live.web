@@ -1,5 +1,6 @@
 
 import { authFetch } from './auth';
+import { VitalRecord } from './vitals';
 
 // Enums matching backend
 export enum DialysisMode {
@@ -128,6 +129,7 @@ export interface SessionsListResponse {
 export interface SessionDetailsResponse {
   session: DialysisSession;
   events: SessionEvent[];
+  vitals: VitalRecord[];
 }
 
 // Create and start a new session

@@ -2,30 +2,35 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ICONS } from '../constants';
 import { SymptomType } from '../types';
-import { createSymptomLog, getSymptomLogs, SymptomLog } from '../services/symptoms';
+import { createSymptomLog, getSymptomLogs, getSymptomTypes, SymptomLog, SymptomTypeConfig } from '../services/symptoms';
 import { SubscriptionLimitError } from '../services/auth';
 
-const symptomConfig: Record<SymptomType, { label: string; icon: string; color: string; gradient: string }> = {
-  [SymptomType.CRAMPING]: { label: 'Cramping', icon: '💪', color: '#f43f5e', gradient: 'from-rose-500 to-red-500' },
-  [SymptomType.NAUSEA]: { label: 'Nausea', icon: '🤢', color: '#10b981', gradient: 'from-emerald-500 to-green-500' },
-  [SymptomType.HEADACHE]: { label: 'Headache', icon: '🤕', color: '#a855f7', gradient: 'from-purple-500 to-violet-500' },
-  [SymptomType.DIZZINESS]: { label: 'Dizziness', icon: '😵‍💫', color: '#f59e0b', gradient: 'from-amber-500 to-yellow-500' },
-  [SymptomType.FATIGUE]: { label: 'Fatigue', icon: '😴', color: '#6366f1', gradient: 'from-indigo-500 to-blue-500' },
-  [SymptomType.SHORTNESS_OF_BREATH]: { label: 'Breathing', icon: '😮‍💨', color: '#0ea5e9', gradient: 'from-sky-500 to-cyan-500' },
-  [SymptomType.ITCHING]: { label: 'Itching', icon: '🫳', color: '#ec4899', gradient: 'from-pink-500 to-rose-500' },
-  [SymptomType.CHEST_PAIN]: { label: 'Chest Pain', icon: '💔', color: '#ef4444', gradient: 'from-red-500 to-rose-600' },
-  [SymptomType.LOW_BP]: { label: 'Low BP', icon: '📉', color: '#8b5cf6', gradient: 'from-violet-500 to-purple-500' },
-  [SymptomType.MUSCLE_WEAKNESS]: { label: 'Weakness', icon: '🦵', color: '#f97316', gradient: 'from-orange-500 to-amber-500' },
-  [SymptomType.RESTLESS_LEGS]: { label: 'Restless', icon: '🦶', color: '#14b8a6', gradient: 'from-teal-500 to-emerald-500' },
-  [SymptomType.INSOMNIA]: { label: 'Insomnia', icon: '🌙', color: '#7c3aed', gradient: 'from-violet-600 to-indigo-600' },
-  [SymptomType.OTHER]: { label: 'Other', icon: '📝', color: '#64748b', gradient: 'from-slate-500 to-gray-500' },
+// Color to gradient mapping
+const colorToGradient: Record<string, string> = {
+  '#f43f5e': 'from-rose-500 to-red-500',
+  '#10b981': 'from-emerald-500 to-green-500',
+  '#a855f7': 'from-purple-500 to-violet-500',
+  '#f59e0b': 'from-amber-500 to-yellow-500',
+  '#6366f1': 'from-indigo-500 to-blue-500',
+  '#0ea5e9': 'from-sky-500 to-cyan-500',
+  '#ec4899': 'from-pink-500 to-rose-500',
+  '#ef4444': 'from-red-500 to-rose-600',
+  '#8b5cf6': 'from-violet-500 to-purple-500',
+  '#f97316': 'from-orange-500 to-amber-500',
+  '#14b8a6': 'from-teal-500 to-emerald-500',
+  '#7c3aed': 'from-violet-600 to-indigo-600',
+  '#64748b': 'from-slate-500 to-gray-500',
 };
+
+// Helper to get gradient from color
+const getGradient = (color: string): string => colorToGradient[color] || 'from-slate-500 to-gray-500';
 
 const severityLabels = ['', 'Mild', 'Light', 'Moderate', 'Strong', 'Severe'];
 const severityEmojis = ['', '😊', '😐', '😕', '😣', '😫'];
 
 const Symptoms: React.FC = () => {
   const [symptoms, setSymptoms] = useState<SymptomLog[]>([]);
+  const [symptomTypes, setSymptomTypes] = useState<SymptomTypeConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -40,14 +45,18 @@ const Symptoms: React.FC = () => {
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
-    fetchSymptoms();
+    fetchData();
   }, []);
 
-  const fetchSymptoms = async () => {
+  const fetchData = async () => {
     setIsLoading(true);
     try {
-      const response = await getSymptomLogs({ limit: 100 });
-      setSymptoms(response.logs);
+      const [logsResponse, typesResponse] = await Promise.all([
+        getSymptomLogs({ limit: 100 }),
+        getSymptomTypes(),
+      ]);
+      setSymptoms(logsResponse.logs);
+      setSymptomTypes(typesResponse);
     } catch (err) {
       console.error('Failed to fetch symptoms:', err);
       setError('Failed to load symptoms');
@@ -55,6 +64,20 @@ const Symptoms: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Create a config lookup from API data
+  const symptomConfig = useMemo(() => {
+    const config: Record<SymptomType, { label: string; icon: string; color: string; gradient: string }> = {} as any;
+    symptomTypes.forEach(st => {
+      config[st.type] = {
+        label: st.label,
+        icon: st.icon,
+        color: st.color,
+        gradient: getGradient(st.color),
+      };
+    });
+    return config;
+  }, [symptomTypes]);
 
   const handleQuickLog = async (type: SymptomType, sev: number) => {
     setIsLogging(true);
@@ -484,35 +507,38 @@ const Symptoms: React.FC = () => {
           </button>
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-          {(showAllSymptoms ? Object.entries(symptomConfig) : Object.entries(symptomConfig).slice(0, 10)).map(([type, config]) => (
-            <button
-              key={type}
-              onClick={() => setSelectedSymptom(type as SymptomType)}
-              className="group relative bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-4 hover:shadow-xl hover:scale-105 hover:-translate-y-1 transition-all duration-300"
-            >
-              <div
-                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br"
-                style={{
-                  backgroundImage: `linear-gradient(to bottom right, ${config.color}15, ${config.color}05)`,
-                }}
-              />
-              <div className="relative text-center space-y-2">
-                <span className="text-3xl block group-hover:scale-125 transition-transform duration-300">
-                  {config.icon}
-                </span>
-                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-                  {config.label}
-                </span>
-              </div>
-              {symptomCounts[type] && (
+          {(showAllSymptoms ? symptomTypes : symptomTypes.slice(0, 10)).map(st => {
+            const config = symptomConfig[st.type];
+            return (
+              <button
+                key={st.type}
+                onClick={() => setSelectedSymptom(st.type)}
+                className="group relative bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-4 hover:shadow-xl hover:scale-105 hover:-translate-y-1 transition-all duration-300"
+              >
                 <div
-                  className={`absolute -top-2 -right-2 w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center shadow-lg bg-gradient-to-br ${config.gradient}`}
-                >
-                  {symptomCounts[type]}
+                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br"
+                  style={{
+                    backgroundImage: `linear-gradient(to bottom right, ${st.color}15, ${st.color}05)`,
+                  }}
+                />
+                <div className="relative text-center space-y-2">
+                  <span className="text-3xl block group-hover:scale-125 transition-transform duration-300">
+                    {st.icon}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                    {st.label}
+                  </span>
                 </div>
-              )}
-            </button>
-          ))}
+                {symptomCounts[st.type] && (
+                  <div
+                    className={`absolute -top-2 -right-2 w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center shadow-lg bg-gradient-to-br ${config?.gradient || 'from-slate-500 to-gray-500'}`}
+                  >
+                    {symptomCounts[st.type]}
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
