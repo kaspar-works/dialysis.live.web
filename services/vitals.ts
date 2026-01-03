@@ -250,7 +250,7 @@ export async function createVitalRecord(data: VitalRecordInputWithContext): Prom
     method: 'POST',
     body: JSON.stringify(data),
   });
-  return result.data.record;
+  return result.data.vitalRecord;
 }
 
 /**
