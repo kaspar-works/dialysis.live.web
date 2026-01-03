@@ -6,9 +6,11 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   AreaChart, Area, ReferenceLine, CartesianGrid
 } from 'recharts';
-import { createVitalRecord, getVitalRecords, deleteVitalRecord, VitalRecord } from '../services/vitals';
+import { createVitalRecord, getVitalRecords, deleteVitalRecord, VitalRecord, analyzeVitals, VitalsAnalysis } from '../services/vitals';
 import { SubscriptionLimitError } from '../services/auth';
 import { Link } from 'react-router-dom';
+
+type AnalysisDays = 10 | 30;
 
 type ViewTab = 'overview' | 'blood_pressure' | 'heart_rate' | 'temperature' | 'spo2';
 
@@ -28,6 +30,12 @@ const Vitals: React.FC = () => {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
   const hasFetched = useRef(false);
+
+  // AI Analysis state
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<VitalsAnalysis | null>(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisDays, setAnalysisDays] = useState<AnalysisDays>(30);
 
   const vitalConfig = {
     [VitalType.BLOOD_PRESSURE]: {
@@ -112,6 +120,22 @@ const Vitals: React.FC = () => {
       setRecords([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAnalyze = async (days: AnalysisDays) => {
+    setIsAnalyzing(true);
+    setAnalysisDays(days);
+    setError(null);
+    try {
+      const result = await analyzeVitals(days);
+      setAnalysisResult(result);
+      setShowAnalysis(true);
+    } catch (err: any) {
+      console.error('Failed to analyze vitals:', err);
+      setError(err.message || 'Failed to analyze vitals. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -393,17 +417,52 @@ const Vitals: React.FC = () => {
             {records.length} readings logged
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className={`flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${
-            showForm
-              ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-              : 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/20'
-          }`}
-        >
-          <ICONS.Plus className={`w-4 h-4 transition-transform ${showForm ? 'rotate-45' : ''}`} />
-          <span className="hidden sm:inline">{showForm ? 'Cancel' : 'Log Vital'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* AI Analysis Button */}
+          <div className="relative group">
+            <button
+              onClick={() => handleAnalyze(30)}
+              disabled={isAnalyzing || records.length < 3}
+              className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white shadow-lg shadow-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAnalyzing ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <span className="text-base">🤖</span>
+              )}
+              <span className="hidden sm:inline">{isAnalyzing ? 'Analyzing...' : 'AI Analysis'}</span>
+            </button>
+            {/* Dropdown for days selection */}
+            <div className="absolute right-0 top-full mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 min-w-[140px]">
+              <button
+                onClick={() => handleAnalyze(10)}
+                disabled={isAnalyzing}
+                className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-violet-50 dark:hover:bg-violet-500/10 rounded-t-xl transition-colors"
+              >
+                Last 10 days
+              </button>
+              <button
+                onClick={() => handleAnalyze(30)}
+                disabled={isAnalyzing}
+                className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-violet-50 dark:hover:bg-violet-500/10 rounded-b-xl transition-colors"
+              >
+                Last 30 days
+              </button>
+            </div>
+          </div>
+          {/* Log Vital Button */}
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className={`flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${
+              showForm
+                ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                : 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/20'
+            }`}
+          >
+            <ICONS.Plus className={`w-4 h-4 transition-transform ${showForm ? 'rotate-45' : ''}`} />
+            <span className="hidden sm:inline">{showForm ? 'Cancel' : 'Log Vital'}</span>
+          </button>
+        </div>
       </header>
 
       {/* Error Display */}
@@ -869,7 +928,7 @@ const Vitals: React.FC = () => {
 
               {/* BP Chart */}
               {chartData.blood_pressure.length > 1 && (
-                <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700">
+                <div key={`bp-chart-${records.length}`} className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700">
                   <div className="flex items-center justify-between mb-6">
                     <div>
                       <h3 className="text-xl font-bold text-slate-900 dark:text-white">Blood Pressure Trend</h3>
@@ -923,7 +982,7 @@ const Vitals: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Heart Rate */}
                 {chartData.heart_rate.length > 1 && (
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                  <div key={`hr-chart-${records.length}`} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xl">💓</span>
@@ -949,7 +1008,7 @@ const Vitals: React.FC = () => {
 
                 {/* Temperature */}
                 {chartData.temperature.length > 1 && (
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                  <div key={`temp-chart-${records.length}`} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xl">🌡️</span>
@@ -974,7 +1033,7 @@ const Vitals: React.FC = () => {
 
                 {/* SpO2 */}
                 {chartData.spo2.length > 1 && (
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                  <div key={`spo2-chart-${records.length}`} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xl">🩸</span>
@@ -1011,7 +1070,7 @@ const Vitals: React.FC = () => {
             <>
               {/* Detail Chart */}
               {chartData[activeTab as keyof typeof chartData].length > 1 && (
-                <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700">
+                <div key={`detail-chart-${activeTab}-${records.length}`} className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                       <span className="text-3xl">
@@ -1325,6 +1384,214 @@ const Vitals: React.FC = () => {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Analysis Modal */}
+      {showAnalysis && analysisResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setShowAnalysis(false)}
+          />
+          <div className="relative bg-white dark:bg-slate-800 rounded-3xl max-w-2xl w-full shadow-2xl animate-in zoom-in-95 fade-in duration-200 my-8 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-violet-500 to-purple-500 rounded-t-3xl p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">🤖</span>
+                  <div>
+                    <h3 className="text-xl font-bold">AI Health Analysis</h3>
+                    <p className="text-violet-100 text-sm">Last {analysisDays} days • {analysisResult.statistics.totalRecords} readings</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAnalysis(false)}
+                  className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+                >
+                  <ICONS.X className="w-6 h-6" />
+                </button>
+              </div>
+              {/* Overall Status Badge */}
+              <div className={`mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm ${
+                analysisResult.analysis.overallStatus === 'good' ? 'bg-emerald-500/30' :
+                analysisResult.analysis.overallStatus === 'fair' ? 'bg-amber-500/30' :
+                analysisResult.analysis.overallStatus === 'concerning' ? 'bg-orange-500/30' :
+                'bg-rose-500/30'
+              }`}>
+                <span className="text-lg">
+                  {analysisResult.analysis.overallStatus === 'good' ? '✓' :
+                   analysisResult.analysis.overallStatus === 'fair' ? '⚠' :
+                   analysisResult.analysis.overallStatus === 'concerning' ? '⚠' : '🚨'}
+                </span>
+                <span className="capitalize">{analysisResult.analysis.overallStatus} Overall</span>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Summary */}
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-4">
+                <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {analysisResult.analysis.summary}
+                </p>
+              </div>
+
+              {/* Vital Signs Status Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Blood Pressure */}
+                <div className="bg-white dark:bg-slate-700/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">🫀</span>
+                    <span className="font-bold text-slate-900 dark:text-white text-sm">Blood Pressure</span>
+                  </div>
+                  <div className={`text-xs font-bold uppercase px-2 py-1 rounded-lg inline-block mb-2 ${
+                    analysisResult.analysis.bloodPressure.status === 'normal' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' :
+                    analysisResult.analysis.bloodPressure.status === 'elevated' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' :
+                    analysisResult.analysis.bloodPressure.status === 'no_data' ? 'bg-slate-100 text-slate-500 dark:bg-slate-600 dark:text-slate-400' :
+                    'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400'
+                  }`}>
+                    {analysisResult.analysis.bloodPressure.status.replace('_', ' ')}
+                    {analysisResult.analysis.bloodPressure.trend && analysisResult.analysis.bloodPressure.status !== 'no_data' && (
+                      <span className="ml-1">• {analysisResult.analysis.bloodPressure.trend}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{analysisResult.analysis.bloodPressure.insight}</p>
+                </div>
+
+                {/* Heart Rate */}
+                <div className="bg-white dark:bg-slate-700/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">💓</span>
+                    <span className="font-bold text-slate-900 dark:text-white text-sm">Heart Rate</span>
+                  </div>
+                  <div className={`text-xs font-bold uppercase px-2 py-1 rounded-lg inline-block mb-2 ${
+                    analysisResult.analysis.heartRate.status === 'normal' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' :
+                    analysisResult.analysis.heartRate.status === 'no_data' ? 'bg-slate-100 text-slate-500 dark:bg-slate-600 dark:text-slate-400' :
+                    'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+                  }`}>
+                    {analysisResult.analysis.heartRate.status.replace('_', ' ')}
+                    {analysisResult.analysis.heartRate.trend && analysisResult.analysis.heartRate.status !== 'no_data' && (
+                      <span className="ml-1">• {analysisResult.analysis.heartRate.trend}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{analysisResult.analysis.heartRate.insight}</p>
+                </div>
+
+                {/* Temperature */}
+                <div className="bg-white dark:bg-slate-700/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">🌡️</span>
+                    <span className="font-bold text-slate-900 dark:text-white text-sm">Temperature</span>
+                  </div>
+                  <div className={`text-xs font-bold uppercase px-2 py-1 rounded-lg inline-block mb-2 ${
+                    analysisResult.analysis.temperature.status === 'normal' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' :
+                    analysisResult.analysis.temperature.status === 'no_data' ? 'bg-slate-100 text-slate-500 dark:bg-slate-600 dark:text-slate-400' :
+                    'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400'
+                  }`}>
+                    {analysisResult.analysis.temperature.status.replace('_', ' ')}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{analysisResult.analysis.temperature.insight}</p>
+                </div>
+
+                {/* SpO2 */}
+                <div className="bg-white dark:bg-slate-700/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">🩸</span>
+                    <span className="font-bold text-slate-900 dark:text-white text-sm">Oxygen</span>
+                  </div>
+                  <div className={`text-xs font-bold uppercase px-2 py-1 rounded-lg inline-block mb-2 ${
+                    analysisResult.analysis.spo2.status === 'normal' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' :
+                    analysisResult.analysis.spo2.status === 'no_data' ? 'bg-slate-100 text-slate-500 dark:bg-slate-600 dark:text-slate-400' :
+                    analysisResult.analysis.spo2.status === 'critical' ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400' :
+                    'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+                  }`}>
+                    {analysisResult.analysis.spo2.status.replace('_', ' ')}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{analysisResult.analysis.spo2.insight}</p>
+                </div>
+              </div>
+
+              {/* Concerns */}
+              {analysisResult.analysis.concerns.length > 0 && (
+                <div className="bg-rose-50 dark:bg-rose-500/10 rounded-2xl p-4 border border-rose-100 dark:border-rose-500/20">
+                  <h4 className="font-bold text-rose-700 dark:text-rose-400 flex items-center gap-2 mb-3">
+                    <span>⚠️</span> Concerns to Discuss
+                  </h4>
+                  <ul className="space-y-2">
+                    {analysisResult.analysis.concerns.map((concern, i) => (
+                      <li key={i} className="text-sm text-rose-600 dark:text-rose-300 flex items-start gap-2">
+                        <span className="text-rose-400 mt-1">•</span>
+                        {concern}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Positives */}
+              {analysisResult.analysis.positives.length > 0 && (
+                <div className="bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl p-4 border border-emerald-100 dark:border-emerald-500/20">
+                  <h4 className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-2 mb-3">
+                    <span>✓</span> Positive Observations
+                  </h4>
+                  <ul className="space-y-2">
+                    {analysisResult.analysis.positives.map((positive, i) => (
+                      <li key={i} className="text-sm text-emerald-600 dark:text-emerald-300 flex items-start gap-2">
+                        <span className="text-emerald-400 mt-1">•</span>
+                        {positive}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Recommendations */}
+              {analysisResult.analysis.recommendations.length > 0 && (
+                <div className="bg-violet-50 dark:bg-violet-500/10 rounded-2xl p-4 border border-violet-100 dark:border-violet-500/20">
+                  <h4 className="font-bold text-violet-700 dark:text-violet-400 flex items-center gap-2 mb-3">
+                    <span>💡</span> Recommendations
+                  </h4>
+                  <ul className="space-y-2">
+                    {analysisResult.analysis.recommendations.map((rec, i) => (
+                      <li key={i} className="text-sm text-violet-600 dark:text-violet-300 flex items-start gap-2">
+                        <span className="text-violet-400 mt-1">{i + 1}.</span>
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Talk to Doctor Alert */}
+              {analysisResult.analysis.talkToDoctor && (
+                <div className="bg-amber-500 rounded-2xl p-4 text-white">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">👨‍⚕️</span>
+                    <div>
+                      <h4 className="font-bold">Schedule a Discussion</h4>
+                      <p className="text-sm text-amber-100">Consider discussing these findings with your healthcare team at your next appointment.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Disclaimer */}
+              <div className="text-xs text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                <p className="flex items-start gap-2">
+                  <span>ℹ️</span>
+                  {analysisResult.disclaimer}
+                </p>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setShowAnalysis(false)}
+                className="w-full py-3 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl font-bold hover:opacity-90 transition-opacity"
+              >
+                Close Analysis
+              </button>
             </div>
           </div>
         </div>

@@ -388,6 +388,72 @@ export async function analyzeBPTrends(days: number = 30): Promise<BPAnalysis> {
   return result.data.analysis;
 }
 
+/**
+ * AI-powered comprehensive vitals analysis
+ * GET /api/v1/vitals/analyze
+ */
+export interface VitalsAnalysis {
+  period: string;
+  statistics: {
+    totalRecords: number;
+    bloodPressure: {
+      count: number;
+      avgSystolic: number;
+      avgDiastolic: number;
+      maxSystolic: number;
+      minSystolic: number;
+    } | null;
+    heartRate: {
+      count: number;
+      avg: number;
+      max: number;
+      min: number;
+    } | null;
+    temperature: {
+      count: number;
+      avg: number;
+    } | null;
+    spo2: {
+      count: number;
+      avg: number;
+      min: number;
+    } | null;
+  };
+  analysis: {
+    summary: string;
+    overallStatus: 'good' | 'fair' | 'concerning' | 'critical';
+    bloodPressure: {
+      status: 'normal' | 'elevated' | 'high' | 'low' | 'no_data';
+      trend: 'stable' | 'improving' | 'worsening' | 'fluctuating';
+      insight: string;
+    };
+    heartRate: {
+      status: 'normal' | 'elevated' | 'low' | 'no_data';
+      trend: 'stable' | 'improving' | 'worsening' | 'fluctuating';
+      insight: string;
+    };
+    temperature: {
+      status: 'normal' | 'elevated' | 'low' | 'no_data';
+      insight: string;
+    };
+    spo2: {
+      status: 'normal' | 'low' | 'critical' | 'no_data';
+      insight: string;
+    };
+    concerns: string[];
+    positives: string[];
+    recommendations: string[];
+    talkToDoctor: boolean;
+  };
+  analyzedAt: string;
+  disclaimer: string;
+}
+
+export async function analyzeVitals(days: number = 30): Promise<VitalsAnalysis> {
+  const result = await authFetch(`/vitals/analyze?days=${days}`);
+  return result.data;
+}
+
 // ============================================
 // Convenience functions for common operations
 // ============================================
