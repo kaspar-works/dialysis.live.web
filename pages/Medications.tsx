@@ -37,6 +37,7 @@ const Medications: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stats, setStats] = useState({ total: 0, taken: 0, completionRate: 0 });
   const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // New medication form
   const [newMed, setNewMed] = useState({
@@ -108,22 +109,71 @@ const Medications: React.FC = () => {
   // Handle adding new medication
   const handleAddMedication = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMed.name || !newMed.dose) return;
+    setFormError(null);
+
+    // Validate medication name
+    if (!newMed.name || newMed.name.trim() === '') {
+      setFormError('Medication name is required');
+      return;
+    }
+
+    if (newMed.name.trim().length < 2) {
+      setFormError('Medication name must be at least 2 characters');
+      return;
+    }
+
+    if (newMed.name.trim().length > 100) {
+      setFormError('Medication name must be less than 100 characters');
+      return;
+    }
+
+    // Validate dose
+    if (!newMed.dose || newMed.dose.trim() === '') {
+      setFormError('Dose/strength is required');
+      return;
+    }
+
+    if (newMed.dose.trim().length > 50) {
+      setFormError('Dose must be less than 50 characters');
+      return;
+    }
+
+    // Validate schedule times
+    const validTimes = newMed.times.filter(t => t && t.trim() !== '');
+    if (validTimes.length === 0) {
+      setFormError('At least one schedule time is required');
+      return;
+    }
+
+    // Validate time format (HH:mm)
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    for (const time of validTimes) {
+      if (!timeRegex.test(time)) {
+        setFormError('Invalid time format. Use HH:MM (e.g., 08:00)');
+        return;
+      }
+    }
+
+    // Validate instructions length
+    if (newMed.instructions && newMed.instructions.length > 500) {
+      setFormError('Instructions must be less than 500 characters');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       // Create medication
       const medication = await createMedication({
-        name: newMed.name,
-        dose: newMed.dose,
+        name: newMed.name.trim(),
+        dose: newMed.dose.trim(),
         route: newMed.route,
-        instructions: newMed.instructions || undefined,
+        instructions: newMed.instructions?.trim() || undefined,
       });
 
       // Create schedule
       await createSchedule(medication._id, {
         scheduleType: newMed.scheduleType,
-        times: newMed.times.filter(t => t),
+        times: validTimes,
       });
 
       // Reset form and close modal
@@ -135,6 +185,7 @@ const Medications: React.FC = () => {
         scheduleType: ScheduleType.DAILY,
         times: ['08:00'],
       });
+      setFormError(null);
       setIsModalOpen(false);
 
       // Refresh data
@@ -145,7 +196,7 @@ const Medications: React.FC = () => {
         setIsModalOpen(false);
       } else {
         console.error('Failed to add medication:', err);
-        alert('Failed to add medication');
+        setFormError('Failed to add medication. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
@@ -527,6 +578,14 @@ const Medications: React.FC = () => {
 
             {/* Form */}
             <form onSubmit={handleAddMedication} className="p-6 space-y-6">
+              {/* Form Error */}
+              {formError && (
+                <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 flex items-center gap-2">
+                  <span className="text-rose-500">⚠️</span>
+                  <p className="text-rose-500 text-sm font-medium">{formError}</p>
+                </div>
+              )}
+
               {/* Name */}
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">

@@ -130,9 +130,26 @@ const FluidLog: React.FC = () => {
   const todayLogs = logs.filter(l => l.loggedAt.startsWith(today));
 
   const handleAdd = async (amount: number) => {
-    if (isAdding || amount <= 0) return;
-    setIsAdding(true);
+    if (isAdding) return;
     setError(null);
+
+    // Validate amount
+    if (isNaN(amount) || amount <= 0) {
+      setError('Please enter a valid amount greater than 0');
+      return;
+    }
+
+    if (amount > 5000) {
+      setError('Amount cannot exceed 5000 ml');
+      return;
+    }
+
+    if (!Number.isInteger(amount) && amount.toString().split('.')[1]?.length > 1) {
+      setError('Please enter a whole number or one decimal place');
+      return;
+    }
+
+    setIsAdding(true);
 
     try {
       const newLog = await createFluidLog({ amountMl: amount, source: selectedBeverage.source });

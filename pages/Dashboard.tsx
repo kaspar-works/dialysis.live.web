@@ -813,10 +813,10 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-12 gap-6">
         {/* Hydration Card */}
         <div className="col-span-12 lg:col-span-5 bg-gradient-to-br from-sky-500 via-cyan-500 to-teal-500 rounded-[2rem] p-6 relative overflow-hidden">
-          {/* Wave Effect */}
-          <div className="absolute bottom-0 left-0 right-0 h-24 overflow-hidden">
+          {/* Background Wave Effect */}
+          <div className="absolute bottom-0 left-0 right-0 h-24 overflow-hidden opacity-30">
             <svg className="absolute bottom-0 w-[200%] animate-wave" viewBox="0 0 1200 120" preserveAspectRatio="none">
-              <path d="M0,60 C150,120 350,0 600,60 C850,120 1050,0 1200,60 L1200,120 L0,120 Z" fill="rgba(255,255,255,0.1)" />
+              <path d="M0,60 C150,120 350,0 600,60 C850,120 1050,0 1200,60 L1200,120 L0,120 Z" fill="rgba(255,255,255,0.2)" />
             </svg>
           </div>
 
@@ -845,25 +845,93 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Progress Ring */}
+            {/* Water Glass Animation */}
             <div className="flex justify-center mb-6">
-              <div className="relative w-32 h-32">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="10" />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                    strokeDasharray={`${fluidPercentage * 3.14} 314`}
-                    className="transition-all duration-1000"
+              <div className="relative w-36 h-44">
+                {/* Glass Container */}
+                <svg className="w-full h-full" viewBox="0 0 100 130">
+                  {/* Glass outline */}
+                  <defs>
+                    <clipPath id="glassClip">
+                      <path d="M15,10 L20,120 Q20,125 25,125 L75,125 Q80,125 80,120 L85,10 Q85,5 80,5 L20,5 Q15,5 15,10 Z" />
+                    </clipPath>
+                    <linearGradient id="waterGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="rgba(255,255,255,0.9)" />
+                      <stop offset="100%" stopColor="rgba(255,255,255,0.5)" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Glass background */}
+                  <path
+                    d="M15,10 L20,120 Q20,125 25,125 L75,125 Q80,125 80,120 L85,10 Q85,5 80,5 L20,5 Q15,5 15,10 Z"
+                    fill="rgba(255,255,255,0.15)"
+                    stroke="rgba(255,255,255,0.3)"
+                    strokeWidth="2"
+                  />
+
+                  {/* Water fill with animation */}
+                  <g clipPath="url(#glassClip)">
+                    {/* Water body */}
+                    <rect
+                      x="15"
+                      y={125 - Math.min(fluidPercentage, 100) * 1.15}
+                      width="70"
+                      height={Math.min(fluidPercentage, 100) * 1.15 + 5}
+                      fill="url(#waterGradient)"
+                      className="transition-all duration-1000 ease-out"
+                    />
+
+                    {/* Animated wave on water surface */}
+                    <g style={{ transform: `translateY(${125 - Math.min(fluidPercentage, 100) * 1.15 - 8}px)` }} className="transition-all duration-1000">
+                      <path
+                        d="M15,8 Q27,0 40,8 T65,8 T90,8 L90,20 L15,20 Z"
+                        fill="url(#waterGradient)"
+                        className="animate-pulse"
+                      >
+                        <animate
+                          attributeName="d"
+                          dur="2s"
+                          repeatCount="indefinite"
+                          values="M15,8 Q27,0 40,8 T65,8 T90,8 L90,20 L15,20 Z;
+                                  M15,8 Q27,16 40,8 T65,8 T90,8 L90,20 L15,20 Z;
+                                  M15,8 Q27,0 40,8 T65,8 T90,8 L90,20 L15,20 Z"
+                        />
+                      </path>
+                    </g>
+
+                    {/* Bubbles */}
+                    {fluidPercentage > 0 && (
+                      <>
+                        <circle cx="35" cy="100" r="3" fill="rgba(255,255,255,0.6)">
+                          <animate attributeName="cy" dur="2s" repeatCount="indefinite" values="115;70;115" />
+                          <animate attributeName="opacity" dur="2s" repeatCount="indefinite" values="0.6;0;0.6" />
+                        </circle>
+                        <circle cx="55" cy="90" r="2" fill="rgba(255,255,255,0.5)">
+                          <animate attributeName="cy" dur="2.5s" repeatCount="indefinite" values="110;60;110" />
+                          <animate attributeName="opacity" dur="2.5s" repeatCount="indefinite" values="0.5;0;0.5" />
+                        </circle>
+                        <circle cx="65" cy="105" r="2.5" fill="rgba(255,255,255,0.4)">
+                          <animate attributeName="cy" dur="3s" repeatCount="indefinite" values="120;65;120" />
+                          <animate attributeName="opacity" dur="3s" repeatCount="indefinite" values="0.4;0;0.4" />
+                        </circle>
+                      </>
+                    )}
+                  </g>
+
+                  {/* Glass shine effect */}
+                  <path
+                    d="M22,15 L24,110 Q24,112 26,112 L28,112 Q30,112 30,110 L32,15"
+                    fill="rgba(255,255,255,0.2)"
                   />
                 </svg>
+
+                {/* Percentage label in center */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-4xl">💧</span>
+                  <div className="text-center">
+                    <span className="text-3xl font-black text-white drop-shadow-lg">
+                      {dailyFluidLimit > 0 ? `${fluidPercentage}%` : '💧'}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

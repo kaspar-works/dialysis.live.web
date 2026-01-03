@@ -139,10 +139,61 @@ const Vitals: React.FC = () => {
     }
   };
 
+  // Validation helper for vitals
+  const validateVitalInput = (): string | null => {
+    const v1 = parseFloat(val1);
+    const v2 = parseFloat(val2);
+
+    switch (selectedType) {
+      case VitalType.BLOOD_PRESSURE:
+        if (isNaN(v1) || v1 < 50 || v1 > 300) {
+          return 'Systolic must be between 50 and 300 mmHg';
+        }
+        if (isNaN(v2) || v2 < 30 || v2 > 200) {
+          return 'Diastolic must be between 30 and 200 mmHg';
+        }
+        if (v1 <= v2) {
+          return 'Systolic must be greater than diastolic';
+        }
+        break;
+      case VitalType.HEART_RATE:
+        if (isNaN(v1) || v1 < 20 || v1 > 300) {
+          return 'Heart rate must be between 20 and 300 bpm';
+        }
+        break;
+      case VitalType.TEMPERATURE:
+        const isMetric = profile.settings.units === 'metric';
+        if (isMetric) {
+          if (isNaN(v1) || v1 < 30 || v1 > 45) {
+            return 'Temperature must be between 30°C and 45°C';
+          }
+        } else {
+          if (isNaN(v1) || v1 < 86 || v1 > 113) {
+            return 'Temperature must be between 86°F and 113°F';
+          }
+        }
+        break;
+      case VitalType.SPO2:
+        if (isNaN(v1) || v1 < 0 || v1 > 100) {
+          return 'SpO2 must be between 0% and 100%';
+        }
+        break;
+    }
+    return null;
+  };
+
   const handleAddVital = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLogging(true);
     setError(null);
+
+    // Validate input before submitting
+    const validationError = validateVitalInput();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setIsLogging(true);
 
     try {
       // Build the request based on vital type using new consolidated API

@@ -194,17 +194,34 @@ const WeightLog: React.FC = () => {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newValue || isSubmitting) return;
+    if (isSubmitting) return;
 
-    setIsSubmitting(true);
     setError(null);
     setSuccessMessage(null);
 
+    // Validate weight input
+    if (!newValue || newValue.trim() === '') {
+      setError('Please enter a weight value');
+      return;
+    }
+
+    const weightValue = parseFloat(newValue);
+    if (isNaN(weightValue)) {
+      setError('Please enter a valid number');
+      return;
+    }
+
+    if (weightValue < 20 || weightValue > 300) {
+      setError('Weight must be between 20 kg and 300 kg');
+      return;
+    }
+
+    setIsSubmitting(true);
+
     try {
-      const savedWeight = parseFloat(newValue);
       const context = contextConfig[newType];
       await createWeightLog({
-        weightKg: savedWeight,
+        weightKg: weightValue,
         context: typeToApi[newType],
         loggedAt: new Date().toISOString(),
       });
@@ -217,7 +234,7 @@ const WeightLog: React.FC = () => {
       }
 
       // Show success notification
-      setSuccessMessage(`${context.icon} ${savedWeight.toFixed(1)} kg saved!`);
+      setSuccessMessage(`${context.icon} ${weightValue.toFixed(1)} kg saved!`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       if (err instanceof SubscriptionLimitError) {
