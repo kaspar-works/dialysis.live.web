@@ -2,7 +2,6 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { Link } from 'react-router-dom';
-import { MoodType, VitalType, FluidIntake, VitalLog } from '../types';
 import OnboardingModal from '../components/OnboardingModal';
 import { getDashboard, getHealthOverview, DashboardStats, HealthOverview } from '../services/dashboard';
 import {
@@ -36,7 +35,7 @@ import {
 } from '../services/nutrition';
 
 const Dashboard: React.FC = () => {
-  const { weights, fluids, profile, vitals, moods, addFluid, meals } = useStore();
+  const { profile, addFluid } = useStore();
   const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
   const [healthOverview, setHealthOverview] = useState<HealthOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -180,9 +179,8 @@ const Dashboard: React.FC = () => {
       const prev = dashboardData.weight.history[1]?.weight;
       if (recent && prev) return recent - prev;
     }
-    if (weights.length >= 2) return weights[0].value - weights[1].value;
     return 0;
-  }, [dashboardData, weights]);
+  }, [dashboardData]);
 
   // Fluid data - use ?? to handle 0 as valid value, only fallback on null/undefined
   const todayFluid = dashboardData?.fluid?.todayTotal ?? 0;
@@ -190,77 +188,60 @@ const Dashboard: React.FC = () => {
   const fluidPercentage = dailyFluidLimit > 0 ? Math.min(Math.round((todayFluid / dailyFluidLimit) * 100), 100) : 0;
   const fluidRemaining = dailyFluidLimit > 0 ? Math.max(dailyFluidLimit - todayFluid, 0) : 0;
 
-  // Vitals
+  // Vitals - API only
   const latestBP = useMemo(() => {
     if (dashboardData?.vitals?.latestBp) {
       return { systolic: dashboardData.vitals.latestBp.systolic, diastolic: dashboardData.vitals.latestBp.diastolic };
     }
-    const bp = vitals.find((v: VitalLog) => v.type === VitalType.BLOOD_PRESSURE);
-    return bp ? { systolic: bp.value1, diastolic: bp.value2 } : null;
-  }, [dashboardData, vitals]);
+    return null;
+  }, [dashboardData]);
 
   const latestHR = useMemo(() => {
-    if (dashboardData?.vitals?.latestHeartRate) {
-      return dashboardData.vitals.latestHeartRate.value;
-    }
-    const hr = vitals.find((v: VitalLog) => v.type === VitalType.HEART_RATE);
-    return hr?.value1 || null;
-  }, [dashboardData, vitals]);
+    return dashboardData?.vitals?.latestHeartRate?.value ?? null;
+  }, [dashboardData]);
 
   const latestTemp = useMemo(() => {
-    const temp = vitals.find((v: VitalLog) => v.type === VitalType.TEMPERATURE);
-    return temp?.value1 || 36.5;
-  }, [vitals]);
+    return dashboardData?.vitals?.latestTemp?.value ?? null;
+  }, [dashboardData]);
 
   const latestO2 = useMemo(() => {
-    const o2 = vitals.find((v: VitalLog) => v.type === VitalType.SPO2);
-    return o2?.value1 || 98;
-  }, [vitals]);
+    return dashboardData?.vitals?.latestSpo2?.value ?? null;
+  }, [dashboardData]);
 
   // Session stats
   const sessionStats = dashboardData?.sessions;
 
-  // Chart data - Weight (7 days)
+  // Chart data - Weight (7 days) - only from API
   const weightData = useMemo(() => {
     if (dashboardData?.weight?.history && dashboardData.weight.history.length > 0) {
       return dashboardData.weight.history.slice(0, 7).reverse().map(w => ({
         date: new Date(w.date).toLocaleDateString(undefined, { weekday: 'short' }),
         weight: w.weight,
-        goal: dryWeight
+        goal: dryWeight ?? 0
       }));
     }
-    const data = [...weights].reverse().slice(-7).map(w => ({
-      date: new Date(w.date).toLocaleDateString(undefined, { weekday: 'short' }),
-      weight: w.value,
-      goal: profile.weightGoal
-    }));
-    if (data.length === 0) {
-      return [
-        { date: 'Mon', weight: 72, goal: 70 },
-        { date: 'Tue', weight: 71.5, goal: 70 },
-        { date: 'Wed', weight: 71, goal: 70 },
-        { date: 'Thu', weight: 70.5, goal: 70 },
-        { date: 'Fri', weight: 70.2, goal: 70 },
-        { date: 'Sat', weight: 70, goal: 70 },
-        { date: 'Sun', weight: 70, goal: 70 },
-      ];
-    }
-    return data;
-  }, [dashboardData, weights, profile.weightGoal, dryWeight]);
+    // Return empty array if no API data (no fallback to fake data)
+    return [];
+  }, [dashboardData, dryWeight]);
 
-  // Fluid hourly data
+  // Fluid hourly data - only show if there's actual fluid data from API
   const fluidHourlyData = useMemo(() => {
     const hours = Array.from({ length: 24 }, (_, i) => ({ hour: i, amount: 0 }));
-    fluids.forEach((f: FluidIntake) => {
-      const hour = new Date(f.time).getHours();
-      hours[hour].amount += f.amount;
-    });
+    // Only populate if we have fluid data from API
+    if (todayFluid > 0 && dashboardData?.fluid?.history) {
+      dashboardData.fluid.history.forEach((entry: { date: string; amount: number }) => {
+        const hour = new Date(entry.date).getHours();
+        if (hour >= 0 && hour < 24) {
+          hours[hour].amount += entry.amount;
+        }
+      });
+    }
     return hours.slice(6, 22);
-  }, [fluids]);
+  }, [todayFluid, dashboardData]);
 
   // Nutrition totals - prefer API data over local store
   const nutritionTotals = useMemo(() => {
-    // Use API data if available
+    // Use API data only
     if (nutritionData?.totals) {
       return {
         sodium: nutritionData.totals.sodium || 0,
@@ -269,30 +250,19 @@ const Dashboard: React.FC = () => {
         protein: nutritionData.totals.protein || 0,
       };
     }
+    // No fallback - return zeros if no API data
+    return { sodium: 0, potassium: 0, phosphorus: 0, protein: 0 };
+  }, [nutritionData]);
 
-    // Fallback to local store
-    const today = new Date().toDateString();
-    const todayMeals = meals?.filter(m => new Date(m.time).toDateString() === today) || [];
-    return todayMeals.reduce((acc, m) => ({
-      sodium: acc.sodium + (m.nutrients?.sodium || 0),
-      potassium: acc.potassium + (m.nutrients?.potassium || 0),
-      phosphorus: acc.phosphorus + (m.nutrients?.phosphorus || 0),
-      protein: acc.protein + (m.nutrients?.protein || 0),
-    }), { sodium: 0, potassium: 0, phosphorus: 0, protein: 0 });
-  }, [nutritionData, meals]);
-
-  // Nutrition limits - use API data if available
+  // Nutrition limits - API only, fallback to default limits constant
   const nutritionLimits = useMemo(() => {
-    if (nutritionData?.dailyLimits) {
-      return nutritionData.dailyLimits;
-    }
-    return DAILY_LIMITS;
+    return nutritionData?.dailyLimits || DAILY_LIMITS;
   }, [nutritionData]);
 
   // Total meals count today
   const todayMealCount = nutritionData?.totalMeals || 0;
 
-  // Health Score calculation - prefer API data, show null when no data
+  // Health Score calculation - API only
   const healthScore = useMemo((): number | null => {
     // Use API health overview if available
     if (healthOverview?.score !== undefined) {
@@ -310,18 +280,14 @@ const Dashboard: React.FC = () => {
       return null;
     }
 
-    // Fallback to client-side calculation
+    // Fallback to client-side calculation based on API data only
     let score = 92;
-    const latestMood = moods[0]?.type || 'Good';
 
     // Fluid balance (only if limit is set)
     if (dailyFluidLimit > 0) {
       if (fluidPercentage > 100) score -= 15;
       else if (fluidPercentage > 90) score -= 5;
     }
-
-    // Mood factor
-    if (latestMood === MoodType.UNWELL) score -= 10;
 
     // Weight deviation (only if both weights exist)
     if (currentWeight !== null && dryWeight !== null) {
@@ -337,7 +303,7 @@ const Dashboard: React.FC = () => {
     }
 
     return Math.max(Math.min(score, 100), 20);
-  }, [healthOverview, fluidPercentage, dailyFluidLimit, moods, currentWeight, dryWeight, latestBP]);
+  }, [healthOverview, fluidPercentage, dailyFluidLimit, currentWeight, dryWeight, latestBP]);
 
   // Health status - prefer API data over local calculation
   const healthStatus = useMemo(() => {
@@ -908,7 +874,7 @@ const Dashboard: React.FC = () => {
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
                   <div
                     className="w-full bg-white/30 rounded-t transition-all hover:bg-white/50"
-                    style={{ height: `${Math.max(4, (h.amount / 500) * 40)}px` }}
+                    style={{ height: h.amount > 0 ? `${Math.max(4, (h.amount / 500) * 40)}px` : '0px' }}
                   />
                 </div>
               ))}
@@ -946,50 +912,58 @@ const Dashboard: React.FC = () => {
 
             <div className="flex items-center gap-8 mb-4">
               <div>
-                <p className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">{currentWeight}</p>
+                <p className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">{currentWeight ?? '--'}</p>
                 <p className="text-slate-400 text-sm">kg current</p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  weightChange <= 0 ? 'bg-emerald-500/10' : 'bg-amber-500/10'
-                }`}>
-                  <svg className={`w-5 h-5 ${weightChange <= 0 ? 'text-emerald-500' : 'text-amber-500'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                    <path strokeLinecap="round" strokeLinejoin="round" d={weightChange <= 0 ? 'M19 14l-7 7m0 0l-7-7m7 7V3' : 'M5 10l7-7m0 0l7 7m-7-7v18'} />
-                  </svg>
+              {weightData.length >= 2 && (
+                <div className="flex items-center gap-2">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    weightChange <= 0 ? 'bg-emerald-500/10' : 'bg-amber-500/10'
+                  }`}>
+                    <svg className={`w-5 h-5 ${weightChange <= 0 ? 'text-emerald-500' : 'text-amber-500'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <path strokeLinecap="round" strokeLinejoin="round" d={weightChange <= 0 ? 'M19 14l-7 7m0 0l-7-7m7 7V3' : 'M5 10l7-7m0 0l7 7m-7-7v18'} />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className={`font-bold ${weightChange <= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      {weightChange > 0 ? '+' : ''}{weightChange.toFixed(1)} kg
+                    </p>
+                    <p className="text-slate-400 text-xs">vs last</p>
+                  </div>
                 </div>
-                <div>
-                  <p className={`font-bold ${weightChange <= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                    {weightChange > 0 ? '+' : ''}{weightChange.toFixed(1)} kg
-                  </p>
-                  <p className="text-slate-400 text-xs">vs last</p>
-                </div>
-              </div>
+              )}
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
                   <span className="text-lg">🎯</span>
                 </div>
                 <div>
-                  <p className="font-bold text-slate-900 dark:text-white">{dryWeight} kg</p>
+                  <p className="font-bold text-slate-900 dark:text-white">{dryWeight ?? '--'} kg</p>
                   <p className="text-slate-400 text-xs">target</p>
                 </div>
               </div>
             </div>
 
-            {/* SVG Chart */}
+            {/* SVG Chart or No Data */}
             <div className="h-28">
-              <svg viewBox="0 0 300 100" className="w-full h-full" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="weightGradientDash" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <path d={weightChartPath.area} fill="url(#weightGradientDash)" />
-                <path d={weightChartPath.line} fill="none" stroke="#8b5cf6" strokeWidth="3" strokeLinecap="round" />
-                {weightChartPath.points.map((p, i) => (
-                  <circle key={i} cx={p.x} cy={p.y} r="4" fill="#8b5cf6" stroke="white" strokeWidth="2" />
-                ))}
-              </svg>
+              {weightData.length >= 2 ? (
+                <svg viewBox="0 0 300 100" className="w-full h-full" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="weightGradientDash" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path d={weightChartPath.area} fill="url(#weightGradientDash)" />
+                  <path d={weightChartPath.line} fill="none" stroke="#8b5cf6" strokeWidth="3" strokeLinecap="round" />
+                  {weightChartPath.points.map((p, i) => (
+                    <circle key={i} cx={p.x} cy={p.y} r="4" fill="#8b5cf6" stroke="white" strokeWidth="2" />
+                  ))}
+                </svg>
+              ) : (
+                <div className="flex items-center justify-center h-full text-slate-400">
+                  <p className="text-sm">{weightData.length === 1 ? 'Need 2+ readings for trend' : 'No weight data'}</p>
+                </div>
+              )}
             </div>
           </div>
 
