@@ -34,6 +34,8 @@ import {
   getStatusColor,
   getRatingColor,
   SessionEvent,
+  analyzeSessions,
+  SessionAnalysis,
 } from '../services/dialysis';
 import { createVitalRecord, getVitalRecords, VitalRecord } from '../services/vitals';
 
@@ -103,6 +105,12 @@ const Sessions: React.FC = () => {
   // Validation state
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showValidationModal, setShowValidationModal] = useState(false);
+
+  // AI Analysis state
+  const [analysisData, setAnalysisData] = useState<SessionAnalysis | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [showAnalysisDropdown, setShowAnalysisDropdown] = useState(false);
 
   const hasFetched = useRef(false);
 
@@ -552,6 +560,23 @@ const Sessions: React.FC = () => {
     }
   };
 
+  // AI Analysis handler
+  const handleAnalyzeSessions = async (days: number) => {
+    setShowAnalysisDropdown(false);
+    setIsAnalyzing(true);
+    try {
+      const data = await analyzeSessions(days);
+      setAnalysisData(data);
+      setShowAnalysisModal(true);
+    } catch (err: any) {
+      console.error('Failed to analyze sessions:', err);
+      setValidationErrors([err?.message || 'Failed to analyze sessions. Please try again.']);
+      setShowValidationModal(true);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const completedSessions = useMemo(() =>
     sessions.filter(s => s.status === SessionStatus.COMPLETED),
     [sessions]
@@ -595,13 +620,52 @@ const Sessions: React.FC = () => {
           <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight mt-2">Sessions</h1>
         </div>
         {viewMode === 'list' && !activeSession && (
-          <button
-            onClick={() => setViewMode('create')}
-            className="flex items-center gap-2 px-6 py-3 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-all"
-          >
-            <ICONS.Plus className="w-5 h-5" />
-            New Session
-          </button>
+          <div className="flex items-center gap-3">
+            {/* AI Analysis Button */}
+            <div className="relative">
+              <button
+                onClick={() => setShowAnalysisDropdown(!showAnalysisDropdown)}
+                disabled={isAnalyzing || completedSessions.length < 2}
+                className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl font-bold hover:from-violet-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
+                title={completedSessions.length < 2 ? 'Need at least 2 completed sessions' : 'AI Analysis'}
+              >
+                {isAnalyzing ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                  </svg>
+                )}
+                AI Analysis
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showAnalysisDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <button
+                    onClick={() => handleAnalyzeSessions(10)}
+                    className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Last 10 days
+                  </button>
+                  <button
+                    onClick={() => handleAnalyzeSessions(30)}
+                    className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Last 30 days
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setViewMode('create')}
+              className="flex items-center gap-2 px-6 py-3 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-all"
+            >
+              <ICONS.Plus className="w-5 h-5" />
+              New Session
+            </button>
+          </div>
         )}
       </header>
 
@@ -1662,6 +1726,217 @@ const Sessions: React.FC = () => {
             >
               Got it
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Analysis Modal */}
+      {showAnalysisModal && analysisData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-3xl w-full my-8 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white dark:bg-slate-800 p-6 border-b border-slate-100 dark:border-slate-700 rounded-t-3xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-500 rounded-2xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Session Analysis</h2>
+                    <p className="text-sm text-slate-500">{analysisData.period} - {analysisData.statistics.totalSessions} sessions</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAnalysisModal(false)}
+                  className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                >
+                  <ICONS.X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Overall Status */}
+              <div className={`p-5 rounded-2xl ${
+                analysisData.analysis.overallStatus === 'good' ? 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20' :
+                analysisData.analysis.overallStatus === 'fair' ? 'bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20' :
+                'bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20'
+              }`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                    analysisData.analysis.overallStatus === 'good' ? 'bg-emerald-500 text-white' :
+                    analysisData.analysis.overallStatus === 'fair' ? 'bg-amber-500 text-white' :
+                    'bg-rose-500 text-white'
+                  }`}>
+                    {analysisData.analysis.overallStatus}
+                  </span>
+                  <span className="text-slate-500 text-sm">Overall Status</span>
+                </div>
+                <p className="text-slate-700 dark:text-slate-300">{analysisData.analysis.summary}</p>
+              </div>
+
+              {/* Statistics Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-purple-500">{analysisData.statistics.totalSessions}</p>
+                  <p className="text-xs text-slate-500 mt-1">Sessions</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-sky-500">
+                    {analysisData.statistics.avgDuration ? `${Math.floor(analysisData.statistics.avgDuration / 60)}h ${analysisData.statistics.avgDuration % 60}m` : '--'}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">Avg Duration</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-emerald-500">
+                    {analysisData.statistics.avgWeightLoss?.toFixed(1) || '--'} kg
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">Avg Weight Loss</p>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-blue-500">
+                    {analysisData.statistics.avgUfRemoved || '--'} ml
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">Avg UF Removed</p>
+                </div>
+              </div>
+
+              {/* Category Insights */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Session Adherence */}
+                <div className="bg-white dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`w-2 h-2 rounded-full ${
+                      analysisData.analysis.sessionAdherence.status === 'excellent' ? 'bg-emerald-500' :
+                      analysisData.analysis.sessionAdherence.status === 'good' ? 'bg-sky-500' :
+                      'bg-amber-500'
+                    }`} />
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">Session Adherence</h4>
+                    <span className="text-xs text-slate-400 capitalize">({analysisData.analysis.sessionAdherence.status.replace('_', ' ')})</span>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{analysisData.analysis.sessionAdherence.insight}</p>
+                </div>
+
+                {/* Fluid Management */}
+                <div className="bg-white dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`w-2 h-2 rounded-full ${
+                      analysisData.analysis.fluidManagement.status === 'well_controlled' ? 'bg-emerald-500' :
+                      analysisData.analysis.fluidManagement.status === 'moderate' ? 'bg-amber-500' :
+                      'bg-rose-500'
+                    }`} />
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">Fluid Management</h4>
+                    <span className="text-xs text-slate-400 capitalize">({analysisData.analysis.fluidManagement.status.replace('_', ' ')})</span>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{analysisData.analysis.fluidManagement.insight}</p>
+                </div>
+
+                {/* Blood Pressure */}
+                <div className="bg-white dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">Blood Pressure</h4>
+                    <span className="text-xs text-slate-400 capitalize">
+                      (Pre: {analysisData.analysis.bloodPressure.preTrend}, Post: {analysisData.analysis.bloodPressure.postTrend.replace('_', ' ')})
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{analysisData.analysis.bloodPressure.insight}</p>
+                </div>
+
+                {/* Complications */}
+                <div className="bg-white dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`w-2 h-2 rounded-full ${
+                      analysisData.analysis.complications.frequency === 'none' || analysisData.analysis.complications.frequency === 'rare' ? 'bg-emerald-500' :
+                      analysisData.analysis.complications.frequency === 'occasional' ? 'bg-amber-500' :
+                      'bg-rose-500'
+                    }`} />
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">Complications</h4>
+                    <span className="text-xs text-slate-400 capitalize">({analysisData.analysis.complications.frequency})</span>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{analysisData.analysis.complications.insight}</p>
+                </div>
+              </div>
+
+              {/* Positives */}
+              {analysisData.analysis.positives && analysisData.analysis.positives.length > 0 && (
+                <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl p-4">
+                  <h4 className="font-bold text-emerald-700 dark:text-emerald-400 text-sm mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Positive Observations
+                  </h4>
+                  <ul className="space-y-2">
+                    {analysisData.analysis.positives.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+                        <span className="text-emerald-500 mt-1">+</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Areas to Discuss */}
+              {analysisData.analysis.areasToDiscuss && analysisData.analysis.areasToDiscuss.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl p-4">
+                  <h4 className="font-bold text-amber-700 dark:text-amber-400 text-sm mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Topics to Discuss with Care Team
+                  </h4>
+                  <ul className="space-y-2">
+                    {analysisData.analysis.areasToDiscuss.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-300">
+                        <span className="text-amber-500 mt-1">-</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Suggestions */}
+              {analysisData.analysis.suggestions && analysisData.analysis.suggestions.length > 0 && (
+                <div className="bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-xl p-4">
+                  <h4 className="font-bold text-sky-700 dark:text-sky-400 text-sm mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    Wellness Suggestions
+                  </h4>
+                  <ul className="space-y-2">
+                    {analysisData.analysis.suggestions.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-sky-700 dark:text-sky-300">
+                        <span className="text-sky-500 mt-1">-</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Disclaimer */}
+              <div className="bg-slate-100 dark:bg-slate-700/50 rounded-xl p-4">
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  <strong>Disclaimer:</strong> {analysisData.disclaimer}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-white dark:bg-slate-800 p-6 border-t border-slate-100 dark:border-slate-700 rounded-b-3xl">
+              <button
+                onClick={() => setShowAnalysisModal(false)}
+                className="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+              >
+                Close Analysis
+              </button>
+            </div>
           </div>
         </div>
       )}

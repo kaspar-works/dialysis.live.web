@@ -37,6 +37,10 @@ const Vitals: React.FC = () => {
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisDays, setAnalysisDays] = useState<AnalysisDays>(30);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const vitalConfig = {
     [VitalType.BLOOD_PRESSURE]: {
       label: 'Blood Pressure',
@@ -443,6 +447,18 @@ const Vitals: React.FC = () => {
     if (activeTab === 'spo2') return safeRecords.filter(r => r.spo2);
     return safeRecords;
   }, [records, activeTab]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredRecords.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredRecords, currentPage, itemsPerPage]);
+
+  // Reset to page 1 when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   const tabs: { id: ViewTab; label: string; icon: string }[] = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -1261,7 +1277,7 @@ const Vitals: React.FC = () => {
 
             {filteredRecords.length > 0 ? (
               <div className="space-y-3">
-                {filteredRecords.slice(0, 30).map((record: VitalRecord) => {
+                {paginatedRecords.map((record: VitalRecord) => {
                   // Determine vital type and values from VitalRecord
                   let frontendType: VitalType = VitalType.BLOOD_PRESSURE;
                   let value: string = '--';
@@ -1357,6 +1373,70 @@ const Vitals: React.FC = () => {
                 >
                   Log Your First Vital
                 </button>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pt-4">
+                {/* Previous Button */}
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                {/* Page Numbers */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      // Show first, last, current, and pages around current
+                      if (page === 1 || page === totalPages) return true;
+                      if (Math.abs(page - currentPage) <= 1) return true;
+                      return false;
+                    })
+                    .map((page, index, arr) => {
+                      // Add ellipsis
+                      const showEllipsisBefore = index > 0 && page - arr[index - 1] > 1;
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsisBefore && (
+                            <span className="px-2 text-slate-400">...</span>
+                          )}
+                          <button
+                            onClick={() => setCurrentPage(page)}
+                            className={`min-w-[40px] h-10 rounded-xl font-bold text-sm transition-all ${
+                              currentPage === page
+                                ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                </div>
+
+                {/* Next Button */}
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+
+                {/* Page Info */}
+                <span className="ml-4 text-sm text-slate-400">
+                  Page {currentPage} of {totalPages}
+                </span>
               </div>
             )}
           </div>

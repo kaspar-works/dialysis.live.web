@@ -32,6 +32,7 @@ const FluidLog: React.FC = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
   const hasFetched = useRef(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (hasFetched.current) return;
@@ -61,23 +62,26 @@ const FluidLog: React.FC = () => {
     }
   };
 
-  const loadMoreLogs = async () => {
-    if (!pagination?.hasNext || isLoadingMore) return;
-
+  const fetchPage = async (page: number) => {
     setIsLoadingMore(true);
     try {
+      const offset = (page - 1) * LOGS_PER_PAGE;
       const logsData = await getFluidLogs({
         limit: LOGS_PER_PAGE,
-        offset: pagination.offset + LOGS_PER_PAGE
+        offset
       });
-      setLogs(prev => [...prev, ...logsData.logs]);
+      setLogs(logsData.logs);
       setPagination(logsData.pagination);
+      setCurrentPage(page);
     } catch (err) {
-      setError('Failed to load more');
+      setError('Failed to load page');
     } finally {
       setIsLoadingMore(false);
     }
   };
+
+  // Calculate total pages
+  const totalPages = pagination ? Math.ceil(pagination.total / LOGS_PER_PAGE) : 1;
 
   // Calculate weekly data for chart
   const weeklyData = useMemo(() => {
@@ -629,24 +633,72 @@ const FluidLog: React.FC = () => {
               );
             })}
 
-            {/* Load More Button */}
-            {pagination?.hasNext && (
-              <button
-                onClick={loadMoreLogs}
-                disabled={isLoadingMore}
-                className="w-full mt-4 py-3 rounded-xl font-bold text-sky-500 bg-sky-500/10 hover:bg-sky-500/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isLoadingMore ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    Load more ({pagination.total - logs.length} remaining)
-                  </>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pt-4 mt-4 border-t border-slate-100 dark:border-slate-700">
+                {/* Previous Button */}
+                <button
+                  onClick={() => fetchPage(currentPage - 1)}
+                  disabled={currentPage === 1 || isLoadingMore}
+                  className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                {/* Page Numbers */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      if (page === 1 || page === totalPages) return true;
+                      if (Math.abs(page - currentPage) <= 1) return true;
+                      return false;
+                    })
+                    .map((page, index, arr) => {
+                      const showEllipsisBefore = index > 0 && page - arr[index - 1] > 1;
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsisBefore && (
+                            <span className="px-2 text-slate-400">...</span>
+                          )}
+                          <button
+                            onClick={() => fetchPage(page)}
+                            disabled={isLoadingMore}
+                            className={`min-w-[40px] h-10 rounded-xl font-bold text-sm transition-all disabled:opacity-50 ${
+                              currentPage === page
+                                ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                </div>
+
+                {/* Next Button */}
+                <button
+                  onClick={() => fetchPage(currentPage + 1)}
+                  disabled={currentPage === totalPages || isLoadingMore}
+                  className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+
+                {/* Page Info */}
+                <span className="ml-4 text-sm text-slate-400">
+                  Page {currentPage} of {totalPages}
+                </span>
+
+                {/* Loading Indicator */}
+                {isLoadingMore && (
+                  <div className="ml-2 w-5 h-5 border-2 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
                 )}
-              </button>
+              </div>
             )}
           </div>
         ) : (

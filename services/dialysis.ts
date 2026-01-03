@@ -250,3 +250,54 @@ export function getRatingColor(rating?: SessionRating): string {
       return 'text-slate-400';
   }
 }
+
+// Session Analysis Types
+export interface SessionAnalysis {
+  period: string;
+  statistics: {
+    totalSessions: number;
+    avgDuration: number | null;
+    avgWeightLoss: number | null;
+    avgUfRemoved: number | null;
+    avgPreBp: { systolic: number; diastolic: number } | null;
+    avgPostBp: { systolic: number; diastolic: number } | null;
+    ratings: { good: number; ok: number; bad: number };
+    sessionsWithComplications: number;
+    mostCommonComplications: string[];
+  };
+  analysis: {
+    summary: string;
+    overallStatus: 'good' | 'fair' | 'concerning';
+    sessionAdherence: {
+      status: 'excellent' | 'good' | 'needs_improvement';
+      insight: string;
+    };
+    fluidManagement: {
+      status: 'well_controlled' | 'moderate' | 'needs_attention';
+      avgWeightGain?: string;
+      insight: string;
+    };
+    bloodPressure: {
+      preTrend: 'stable' | 'variable' | 'elevated' | 'low';
+      postTrend: 'stable' | 'variable' | 'concerning_drops';
+      insight: string;
+    };
+    complications: {
+      frequency: 'rare' | 'occasional' | 'frequent' | 'none';
+      commonTypes: string[];
+      insight: string;
+    };
+    positives: string[];
+    areasToDiscuss: string[];
+    suggestions: string[];
+    disclaimer: string;
+  };
+  analyzedAt: string;
+  disclaimer: string;
+}
+
+// AI-powered session analysis
+export async function analyzeSessions(days: number = 30): Promise<SessionAnalysis> {
+  const result = await authFetch(`/dialysis/sessions/analyze?days=${days}`);
+  return result.data;
+}
