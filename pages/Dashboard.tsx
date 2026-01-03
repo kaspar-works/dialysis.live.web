@@ -33,6 +33,7 @@ import {
   TodayMealsResponse,
   DAILY_LIMITS,
 } from '../services/nutrition';
+import { createFluidLog } from '../services/fluid';
 
 const Dashboard: React.FC = () => {
   const { profile, addFluid } = useStore();
@@ -351,17 +352,28 @@ const Dashboard: React.FC = () => {
     return [];
   }, [hasAlertsFetched, apiAlerts]);
 
-  const handleQuickFluid = (amount: number) => {
+  const handleQuickFluid = async (amount: number) => {
     setActiveQuickAdd(amount);
-    setTimeout(() => {
+    try {
+      // Call API to save fluid log
+      await createFluidLog({ amountMl: amount, source: 'water' });
+
+      // Update local store for immediate UI feedback
       addFluid({
         id: Date.now().toString(),
         time: new Date().toISOString(),
         amount,
         beverage: 'Water'
       });
+
+      // Refresh dashboard data to get updated totals
+      const data = await getDashboard();
+      setDashboardData(data);
+    } catch (err) {
+      console.error('Failed to add fluid:', err);
+    } finally {
       setActiveQuickAdd(null);
-    }, 300);
+    }
   };
 
   // Greeting
