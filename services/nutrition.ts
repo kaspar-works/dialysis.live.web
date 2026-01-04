@@ -416,6 +416,7 @@ export interface FoodItem {
   potassium: NutrientLevel;
   sodium: NutrientLevel;
   phosphorus: NutrientLevel;
+  protein: NutrientLevel;
   renalRisk: 'safe' | 'caution' | 'avoid';
   notes?: string;
 }
@@ -429,6 +430,7 @@ export interface NutriAuditResult {
     potassium: NutrientLevel;
     sodium: NutrientLevel;
     phosphorus: NutrientLevel;
+    protein: NutrientLevel;
   };
   recommendations: string[];
   alternatives: string[];
@@ -444,6 +446,7 @@ export interface CachedFood {
   potassium: NutrientLevel;
   sodium: NutrientLevel;
   phosphorus: NutrientLevel;
+  protein?: NutrientLevel;
   renalRisk: 'safe' | 'caution' | 'avoid';
   notes?: string;
   source: 'openai' | 'manual' | 'usda';

@@ -545,7 +545,9 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-white/50 text-xs font-medium">Hydration</p>
-                  <p className="text-white font-bold">{dailyFluidLimit > 0 ? `${fluidPercentage}%` : '--'}</p>
+                  <p className="text-white font-bold">
+                    {dailyFluidLimit > 0 ? `${fluidPercentage}%` : todayFluid > 0 ? `${todayFluid} ml` : '--'}
+                  </p>
                 </div>
               </div>
               <div className="glass rounded-2xl px-4 py-3 flex items-center gap-3">
@@ -790,13 +792,17 @@ const Dashboard: React.FC = () => {
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-amber-500/20">
               <span className="text-xl">🌡️</span>
             </div>
-            <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              Normal
+            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
+              latestTemp !== null
+                ? (latestTemp >= 36.1 && latestTemp <= 37.2 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600')
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
+            }`}>
+              {latestTemp !== null ? (latestTemp >= 36.1 && latestTemp <= 37.2 ? 'Normal' : 'Abnormal') : 'No data'}
             </span>
           </div>
           <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Temperature</p>
           <p className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
-            {latestTemp}
+            {latestTemp ?? '--'}
           </p>
           <p className="text-slate-400 text-xs mt-1">°C</p>
         </div>
@@ -808,14 +814,16 @@ const Dashboard: React.FC = () => {
               <span className="text-xl">🫁</span>
             </div>
             <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
-              latestO2 >= 95 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600'
+              latestO2 !== null
+                ? (latestO2 >= 95 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600')
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
             }`}>
-              {latestO2 >= 95 ? 'Normal' : 'Low'}
+              {latestO2 !== null ? (latestO2 >= 95 ? 'Normal' : 'Low') : 'No data'}
             </span>
           </div>
           <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Oxygen</p>
           <p className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
-            {latestO2}
+            {latestO2 ?? '--'}
           </p>
           <p className="text-slate-400 text-xs mt-1">% SpO2</p>
         </div>

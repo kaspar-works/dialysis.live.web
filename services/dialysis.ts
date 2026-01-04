@@ -117,6 +117,28 @@ export interface AddEventData {
   timestamp?: string;
 }
 
+export interface QuickLogSessionData {
+  mode: DialysisMode;
+  type: DialysisType;
+  sessionDate?: string;
+  durationMin: number;
+  preWeightKg?: number;
+  postWeightKg?: number;
+  targetUfMl?: number;
+  actualUfMl?: number;
+  preBpSystolic?: number;
+  preBpDiastolic?: number;
+  postBpSystolic?: number;
+  postBpDiastolic?: number;
+  preHeartRate?: number;
+  postHeartRate?: number;
+  sessionRating?: SessionRating;
+  notes?: string;
+  complications?: string[];
+  locationName?: string;
+  machineName?: string;
+}
+
 export interface SessionsListResponse {
   sessions: DialysisSession[];
   pagination: {
@@ -135,6 +157,15 @@ export interface SessionDetailsResponse {
 // Create and start a new session
 export async function createSession(data: CreateSessionData): Promise<DialysisSession> {
   const result = await authFetch('/dialysis/sessions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  return result.data.session;
+}
+
+// Quick log a completed session (manual entry without timer)
+export async function quickLogSession(data: QuickLogSessionData): Promise<DialysisSession> {
+  const result = await authFetch('/dialysis/sessions/quick-log', {
     method: 'POST',
     body: JSON.stringify(data),
   });

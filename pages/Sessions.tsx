@@ -36,6 +36,8 @@ import {
   SessionEvent,
   analyzeSessions,
   SessionAnalysis,
+  quickLogSession,
+  QuickLogSessionData,
 } from '../services/dialysis';
 import { createVitalRecord, getVitalRecords, VitalRecord } from '../services/vitals';
 
@@ -81,6 +83,14 @@ const Sessions: React.FC = () => {
     sessionRating: '' as SessionRating | '',
     notes: '',
     complications: [] as string[],
+  });
+
+  // Quick Log mode state
+  const [isQuickLog, setIsQuickLog] = useState(false);
+  const [quickLogData, setQuickLogData] = useState({
+    sessionDate: new Date().toISOString().split('T')[0],
+    durationHours: 4,
+    durationMinutes: 0,
   });
 
   // Quick vitals during session
@@ -238,6 +248,68 @@ const Sessions: React.FC = () => {
     }
   };
 
+  // Handle Quick Log submission (manual entry of completed session)
+  const handleQuickLogSession = async () => {
+    setIsSubmitting(true);
+    try {
+      const durationMin = (quickLogData.durationHours * 60) + quickLogData.durationMinutes;
+
+      if (durationMin < 30) {
+        setValidationErrors(['Duration must be at least 30 minutes']);
+        setShowValidationModal(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      const data: QuickLogSessionData = {
+        mode: newSession.mode,
+        type: newSession.type,
+        sessionDate: quickLogData.sessionDate ? new Date(quickLogData.sessionDate).toISOString() : undefined,
+        durationMin,
+        locationName: newSession.locationName?.trim() || undefined,
+        machineName: newSession.machineName?.trim() || undefined,
+      };
+
+      // Add pre-session data
+      if (preData.preWeightKg) data.preWeightKg = parseFloat(preData.preWeightKg);
+      if (preData.targetUfMl) data.targetUfMl = parseInt(preData.targetUfMl);
+      if (preData.preBpSystolic) data.preBpSystolic = parseInt(preData.preBpSystolic);
+      if (preData.preBpDiastolic) data.preBpDiastolic = parseInt(preData.preBpDiastolic);
+      if (preData.preHeartRate) data.preHeartRate = parseInt(preData.preHeartRate);
+
+      // Add post-session data
+      if (postData.postWeightKg) data.postWeightKg = parseFloat(postData.postWeightKg);
+      if (postData.actualUfMl) data.actualUfMl = parseInt(postData.actualUfMl);
+      if (postData.postBpSystolic) data.postBpSystolic = parseInt(postData.postBpSystolic);
+      if (postData.postBpDiastolic) data.postBpDiastolic = parseInt(postData.postBpDiastolic);
+      if (postData.postHeartRate) data.postHeartRate = parseInt(postData.postHeartRate);
+      if (postData.sessionRating) data.sessionRating = postData.sessionRating as SessionRating;
+      if (postData.notes) data.notes = postData.notes;
+      if (postData.complications.length > 0) data.complications = postData.complications;
+
+      await quickLogSession(data);
+
+      // Refresh sessions list
+      const sessionsData = await listSessions({ limit: 20 });
+      setSessions(sessionsData.sessions);
+
+      setViewMode('list');
+      resetForms();
+    } catch (err: any) {
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({ message: err.message, limit: err.limit });
+        setViewMode('list');
+      } else {
+        console.error('Failed to quick log session:', err);
+        const errorMessage = err?.message || 'Failed to log session. Please try again.';
+        setValidationErrors([errorMessage]);
+        setShowValidationModal(true);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleEndSession = async () => {
     if (!activeSession) return;
 
@@ -305,6 +377,12 @@ const Sessions: React.FC = () => {
     });
     setPreData({ preWeightKg: '', targetUfMl: '', preBpSystolic: '', preBpDiastolic: '', preHeartRate: '' });
     setPostData({ postWeightKg: '', actualUfMl: '', postBpSystolic: '', postBpDiastolic: '', postHeartRate: '', sessionRating: '', notes: '', complications: [] });
+    setIsQuickLog(false);
+    setQuickLogData({
+      sessionDate: new Date().toISOString().split('T')[0],
+      durationHours: 4,
+      durationMinutes: 0,
+    });
   };
 
   // Validation functions
@@ -941,13 +1019,101 @@ const Sessions: React.FC = () => {
       {viewMode === 'create' && (
         <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-slate-700 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Start New Session</h2>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+              {isQuickLog ? 'Quick Log Session' : 'Start New Session'}
+            </h2>
             <button onClick={() => { setViewMode('list'); resetForms(); }} className="text-slate-400 hover:text-slate-600">
               <ICONS.X className="w-6 h-6" />
             </button>
           </div>
 
+          {/* Mode Toggle */}
+          <div className="flex bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
+            <button
+              onClick={() => setIsQuickLog(false)}
+              className={`flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm transition-all ${
+                !isQuickLog
+                  ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-400 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Start Timer
+              </span>
+            </button>
+            <button
+              onClick={() => setIsQuickLog(true)}
+              className={`flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm transition-all ${
+                isQuickLog
+                  ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-400 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Quick Log
+              </span>
+            </button>
+          </div>
+
+          {isQuickLog && (
+            <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 rounded-xl p-4">
+              <p className="text-sm text-purple-700 dark:text-purple-300">
+                Log a completed session manually. Enter the date, duration, and details without using a timer.
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Session Date (Quick Log only) */}
+            {isQuickLog && (
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Session Date</label>
+                <input
+                  type="date"
+                  value={quickLogData.sessionDate}
+                  onChange={e => setQuickLogData({ ...quickLogData, sessionDate: e.target.value })}
+                  className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                />
+              </div>
+            )}
+
+            {/* Duration (Quick Log only) */}
+            {isQuickLog && (
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Duration</label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="12"
+                      value={quickLogData.durationHours}
+                      onChange={e => setQuickLogData({ ...quickLogData, durationHours: parseInt(e.target.value) || 0 })}
+                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                    />
+                    <span className="text-xs text-slate-400 mt-1 block text-center">Hours</span>
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={quickLogData.durationMinutes}
+                      onChange={e => setQuickLogData({ ...quickLogData, durationMinutes: parseInt(e.target.value) || 0 })}
+                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                    />
+                    <span className="text-xs text-slate-400 mt-1 block text-center">Minutes</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Session Type */}
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Dialysis Type</label>
@@ -977,21 +1143,23 @@ const Sessions: React.FC = () => {
               </select>
             </div>
 
-            {/* Planned Duration */}
-            <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Planned Duration (min)</label>
-              <input
-                type="number"
-                value={newSession.plannedDurationMin}
-                onChange={e => setNewSession({ ...newSession, plannedDurationMin: parseInt(e.target.value) || 240 })}
-                className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
-              />
-            </div>
+            {/* Planned Duration (Timer mode only) */}
+            {!isQuickLog && (
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Planned Duration (min)</label>
+                <input
+                  type="number"
+                  value={newSession.plannedDurationMin}
+                  onChange={e => setNewSession({ ...newSession, plannedDurationMin: parseInt(e.target.value) || 240 })}
+                  className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                />
+              </div>
+            )}
 
             {/* Pre Weight */}
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                Pre-Weight (kg) <span className="text-rose-500">*</span>
+                Pre-Weight (kg) {!isQuickLog && <span className="text-rose-500">*</span>}
               </label>
               <input
                 type="number"
@@ -1048,6 +1216,110 @@ const Sessions: React.FC = () => {
                 className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
               />
             </div>
+
+            {/* Post-session fields (Quick Log only) */}
+            {isQuickLog && (
+              <>
+                <div className="md:col-span-2 pt-4 border-t border-slate-200 dark:border-slate-600">
+                  <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Post-Session Data</h3>
+                </div>
+
+                {/* Post Weight */}
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post-Weight (kg)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={postData.postWeightKg}
+                    onChange={e => setPostData({ ...postData, postWeightKg: e.target.value })}
+                    placeholder="e.g. 74.5"
+                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                  />
+                </div>
+
+                {/* Actual UF */}
+                <div>
+                  <label className="text-xs font-bold text-sky-500 uppercase tracking-wider mb-2 block">Actual UF Removed (ml)</label>
+                  <input
+                    type="number"
+                    value={postData.actualUfMl}
+                    onChange={e => setPostData({ ...postData, actualUfMl: e.target.value })}
+                    placeholder="e.g. 2500"
+                    className="w-full bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 rounded-xl px-4 py-3 font-semibold text-sky-600 dark:text-sky-400 outline-none"
+                  />
+                </div>
+
+                {/* Post Blood Pressure */}
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post Blood Pressure</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={postData.postBpSystolic}
+                      onChange={e => setPostData({ ...postData, postBpSystolic: e.target.value })}
+                      placeholder="Sys"
+                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                    />
+                    <input
+                      type="number"
+                      value={postData.postBpDiastolic}
+                      onChange={e => setPostData({ ...postData, postBpDiastolic: e.target.value })}
+                      placeholder="Dia"
+                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Post Heart Rate */}
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post Heart Rate (bpm)</label>
+                  <input
+                    type="number"
+                    value={postData.postHeartRate}
+                    onChange={e => setPostData({ ...postData, postHeartRate: e.target.value })}
+                    placeholder="e.g. 70"
+                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                  />
+                </div>
+
+                {/* Session Rating */}
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">How did it go?</label>
+                  <div className="flex gap-2">
+                    {[
+                      { value: SessionRating.GOOD, label: 'Good', emoji: '😊', color: 'emerald' },
+                      { value: SessionRating.OK, label: 'OK', emoji: '😐', color: 'amber' },
+                      { value: SessionRating.BAD, label: 'Bad', emoji: '😟', color: 'rose' },
+                    ].map(rating => (
+                      <button
+                        key={rating.value}
+                        type="button"
+                        onClick={() => setPostData({ ...postData, sessionRating: rating.value })}
+                        className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+                          postData.sessionRating === rating.value
+                            ? `bg-${rating.color}-500 text-white`
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                        }`}
+                      >
+                        <span className="text-lg mr-1">{rating.emoji}</span> {rating.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Notes</label>
+                  <textarea
+                    value={postData.notes}
+                    onChange={e => setPostData({ ...postData, notes: e.target.value })}
+                    placeholder="Any notes about the session..."
+                    rows={2}
+                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none resize-none"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="flex gap-4 pt-4">
@@ -1058,7 +1330,7 @@ const Sessions: React.FC = () => {
               Cancel
             </button>
             <button
-              onClick={handleCreateSession}
+              onClick={isQuickLog ? handleQuickLogSession : handleCreateSession}
               disabled={isSubmitting}
               className="flex-[2] py-4 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
@@ -1066,8 +1338,19 @@ const Sessions: React.FC = () => {
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  <ICONS.Activity className="w-5 h-5" />
-                  Start Session
+                  {isQuickLog ? (
+                    <>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Log Session
+                    </>
+                  ) : (
+                    <>
+                      <ICONS.Activity className="w-5 h-5" />
+                      Start Session
+                    </>
+                  )}
                 </>
               )}
             </button>

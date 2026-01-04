@@ -8,9 +8,11 @@ import {
   searchCachedFoods,
   createMeal,
   getTodayMeals,
+  getMeals,
   deleteMeal,
   MealType,
   TodayMealsResponse,
+  Meal,
   DAILY_LIMITS,
   NutriAuditResult,
   CachedFood,
@@ -43,6 +45,11 @@ const NutritionScan: React.FC = () => {
   const [isLogging, setIsLogging] = useState(false);
   const [todayData, setTodayData] = useState<TodayMealsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // All meals view state
+  const [mealsView, setMealsView] = useState<'today' | 'all'>('today');
+  const [allMeals, setAllMeals] = useState<Meal[]>([]);
+  const [allMealsTotal, setAllMealsTotal] = useState(0);
+  const [isLoadingAllMeals, setIsLoadingAllMeals] = useState(false);
   const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
   const [featureError, setFeatureError] = useState<{ message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +80,26 @@ const NutritionScan: React.FC = () => {
     };
     fetchTodayMeals();
   }, []);
+
+  // Fetch all meals when view changes to "all"
+  useEffect(() => {
+    if (mealsView !== 'all') return;
+
+    const fetchAllMeals = async () => {
+      setIsLoadingAllMeals(true);
+      try {
+        const data = await getMeals({ limit: 100 });
+        setAllMeals(data.meals);
+        setAllMealsTotal(data.pagination?.total || data.meals.length);
+      } catch (err) {
+        console.error('Failed to fetch all meals:', err);
+        setError('Failed to load all meals');
+      } finally {
+        setIsLoadingAllMeals(false);
+      }
+    };
+    fetchAllMeals();
+  }, [mealsView]);
 
   // Search cached foods when query changes
   useEffect(() => {
@@ -175,7 +202,7 @@ const NutritionScan: React.FC = () => {
         sodium: food.sodium.amount,
         potassium: food.potassium.amount,
         phosphorus: food.phosphorus.amount,
-        protein: 0, // Not tracked in NutriFood model
+        protein: food.protein?.amount || 0,
       });
     } else {
       // It's a local common food
@@ -225,7 +252,7 @@ const NutritionScan: React.FC = () => {
       sodium: food.sodium.amount,
       potassium: food.potassium.amount,
       phosphorus: food.phosphorus.amount,
-      protein: 0,
+      protein: food.protein?.amount || 0,
     }, true);
     setTextAnalysisResult(null);
   };
@@ -239,7 +266,7 @@ const NutritionScan: React.FC = () => {
       sodium: food.sodium.amount,
       potassium: food.potassium.amount,
       phosphorus: food.phosphorus.amount,
-      protein: 0,
+      protein: food.protein?.amount || 0,
     }, true);
     setScanResult(null);
     setImage(null);
@@ -265,6 +292,13 @@ const NutritionScan: React.FC = () => {
       const data = await getTodayMeals();
       setTodayData(data);
 
+      // Also refresh all meals if in that view
+      if (mealsView === 'all') {
+        const allData = await getMeals({ limit: 100 });
+        setAllMeals(allData.meals);
+        setAllMealsTotal(allData.pagination?.total || allData.meals.length);
+      }
+
       resetForm();
     } catch (err) {
       if (err instanceof SubscriptionLimitError) {
@@ -284,6 +318,12 @@ const NutritionScan: React.FC = () => {
       // Refresh today's data
       const data = await getTodayMeals();
       setTodayData(data);
+      // Also refresh all meals if in that view
+      if (mealsView === 'all') {
+        const allData = await getMeals({ limit: 100 });
+        setAllMeals(allData.meals);
+        setAllMealsTotal(allData.pagination?.total || allData.meals.length);
+      }
     } catch (err) {
       console.error('Failed to delete meal:', err);
       setError('Failed to delete meal');
@@ -340,7 +380,6 @@ const NutritionScan: React.FC = () => {
           <span className="text-emerald-500 text-xs font-bold uppercase tracking-wider">Nutrition</span>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">NutriScan</h1>
         </div>
-        <span className="text-xs text-slate-400">{todayMeals.length} meals today</span>
       </header>
 
       {/* Subscription Limit Banner */}
@@ -862,9 +901,51 @@ const NutritionScan: React.FC = () => {
 
         {/* Right: History */}
         <div className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Today's Meals</h3>
+          {/* Toggle: Today vs All */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              {mealsView === 'today' ? "Today's Meals" : 'All Meals'}
+            </h3>
+            <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+              <button
+                onClick={() => setMealsView('today')}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                  mealsView === 'today'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                onClick={() => setMealsView('all')}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                  mealsView === 'all'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                All
+              </button>
+            </div>
+          </div>
 
-          {todayMeals.length > 0 ? (
+          {/* Meals count */}
+          <p className="text-xs text-slate-400">
+            {mealsView === 'today'
+              ? `${todayMeals.length} meals today`
+              : `${allMealsTotal} total meals`}
+          </p>
+
+          {/* Loading state for all meals */}
+          {mealsView === 'all' && isLoadingAllMeals && (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+            </div>
+          )}
+
+          {/* Meals list */}
+          {mealsView === 'today' && todayMeals.length > 0 ? (
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
               {[...todayMeals].reverse().map(meal => (
                 <div key={meal._id} className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-700 group">
@@ -906,10 +987,64 @@ const NutritionScan: React.FC = () => {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : mealsView === 'today' && todayMeals.length === 0 ? (
             <div className="bg-white dark:bg-slate-800 rounded-xl p-8 border border-slate-100 dark:border-slate-700 text-center">
               <div className="text-4xl mb-3">🍽️</div>
-              <p className="font-bold text-slate-400">No meals logged</p>
+              <p className="font-bold text-slate-400">No meals logged today</p>
+              <p className="text-sm text-slate-400">Scan or add your first meal</p>
+            </div>
+          ) : null}
+
+          {/* All Meals View */}
+          {mealsView === 'all' && !isLoadingAllMeals && allMeals.length > 0 && (
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+              {allMeals.map(meal => (
+                <div key={meal._id} className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-700 group">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="font-bold text-slate-900 dark:text-white">{meal.name}</p>
+                      <p className="text-xs text-slate-400">
+                        {new Date(meal.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })} at {new Date(meal.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {meal.aiAnalyzed && <span className="ml-2 text-emerald-500">AI</span>}
+                        <span className="ml-2 capitalize text-slate-300">{meal.mealType}</span>
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveMeal(meal._id)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-rose-500 transition-all"
+                    >
+                      <ICONS.X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div>
+                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.sodium || 0}</p>
+                      <p className="text-[9px] text-slate-400 uppercase">Na</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.potassium || 0}</p>
+                      <p className="text-[9px] text-slate-400 uppercase">K</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.phosphorus || 0}</p>
+                      <p className="text-[9px] text-slate-400 uppercase">P</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.protein || 0}g</p>
+                      <p className="text-[9px] text-slate-400 uppercase">Pr</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* All Meals Empty State */}
+          {mealsView === 'all' && !isLoadingAllMeals && allMeals.length === 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-8 border border-slate-100 dark:border-slate-700 text-center">
+              <div className="text-4xl mb-3">🍽️</div>
+              <p className="font-bold text-slate-400">No meals logged yet</p>
               <p className="text-sm text-slate-400">Scan or add your first meal</p>
             </div>
           )}
