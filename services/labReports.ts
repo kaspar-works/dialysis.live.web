@@ -185,7 +185,7 @@ export const LAB_TEST_CONFIG: Record<string, {
   },
   [LabTestCode.KTV]: {
     name: 'Kt/V',
-    unit: '',
+    unit: 'ratio',
     category: LabTestCategory.DIALYSIS_ADEQUACY,
     dialysisRange: { low: 1.2, high: 2.0 },
     color: 'indigo',

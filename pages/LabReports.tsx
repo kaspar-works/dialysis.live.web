@@ -186,15 +186,23 @@ const LabReports: React.FC = () => {
     setAnalyzingReportId(reportId);
     try {
       const analysis = await analyzeLabReport(reportId);
-      // Update report with analysis
-      setReports(prev => prev.map(r =>
-        r._id === reportId ? { ...r, aiAnalysis: analysis, aiAnalyzedAt: new Date().toISOString() } : r
-      ));
-      // Also update selected report if viewing
-      const report = reports.find(r => r._id === reportId);
-      if (report) {
-        setSelectedReport({ ...report, aiAnalysis: analysis, aiAnalyzedAt: new Date().toISOString() });
-      }
+      const analysisTimestamp = new Date().toISOString();
+
+      // Update report with analysis using functional update to get latest state
+      setReports(prev => {
+        const updatedReports = prev.map(r =>
+          r._id === reportId ? { ...r, aiAnalysis: analysis, aiAnalyzedAt: analysisTimestamp } : r
+        );
+
+        // Also update selected report if viewing (using updated data)
+        const updatedReport = updatedReports.find(r => r._id === reportId);
+        if (updatedReport && selectedReport?._id === reportId) {
+          setSelectedReport(updatedReport);
+        }
+
+        return updatedReports;
+      });
+
       setNotification({ message: 'AI analysis complete', type: 'success' });
       setTimeout(() => setNotification(null), 3000);
     } catch (err: any) {

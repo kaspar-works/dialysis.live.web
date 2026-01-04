@@ -97,6 +97,15 @@ export interface VitalStats {
     value: number;
     date: string;
   } | null;
+  latestSpo2: {
+    value: number;
+    date: string;
+  } | null;
+  latestTemp: {
+    value: number;
+    unit: string;
+    date: string;
+  } | null;
   averageBp: {
     systolic: number;
     diastolic: number;
