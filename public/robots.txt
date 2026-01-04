@@ -1,0 +1,24 @@
+# robots.txt for dialysis.live
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /sessions
+Disallow: /vitals
+Disallow: /symptoms
+Disallow: /reminders
+Disallow: /appointments
+Disallow: /weight
+Disallow: /fluid
+Disallow: /medications
+Disallow: /nutrition-scan
+Disallow: /labs
+Disallow: /education
+Disallow: /profile
+Disallow: /settings
+Disallow: /reports
+
+# Sitemap
+Sitemap: https://dialysis.live/sitemap.xml
+
+# Crawl-delay (optional, respected by some crawlers)
+Crawl-delay: 1

@@ -68,7 +68,7 @@ const App: React.FC = () => {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Clinical Dashboard" /><Dashboard /></Layout>
+                <Layout><SEO title="Clinical Dashboard" noIndex /><Dashboard /></Layout>
               </ProtectedRoute>
             }
           />
@@ -76,7 +76,7 @@ const App: React.FC = () => {
             path="/sessions"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Treatment Sessions" /><Sessions /></Layout>
+                <Layout><SEO title="Treatment Sessions" noIndex /><Sessions /></Layout>
               </ProtectedRoute>
             }
           />
@@ -84,7 +84,7 @@ const App: React.FC = () => {
             path="/vitals"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Vital Signs Ledger" /><Vitals /></Layout>
+                <Layout><SEO title="Vital Signs Ledger" noIndex /><Vitals /></Layout>
               </ProtectedRoute>
             }
           />
@@ -92,7 +92,7 @@ const App: React.FC = () => {
             path="/symptoms"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Symptom Tracker" /><Symptoms /></Layout>
+                <Layout><SEO title="Symptom Tracker" noIndex /><Symptoms /></Layout>
               </ProtectedRoute>
             }
           />
@@ -100,7 +100,7 @@ const App: React.FC = () => {
             path="/reminders"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Reminders" /><Reminders /></Layout>
+                <Layout><SEO title="Reminders" noIndex /><Reminders /></Layout>
               </ProtectedRoute>
             }
           />
@@ -108,7 +108,7 @@ const App: React.FC = () => {
             path="/appointments"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Appointments" /><Appointments /></Layout>
+                <Layout><SEO title="Appointments" noIndex /><Appointments /></Layout>
               </ProtectedRoute>
             }
           />
@@ -116,7 +116,7 @@ const App: React.FC = () => {
             path="/weight"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Weight Analytics" /><WeightLog /></Layout>
+                <Layout><SEO title="Weight Analytics" noIndex /><WeightLog /></Layout>
               </ProtectedRoute>
             }
           />
@@ -124,7 +124,7 @@ const App: React.FC = () => {
             path="/fluid"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Hydration Tracking" /><FluidLog /></Layout>
+                <Layout><SEO title="Hydration Tracking" noIndex /><FluidLog /></Layout>
               </ProtectedRoute>
             }
           />
@@ -132,7 +132,7 @@ const App: React.FC = () => {
             path="/meds"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Medication Adherence" /><Medications /></Layout>
+                <Layout><SEO title="Medication Adherence" noIndex /><Medications /></Layout>
               </ProtectedRoute>
             }
           />
@@ -140,7 +140,7 @@ const App: React.FC = () => {
             path="/nutri-scan"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="AI Nutrition Scan" /><NutritionScan /></Layout>
+                <Layout><SEO title="AI Nutrition Scan" noIndex /><NutritionScan /></Layout>
               </ProtectedRoute>
             }
           />
@@ -148,7 +148,7 @@ const App: React.FC = () => {
             path="/labs"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Lab Reports" /><LabReports /></Layout>
+                <Layout><SEO title="Lab Reports" noIndex /><LabReports /></Layout>
               </ProtectedRoute>
             }
           />
@@ -156,7 +156,7 @@ const App: React.FC = () => {
             path="/edu"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Education Center" /><Education /></Layout>
+                <Layout><SEO title="Education Center" noIndex /><Education /></Layout>
               </ProtectedRoute>
             }
           />
@@ -164,7 +164,7 @@ const App: React.FC = () => {
             path="/profile"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Patient Profile" /><Profile /></Layout>
+                <Layout><SEO title="Patient Profile" noIndex /><Profile /></Layout>
               </ProtectedRoute>
             }
           />
@@ -172,7 +172,7 @@ const App: React.FC = () => {
             path="/settings"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="System Settings" /><Settings /></Layout>
+                <Layout><SEO title="System Settings" noIndex /><Settings /></Layout>
               </ProtectedRoute>
             }
           />
@@ -180,7 +180,7 @@ const App: React.FC = () => {
             path="/subscription"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Plan Management" /><SubscriptionDetail /></Layout>
+                <Layout><SEO title="Plan Management" noIndex /><SubscriptionDetail /></Layout>
               </ProtectedRoute>
             }
           />
@@ -188,7 +188,7 @@ const App: React.FC = () => {
             path="/subscription/pricing"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Subscription Plans" /><Subscription /></Layout>
+                <Layout><SEO title="Subscription Plans" noIndex /><Subscription /></Layout>
               </ProtectedRoute>
             }
           />
@@ -196,7 +196,7 @@ const App: React.FC = () => {
             path="/reports"
             element={
               <ProtectedRoute>
-                <Layout><SEO title="Clinical Reports" /><Reports /></Layout>
+                <Layout><SEO title="Clinical Reports" noIndex /><Reports /></Layout>
               </ProtectedRoute>
             }
           />
