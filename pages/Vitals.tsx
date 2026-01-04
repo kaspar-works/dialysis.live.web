@@ -1136,7 +1136,7 @@ const Vitals: React.FC = () => {
           {activeTab !== 'overview' && (
             <>
               {/* Detail Chart */}
-              {chartData[activeTab as keyof typeof chartData].length > 1 && (
+              {(chartData[activeTab as keyof typeof chartData]?.length ?? 0) > 1 && (
                 <div key={`detail-chart-${activeTab}-${records.length}`} className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
@@ -1150,7 +1150,7 @@ const Vitals: React.FC = () => {
                            activeTab === 'temperature' ? 'Temperature' : 'Oxygen Saturation'}
                         </h3>
                         <p className="text-slate-400 text-sm">
-                          {chartData[activeTab as keyof typeof chartData].length} readings
+                          {chartData[activeTab as keyof typeof chartData]?.length ?? 0} readings
                         </p>
                       </div>
                     </div>
@@ -1190,7 +1190,7 @@ const Vitals: React.FC = () => {
                           <Line type="monotone" dataKey="diastolic" stroke="#f472b6" strokeWidth={2} dot={{ r: 4, fill: '#fff', strokeWidth: 2, stroke: '#f472b6' }} />
                         </AreaChart>
                       ) : (
-                        <AreaChart data={chartData[activeTab as keyof typeof chartData]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <AreaChart data={chartData[activeTab as keyof typeof chartData] ?? []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <defs>
                             <linearGradient id="vitalGradient" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor={
