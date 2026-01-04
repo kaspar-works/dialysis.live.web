@@ -45,11 +45,15 @@ const NutritionScan: React.FC = () => {
   const [isLogging, setIsLogging] = useState(false);
   const [todayData, setTodayData] = useState<TodayMealsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Page-level tab state
+  const [pageTab, setPageTab] = useState<'scan' | 'history'>('scan');
   // All meals view state
-  const [mealsView, setMealsView] = useState<'today' | 'all'>('today');
   const [allMeals, setAllMeals] = useState<Meal[]>([]);
   const [allMealsTotal, setAllMealsTotal] = useState(0);
   const [isLoadingAllMeals, setIsLoadingAllMeals] = useState(false);
+  // Pagination for history
+  const [historyPage, setHistoryPage] = useState(1);
+  const historyItemsPerPage = 10;
   const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
   const [featureError, setFeatureError] = useState<{ message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -81,14 +85,14 @@ const NutritionScan: React.FC = () => {
     fetchTodayMeals();
   }, []);
 
-  // Fetch all meals when view changes to "all"
+  // Fetch all meals when switching to history tab
   useEffect(() => {
-    if (mealsView !== 'all') return;
+    if (pageTab !== 'history') return;
 
     const fetchAllMeals = async () => {
       setIsLoadingAllMeals(true);
       try {
-        const data = await getMeals({ limit: 100 });
+        const data = await getMeals({ limit: 200 });
         setAllMeals(data.meals);
         setAllMealsTotal(data.pagination?.total || data.meals.length);
       } catch (err) {
@@ -99,7 +103,7 @@ const NutritionScan: React.FC = () => {
       }
     };
     fetchAllMeals();
-  }, [mealsView]);
+  }, [pageTab]);
 
   // Search cached foods when query changes
   useEffect(() => {
@@ -148,6 +152,14 @@ const NutritionScan: React.FC = () => {
   const totals = useMemo(() => {
     return todayData?.totals || { sodium: 0, potassium: 0, phosphorus: 0, protein: 0, calories: 0 };
   }, [todayData]);
+
+  // Paginated meals for history view
+  const paginatedMeals = useMemo(() => {
+    const startIndex = (historyPage - 1) * historyItemsPerPage;
+    return allMeals.slice(startIndex, startIndex + historyItemsPerPage);
+  }, [allMeals, historyPage, historyItemsPerPage]);
+
+  const totalHistoryPages = Math.ceil(allMeals.length / historyItemsPerPage);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -292,9 +304,9 @@ const NutritionScan: React.FC = () => {
       const data = await getTodayMeals();
       setTodayData(data);
 
-      // Also refresh all meals if in that view
-      if (mealsView === 'all') {
-        const allData = await getMeals({ limit: 100 });
+      // Also refresh all meals if in history tab
+      if (pageTab === 'history') {
+        const allData = await getMeals({ limit: 200 });
         setAllMeals(allData.meals);
         setAllMealsTotal(allData.pagination?.total || allData.meals.length);
       }
@@ -318,9 +330,9 @@ const NutritionScan: React.FC = () => {
       // Refresh today's data
       const data = await getTodayMeals();
       setTodayData(data);
-      // Also refresh all meals if in that view
-      if (mealsView === 'all') {
-        const allData = await getMeals({ limit: 100 });
+      // Also refresh all meals if in history tab
+      if (pageTab === 'history') {
+        const allData = await getMeals({ limit: 200 });
         setAllMeals(allData.meals);
         setAllMealsTotal(allData.pagination?.total || allData.meals.length);
       }
@@ -381,6 +393,32 @@ const NutritionScan: React.FC = () => {
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">NutriScan</h1>
         </div>
       </header>
+
+      {/* Page-level Tabs */}
+      <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+        <button
+          onClick={() => setPageTab('scan')}
+          className={`flex-1 py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+            pageTab === 'scan'
+              ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-lg'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <ICONS.Camera className="w-5 h-5" />
+          Scan Food
+        </button>
+        <button
+          onClick={() => setPageTab('history')}
+          className={`flex-1 py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+            pageTab === 'history'
+              ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-lg'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <ICONS.Activity className="w-5 h-5" />
+          Meal History
+        </button>
+      </div>
 
       {/* Subscription Limit Banner */}
       {limitError && (
@@ -450,15 +488,18 @@ const NutritionScan: React.FC = () => {
         </div>
       )}
 
-      {/* Today's Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <NutrientCard label="Sodium" value={totals.sodium} limit={LIMITS.sodium} unit="mg" color="bg-sky-500" icon="🧂" />
-        <NutrientCard label="Potassium" value={totals.potassium} limit={LIMITS.potassium} unit="mg" color="bg-orange-500" icon="🍌" />
-        <NutrientCard label="Phosphorus" value={totals.phosphorus} limit={LIMITS.phosphorus} unit="mg" color="bg-purple-500" icon="🥩" />
-        <NutrientCard label="Protein" value={totals.protein} limit={LIMITS.protein} unit="g" color="bg-emerald-500" icon="🥚" />
-      </div>
+      {/* ===== SCAN TAB CONTENT ===== */}
+      {pageTab === 'scan' && (
+        <>
+          {/* Today's Summary */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <NutrientCard label="Sodium" value={totals.sodium} limit={LIMITS.sodium} unit="mg" color="bg-sky-500" icon="🧂" />
+            <NutrientCard label="Potassium" value={totals.potassium} limit={LIMITS.potassium} unit="mg" color="bg-orange-500" icon="🍌" />
+            <NutrientCard label="Phosphorus" value={totals.phosphorus} limit={LIMITS.phosphorus} unit="mg" color="bg-purple-500" icon="🥩" />
+            <NutrientCard label="Protein" value={totals.protein} limit={LIMITS.protein} unit="g" color="bg-emerald-500" icon="🥚" />
+          </div>
 
-      {/* Main Grid */}
+          {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Left: Input Section */}
@@ -899,53 +940,22 @@ const NutritionScan: React.FC = () => {
           )}
         </div>
 
-        {/* Right: History */}
+        {/* Right: Today's Meals */}
         <div className="space-y-4">
-          {/* Toggle: Today vs All */}
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              {mealsView === 'today' ? "Today's Meals" : 'All Meals'}
-            </h3>
-            <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-              <button
-                onClick={() => setMealsView('today')}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                  mealsView === 'today'
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow'
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                Today
-              </button>
-              <button
-                onClick={() => setMealsView('all')}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                  mealsView === 'all'
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow'
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                All
-              </button>
-            </div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Today's Meals</h3>
+            <button
+              onClick={() => setPageTab('history')}
+              className="text-xs font-medium text-emerald-500 hover:text-emerald-600 transition-colors"
+            >
+              View All →
+            </button>
           </div>
 
-          {/* Meals count */}
-          <p className="text-xs text-slate-400">
-            {mealsView === 'today'
-              ? `${todayMeals.length} meals today`
-              : `${allMealsTotal} total meals`}
-          </p>
+          <p className="text-xs text-slate-400">{todayMeals.length} meals today</p>
 
-          {/* Loading state for all meals */}
-          {mealsView === 'all' && isLoadingAllMeals && (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-8 h-8 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-            </div>
-          )}
-
-          {/* Meals list */}
-          {mealsView === 'today' && todayMeals.length > 0 ? (
+          {/* Today's Meals list */}
+          {todayMeals.length > 0 ? (
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
               {[...todayMeals].reverse().map(meal => (
                 <div key={meal._id} className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-700 group">
@@ -987,64 +997,10 @@ const NutritionScan: React.FC = () => {
                 </div>
               ))}
             </div>
-          ) : mealsView === 'today' && todayMeals.length === 0 ? (
+          ) : (
             <div className="bg-white dark:bg-slate-800 rounded-xl p-8 border border-slate-100 dark:border-slate-700 text-center">
               <div className="text-4xl mb-3">🍽️</div>
               <p className="font-bold text-slate-400">No meals logged today</p>
-              <p className="text-sm text-slate-400">Scan or add your first meal</p>
-            </div>
-          ) : null}
-
-          {/* All Meals View */}
-          {mealsView === 'all' && !isLoadingAllMeals && allMeals.length > 0 && (
-            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-              {allMeals.map(meal => (
-                <div key={meal._id} className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-700 group">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <p className="font-bold text-slate-900 dark:text-white">{meal.name}</p>
-                      <p className="text-xs text-slate-400">
-                        {new Date(meal.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })} at {new Date(meal.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        {meal.aiAnalyzed && <span className="ml-2 text-emerald-500">AI</span>}
-                        <span className="ml-2 capitalize text-slate-300">{meal.mealType}</span>
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveMeal(meal._id)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-rose-500 transition-all"
-                    >
-                      <ICONS.X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2 text-center">
-                    <div>
-                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.sodium || 0}</p>
-                      <p className="text-[9px] text-slate-400 uppercase">Na</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.potassium || 0}</p>
-                      <p className="text-[9px] text-slate-400 uppercase">K</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.phosphorus || 0}</p>
-                      <p className="text-[9px] text-slate-400 uppercase">P</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.protein || 0}g</p>
-                      <p className="text-[9px] text-slate-400 uppercase">Pr</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* All Meals Empty State */}
-          {mealsView === 'all' && !isLoadingAllMeals && allMeals.length === 0 && (
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-8 border border-slate-100 dark:border-slate-700 text-center">
-              <div className="text-4xl mb-3">🍽️</div>
-              <p className="font-bold text-slate-400">No meals logged yet</p>
               <p className="text-sm text-slate-400">Scan or add your first meal</p>
             </div>
           )}
@@ -1069,7 +1025,150 @@ const NutritionScan: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
+          </div>
+        </>
+      )}
+
+      {/* ===== HISTORY TAB CONTENT ===== */}
+      {pageTab === 'history' && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Meal History</h2>
+              <p className="text-sm text-slate-400">{allMealsTotal} total meals logged</p>
+            </div>
+          </div>
+
+          {/* Loading State */}
+          {isLoadingAllMeals && (
+            <div className="flex items-center justify-center py-16">
+              <div className="text-center">
+                <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-slate-500">Loading meals...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Meals Grid */}
+          {!isLoadingAllMeals && paginatedMeals.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {paginatedMeals.map(meal => (
+                <div key={meal._id} className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700 group hover:shadow-lg transition-all">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-900 dark:text-white truncate">{meal.name}</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {new Date(meal.loggedAt).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} at {new Date(meal.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        {meal.aiAnalyzed && (
+                          <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full">AI</span>
+                        )}
+                        <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 px-2 py-0.5 rounded-full capitalize">{meal.mealType}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveMeal(meal._id)}
+                      className="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                    >
+                      <ICONS.X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 text-center bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                    <div>
+                      <p className="text-lg font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.sodium || 0}</p>
+                      <p className="text-[9px] text-slate-400 uppercase font-bold">Sodium</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.potassium || 0}</p>
+                      <p className="text-[9px] text-slate-400 uppercase font-bold">Potassium</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.phosphorus || 0}</p>
+                      <p className="text-[9px] text-slate-400 uppercase font-bold">Phosphorus</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-black text-slate-700 dark:text-slate-300 tabular-nums">{meal.nutrients.protein || 0}g</p>
+                      <p className="text-[9px] text-slate-400 uppercase font-bold">Protein</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoadingAllMeals && allMeals.length === 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 border border-slate-100 dark:border-slate-700 text-center">
+              <div className="text-5xl mb-4">🍽️</div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-lg mb-2">No meals logged yet</h3>
+              <p className="text-slate-400 mb-6">Start tracking your meals to see your history here</p>
+              <button
+                onClick={() => setPageTab('scan')}
+                className="px-6 py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-all"
+              >
+                Scan Your First Meal
+              </button>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!isLoadingAllMeals && totalHistoryPages > 1 && (
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                disabled={historyPage === 1}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+              >
+                Previous
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalHistoryPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalHistoryPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (historyPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (historyPage >= totalHistoryPages - 2) {
+                    pageNum = totalHistoryPages - 4 + i;
+                  } else {
+                    pageNum = historyPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setHistoryPage(pageNum)}
+                      className={`w-10 h-10 rounded-lg font-bold text-sm transition-all ${
+                        historyPage === pageNum
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                disabled={historyPage === totalHistoryPages}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+              >
+                Next
+              </button>
+            </div>
+          )}
+
+          {/* Page Info */}
+          {!isLoadingAllMeals && totalHistoryPages > 1 && (
+            <p className="text-center text-sm text-slate-400">
+              Showing {((historyPage - 1) * historyItemsPerPage) + 1} - {Math.min(historyPage * historyItemsPerPage, allMeals.length)} of {allMeals.length} meals
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };
