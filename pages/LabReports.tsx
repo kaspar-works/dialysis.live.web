@@ -686,7 +686,7 @@ const LabReports: React.FC = () => {
             </>
           )}
 
-          {/* History Tab */}
+          {/* History Tab - Table View */}
           {activeTab === 'history' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -695,78 +695,114 @@ const LabReports: React.FC = () => {
               </div>
 
               {reports.length > 0 ? (
-                <div className="space-y-3">
-                  {reports.map(report => (
-                    <div
-                      key={report._id}
-                      className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <p className="font-bold text-slate-900 dark:text-white">
-                              {new Date(report.reportDate).toLocaleDateString([], {
-                                weekday: 'short',
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </p>
-                            {report.labName && (
-                              <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-lg">
-                                {report.labName}
-                              </span>
-                            )}
-                            {report.aiAnalysis && (
-                              <span className="text-xs text-indigo-500 bg-indigo-500/10 px-2 py-1 rounded-lg font-bold">
-                                AI Analyzed
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-slate-400 mt-1">
-                            {report.results.length} tests: {report.results.slice(0, 5).map(r => r.testName).join(', ')}
-                            {report.results.length > 5 && ` +${report.results.length - 5} more`}
-                          </p>
-                          <div className="flex items-center gap-2 mt-3">
-                            {report.results.filter(r => r.isAbnormal).length > 0 && (
-                              <span className="text-xs text-amber-500 bg-amber-500/10 px-2 py-1 rounded-lg font-bold">
-                                {report.results.filter(r => r.isAbnormal).length} abnormal
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setSelectedReport(report)}
-                            className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 rounded-xl transition-colors"
-                            title="View Details"
-                          >
-                            <ICONS.Eye className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleAnalyze(report._id)}
-                            disabled={analyzingReportId === report._id}
-                            className="p-2 text-slate-400 hover:text-purple-500 hover:bg-purple-500/10 rounded-xl transition-colors disabled:opacity-50"
-                            title="AI Analysis"
-                          >
-                            {analyzingReportId === report._id ? (
-                              <div className="w-5 h-5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                            ) : (
-                              <ICONS.Sparkles className="w-5 h-5" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleDelete(report._id)}
-                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-colors"
-                            title="Delete"
-                          >
-                            <ICONS.X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+                  {/* Table Header */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[700px]">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700">
+                          <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date</th>
+                          <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lab</th>
+                          <th className="text-center px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tests</th>
+                          <th className="text-center px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Abnormal</th>
+                          <th className="text-center px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">AI Status</th>
+                          <th className="text-right px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                        {reports.map(report => {
+                          const abnormalCount = report.results.filter(r => r.isAbnormal).length;
+                          return (
+                            <tr key={report._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                              {/* Date */}
+                              <td className="px-4 py-4">
+                                <div>
+                                  <p className="font-bold text-slate-900 dark:text-white text-sm">
+                                    {new Date(report.reportDate).toLocaleDateString([], {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                    })}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400">
+                                    {new Date(report.reportDate).toLocaleDateString([], { weekday: 'long' })}
+                                  </p>
+                                </div>
+                              </td>
+                              {/* Lab Name */}
+                              <td className="px-4 py-4">
+                                {report.labName ? (
+                                  <span className="text-sm text-slate-600 dark:text-slate-300">{report.labName}</span>
+                                ) : (
+                                  <span className="text-sm text-slate-300 dark:text-slate-600 italic">Not specified</span>
+                                )}
+                              </td>
+                              {/* Tests Count */}
+                              <td className="px-4 py-4 text-center">
+                                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                                  {report.results.length}
+                                </span>
+                              </td>
+                              {/* Abnormal Count */}
+                              <td className="px-4 py-4 text-center">
+                                {abnormalCount > 0 ? (
+                                  <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                                    {abnormalCount} abnormal
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                                    All normal
+                                  </span>
+                                )}
+                              </td>
+                              {/* AI Status */}
+                              <td className="px-4 py-4 text-center">
+                                {report.aiAnalysis ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 font-bold text-xs">
+                                    <ICONS.Sparkles className="w-3 h-3" />
+                                    Analyzed
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-slate-400">—</span>
+                                )}
+                              </td>
+                              {/* Actions */}
+                              <td className="px-4 py-4">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={() => setSelectedReport(report)}
+                                    className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-colors"
+                                    title="View Details"
+                                  >
+                                    <ICONS.Eye className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleAnalyze(report._id)}
+                                    disabled={analyzingReportId === report._id}
+                                    className="p-2 text-slate-400 hover:text-purple-500 hover:bg-purple-500/10 rounded-lg transition-colors disabled:opacity-50"
+                                    title="AI Analysis"
+                                  >
+                                    {analyzingReportId === report._id ? (
+                                      <div className="w-4 h-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                                    ) : (
+                                      <ICONS.Sparkles className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(report._id)}
+                                    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+                                    title="Delete"
+                                  >
+                                    <ICONS.Trash className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : (
                 <div className="py-16 text-center bg-slate-50 dark:bg-slate-800/50 rounded-3xl">
