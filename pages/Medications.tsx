@@ -6,7 +6,6 @@ import { SubscriptionLimitError } from '../services/auth';
 import {
   Medication,
   MedicationDose,
-  MedicationSchedule,
   MedicationRoute,
   ScheduleType,
   DoseStatus,
@@ -14,14 +13,13 @@ import {
   createMedication,
   deleteMedication,
   createSchedule,
-  getSchedule,
   getTodayDoses,
   markDoseTaken,
   markDoseSkipped,
   getTodayDoseStats,
 } from '../services/medications';
 
-type ViewMode = 'today' | 'all';
+type TabView = 'today' | 'medications';
 
 interface DoseWithMed extends MedicationDose {
   medication?: Medication;
@@ -29,7 +27,7 @@ interface DoseWithMed extends MedicationDose {
 
 const Medications: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<ViewMode>('today');
+  const [activeTab, setActiveTab] = useState<TabView>('today');
   const [medications, setMedications] = useState<Medication[]>([]);
   const [todayDoses, setTodayDoses] = useState<DoseWithMed[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +36,11 @@ const Medications: React.FC = () => {
   const [stats, setStats] = useState({ total: 0, taken: 0, completionRate: 0 });
   const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Delete confirmation
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [medToDelete, setMedToDelete] = useState<Medication | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // New medication form
   const [newMed, setNewMed] = useState({
@@ -65,7 +68,6 @@ const Medications: React.FC = () => {
 
       setMedications(medsData);
 
-      // Map doses with medication info
       const dosesWithMeds = dosesData.map(dose => ({
         ...dose,
         medication: typeof dose.medicationId === 'object'
@@ -85,18 +87,15 @@ const Medications: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  // Handle marking dose as taken
   const handleTakeDose = async (doseId: string) => {
     try {
       await markDoseTaken(doseId);
-      // Refresh data
       fetchData();
     } catch (err) {
       console.error('Failed to mark dose as taken:', err);
     }
   };
 
-  // Handle marking dose as skipped
   const handleSkipDose = async (doseId: string) => {
     try {
       await markDoseSkipped(doseId);
@@ -106,63 +105,28 @@ const Medications: React.FC = () => {
     }
   };
 
-  // Handle adding new medication
   const handleAddMedication = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    // Validate medication name
-    if (!newMed.name || newMed.name.trim() === '') {
-      setFormError('Medication name is required');
-      return;
-    }
-
-    if (newMed.name.trim().length < 2) {
+    if (!newMed.name || newMed.name.trim().length < 2) {
       setFormError('Medication name must be at least 2 characters');
       return;
     }
 
-    if (newMed.name.trim().length > 100) {
-      setFormError('Medication name must be less than 100 characters');
-      return;
-    }
-
-    // Validate dose
     if (!newMed.dose || newMed.dose.trim() === '') {
       setFormError('Dose/strength is required');
       return;
     }
 
-    if (newMed.dose.trim().length > 50) {
-      setFormError('Dose must be less than 50 characters');
-      return;
-    }
-
-    // Validate schedule times
     const validTimes = newMed.times.filter(t => t && t.trim() !== '');
     if (validTimes.length === 0) {
       setFormError('At least one schedule time is required');
       return;
     }
 
-    // Validate time format (HH:mm)
-    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    for (const time of validTimes) {
-      if (!timeRegex.test(time)) {
-        setFormError('Invalid time format. Use HH:MM (e.g., 08:00)');
-        return;
-      }
-    }
-
-    // Validate instructions length
-    if (newMed.instructions && newMed.instructions.length > 500) {
-      setFormError('Instructions must be less than 500 characters');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      // Create medication
       const medication = await createMedication({
         name: newMed.name.trim(),
         dose: newMed.dose.trim(),
@@ -170,13 +134,11 @@ const Medications: React.FC = () => {
         instructions: newMed.instructions?.trim() || undefined,
       });
 
-      // Create schedule
       await createSchedule(medication._id, {
         scheduleType: newMed.scheduleType,
         times: validTimes,
       });
 
-      // Reset form and close modal
       setNewMed({
         name: '',
         dose: '',
@@ -187,15 +149,12 @@ const Medications: React.FC = () => {
       });
       setFormError(null);
       setIsModalOpen(false);
-
-      // Refresh data
       fetchData();
     } catch (err) {
       if (err instanceof SubscriptionLimitError) {
         setLimitError({ message: err.message, limit: err.limit });
         setIsModalOpen(false);
       } else {
-        console.error('Failed to add medication:', err);
         setFormError('Failed to add medication. Please try again.');
       }
     } finally {
@@ -203,19 +162,21 @@ const Medications: React.FC = () => {
     }
   };
 
-  // Handle deleting medication
-  const handleDeleteMedication = async (medicationId: string) => {
-    if (!confirm('Are you sure you want to remove this medication?')) return;
-
+  const handleDeleteMedication = async () => {
+    if (!medToDelete) return;
+    setIsDeleting(true);
     try {
-      await deleteMedication(medicationId);
+      await deleteMedication(medToDelete._id);
+      setShowDeleteModal(false);
+      setMedToDelete(null);
       fetchData();
     } catch (err) {
       console.error('Failed to delete medication:', err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  // Add/remove time slots
   const addTimeSlot = () => {
     setNewMed(prev => ({ ...prev, times: [...prev.times, '12:00'] }));
   };
@@ -234,38 +195,60 @@ const Medications: React.FC = () => {
     }));
   };
 
-  // Get status color
-  const getStatusColor = (status: DoseStatus) => {
-    switch (status) {
-      case DoseStatus.TAKEN:
-        return 'bg-emerald-500 text-white';
-      case DoseStatus.SKIPPED:
-        return 'bg-amber-500 text-white';
-      case DoseStatus.MISSED:
-        return 'bg-rose-500 text-white';
-      default:
-        return 'bg-slate-100 dark:bg-white/5 text-slate-400';
-    }
-  };
-
-  // Format time for display
   const formatTime = (isoString: string) => {
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Group doses by time period
+  const groupedDoses = todayDoses.reduce((acc, dose) => {
+    const hour = new Date(dose.scheduledFor).getHours();
+    let period = 'Morning';
+    if (hour >= 12 && hour < 17) period = 'Afternoon';
+    else if (hour >= 17) period = 'Evening';
+
+    if (!acc[period]) acc[period] = [];
+    acc[period].push(dose);
+    return acc;
+  }, {} as Record<string, DoseWithMed[]>);
+
+  const pendingDoses = todayDoses.filter(d => d.status === DoseStatus.PENDING);
+  const nextDose = pendingDoses.length > 0 ? pendingDoses[0] : null;
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="w-full max-w-6xl mx-auto px-4 py-12 flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-pink-500/20 border-t-pink-500 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 md:space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700 pb-20">
-      {/* Subscription Limit Banner */}
+    <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-700 pb-24 px-4">
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <span className="px-3 py-1 bg-pink-500/10 text-pink-500 text-[10px] font-bold uppercase tracking-wider rounded-full">
+            Medications
+          </span>
+          <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight mt-2">
+            Dosing Log
+          </h1>
+          {medications.length > 0 && (
+            <p className="text-slate-400 text-sm mt-1">{medications.length} active medication{medications.length !== 1 ? 's' : ''}</p>
+          )}
+        </div>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 px-5 py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-all shadow-lg shadow-pink-500/20"
+        >
+          <ICONS.Plus className="w-5 h-5" />
+          Add Medication
+        </button>
+      </header>
+
+      {/* Limit Error Banner */}
       {limitError && (
-        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5 mx-2">
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
               <span className="text-2xl">⚠️</span>
@@ -275,15 +258,12 @@ const Medications: React.FC = () => {
               <p className="text-amber-600 dark:text-amber-500 mt-1">{limitError.message}</p>
               <div className="flex items-center gap-3 mt-4">
                 <Link
-                  to="/pricing"
-                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold text-sm hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-500/20"
+                  to="/subscription/pricing"
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold text-sm hover:from-amber-600 hover:to-orange-600 transition-all"
                 >
                   Upgrade Plan
                 </Link>
-                <button
-                  onClick={() => setLimitError(null)}
-                  className="px-4 py-2.5 text-amber-600 dark:text-amber-400 font-medium text-sm hover:bg-amber-500/10 rounded-xl transition-all"
-                >
+                <button onClick={() => setLimitError(null)} className="px-4 py-2.5 text-amber-600 font-medium text-sm">
                   Dismiss
                 </button>
               </div>
@@ -292,349 +272,374 @@ const Medications: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <section className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <span className="px-3 py-1 bg-white dark:bg-white/5 text-slate-500 dark:text-slate-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-slate-100 dark:border-white/10 shadow-sm">
-              Your Medicines
-            </span>
+      {/* Quick Action Card - Next Dose */}
+      {nextDose && nextDose.medication && (
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="relative">
+            <p className="text-pink-400 text-xs font-bold uppercase tracking-wider mb-2">Next Dose</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-pink-500/20 rounded-2xl flex items-center justify-center">
+                  <ICONS.Pill className="w-7 h-7 text-pink-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">{nextDose.medication.name}</h3>
+                  <p className="text-slate-400 text-sm">
+                    {nextDose.medication.dose} • {formatTime(nextDose.scheduledFor)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleSkipDose(nextDose._id)}
+                  className="px-4 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-bold transition-all"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={() => handleTakeDose(nextDose._id)}
+                  className="px-6 py-2.5 bg-pink-500 hover:bg-pink-600 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+                >
+                  <ICONS.Check className="w-4 h-4" />
+                  Take Now
+                </button>
+              </div>
+            </div>
           </div>
-          <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-            Dosing Log
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 max-w-md font-medium text-base md:text-lg">
-            Track your medications and stay on schedule.
+        </div>
+      )}
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Today</span>
+            <div className="w-8 h-8 bg-pink-500/10 rounded-lg flex items-center justify-center">
+              <ICONS.Check className="w-4 h-4 text-pink-500" />
+            </div>
+          </div>
+          <p className="text-2xl font-black text-slate-900 dark:text-white">
+            {stats.taken}<span className="text-lg text-slate-300 dark:text-slate-600">/{stats.total}</span>
           </p>
+          <p className="text-xs text-slate-400 mt-1">doses taken</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Add Medication Button */}
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-pink-500/20"
-          >
-            <ICONS.Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add Med</span>
-          </button>
-
-          <div className="flex bg-white dark:bg-white/5 p-1 rounded-xl md:rounded-2xl border border-slate-100 dark:border-white/10 shadow-sm">
-          <button
-            onClick={() => setActiveTab('today')}
-            className={`px-4 md:px-8 py-2 md:py-3 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
-              activeTab === 'today'
-                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 shadow-lg'
-                : 'text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400'
-            }`}
-          >
-            Today
-          </button>
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-4 md:px-8 py-2 md:py-3 rounded-lg md:rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
-              activeTab === 'all'
-                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 shadow-lg'
-                : 'text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400'
-            }`}
-          >
-            All
-          </button>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rate</span>
+            <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+              <span className="text-emerald-500 text-sm font-bold">%</span>
+            </div>
           </div>
-        </div>
-      </section>
-
-      {/* Stats Overview */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
-        <div className="bg-slate-900 p-8 md:p-10 rounded-3xl md:rounded-[3.5rem] text-white shadow-xl relative overflow-hidden border border-white/5">
-          <p className="text-[9px] md:text-[10px] font-black text-pink-400 uppercase tracking-widest mb-4">
-            Taken Today
+          <p className={`text-2xl font-black ${stats.completionRate >= 80 ? 'text-emerald-500' : stats.completionRate >= 50 ? 'text-amber-500' : 'text-slate-900 dark:text-white'}`}>
+            {stats.completionRate}%
           </p>
-          <div className="flex items-baseline gap-2">
-            <span className="text-5xl md:text-6xl font-black tabular-nums">{stats.taken}</span>
-            <span className="text-lg md:text-xl font-bold opacity-30 uppercase">/ {stats.total}</span>
-          </div>
-          <div className="mt-6 md:mt-8 h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
-            <div
-              className="h-full bg-gradient-to-r from-pink-500 to-orange-400 rounded-full transition-all duration-1000"
-              style={{ width: `${stats.completionRate}%` }}
-            />
-          </div>
+          <p className="text-xs text-slate-400 mt-1">completion</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-3xl md:rounded-[3.5rem] border border-slate-100 dark:border-white/10 shadow-sm flex flex-col justify-between hover:border-sky-500 transition-all">
-          <div className="flex justify-between items-center">
-            <div>
-              <h4 className="font-black text-slate-900 dark:text-white uppercase text-[10px] tracking-widest mb-1 px-1">
-                Active Medications
-              </h4>
-              <p className="text-sky-600 dark:text-sky-400 text-xl font-black px-1 uppercase tracking-tight">
-                {medications.length} Total
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-sky-50 dark:bg-sky-500/10 text-sky-500 rounded-xl flex items-center justify-center">
-              <ICONS.Pill className="w-6 h-6" />
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending</span>
+            <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center">
+              <ICONS.Clock className="w-4 h-4 text-amber-500" />
             </div>
           </div>
+          <p className="text-2xl font-black text-slate-900 dark:text-white">{pendingDoses.length}</p>
+          <p className="text-xs text-slate-400 mt-1">remaining</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-3xl md:rounded-[3.5rem] border border-slate-100 dark:border-white/10 shadow-sm flex flex-col justify-between hover:border-pink-400 transition-all">
-          <div className="flex justify-between items-center">
-            <div>
-              <h4 className="font-black text-slate-900 dark:text-white uppercase text-[10px] tracking-widest mb-1 px-1">
-                Completion Rate
-              </h4>
-              <p className="text-pink-600 dark:text-pink-400 text-xl font-black px-1 uppercase tracking-tight">
-                {stats.completionRate}% Today
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-pink-50 dark:bg-pink-500/10 text-pink-600 rounded-xl flex items-center justify-center">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" className="text-pink-500">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active</span>
+            <div className="w-8 h-8 bg-sky-500/10 rounded-lg flex items-center justify-center">
+              <ICONS.Pill className="w-4 h-4 text-sky-500" />
             </div>
           </div>
+          <p className="text-2xl font-black text-slate-900 dark:text-white">{medications.length}</p>
+          <p className="text-xs text-slate-400 mt-1">medications</p>
         </div>
-      </section>
+      </div>
 
-      {/* Today's Doses View */}
+      {/* Tabs */}
+      <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
+        <button
+          onClick={() => setActiveTab('today')}
+          className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${
+            activeTab === 'today'
+              ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Today's Schedule
+        </button>
+        <button
+          onClick={() => setActiveTab('medications')}
+          className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${
+            activeTab === 'medications'
+              ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          All Medications
+        </button>
+      </div>
+
+      {/* Today's Schedule Tab */}
       {activeTab === 'today' && (
-        <section className="space-y-4">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white px-2">Today's Schedule</h3>
-
+        <div className="space-y-6">
           {todayDoses.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-12 text-center border border-slate-100 dark:border-white/10">
-              <ICONS.Pill className="w-12 h-12 mx-auto text-slate-200 dark:text-slate-700 mb-4" />
-              <p className="text-slate-400 font-bold">No doses scheduled for today</p>
-              <p className="text-slate-300 dark:text-slate-600 text-sm mt-1">Add medications to see your daily schedule</p>
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-700">
+              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <ICONS.Pill className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+              </div>
+              <p className="text-slate-900 dark:text-white font-bold text-lg">No doses scheduled</p>
+              <p className="text-slate-400 text-sm mt-1">Add medications to see your daily schedule</p>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="mt-6 px-6 py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-all"
+              >
+                Add Medication
+              </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {todayDoses.map((dose) => {
-                const med = dose.medication;
-                const isTaken = dose.status === DoseStatus.TAKEN;
-                const isSkipped = dose.status === DoseStatus.SKIPPED;
-                const isCompleted = isTaken || isSkipped;
+            Object.entries(groupedDoses).map(([period, doses]) => (
+              <div key={period}>
+                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">{period}</h3>
+                <div className="space-y-2">
+                  {doses.map((dose) => {
+                    const med = dose.medication;
+                    const isTaken = dose.status === DoseStatus.TAKEN;
+                    const isSkipped = dose.status === DoseStatus.SKIPPED;
+                    const isMissed = dose.status === DoseStatus.MISSED;
+                    const isPending = dose.status === DoseStatus.PENDING;
 
-                return (
-                  <div
-                    key={dose._id}
-                    className={`bg-white dark:bg-slate-900 p-6 rounded-2xl border transition-all ${
-                      isTaken
-                        ? 'border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-500/5'
-                        : isSkipped
-                        ? 'border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5'
-                        : 'border-slate-100 dark:border-white/10 hover:border-pink-200 dark:hover:border-pink-500/30'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`p-3 rounded-xl transition-all ${
-                            isTaken
-                              ? 'bg-emerald-500 text-white'
-                              : isSkipped
-                              ? 'bg-amber-500 text-white'
-                              : 'bg-pink-50 dark:bg-pink-500/10 text-pink-500'
-                          }`}
-                        >
-                          <ICONS.Pill className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-slate-900 dark:text-white">
-                            {med?.name || 'Unknown Medication'}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-pink-600 dark:text-pink-400 font-bold text-sm">
-                              {med?.dose}
-                            </span>
-                            <span className="text-slate-300 dark:text-slate-600">•</span>
-                            <span className="text-xs text-slate-400">
-                              {formatTime(dose.scheduledFor)}
-                            </span>
+                    return (
+                      <div
+                        key={dose._id}
+                        className={`bg-white dark:bg-slate-800 rounded-xl p-4 border transition-all ${
+                          isTaken
+                            ? 'border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-500/5'
+                            : isSkipped
+                            ? 'border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5'
+                            : isMissed
+                            ? 'border-rose-200 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-500/5'
+                            : 'border-slate-100 dark:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                isTaken
+                                  ? 'bg-emerald-500 text-white'
+                                  : isSkipped
+                                  ? 'bg-amber-500 text-white'
+                                  : isMissed
+                                  ? 'bg-rose-500 text-white'
+                                  : 'bg-pink-50 dark:bg-pink-500/10 text-pink-500'
+                              }`}
+                            >
+                              {isTaken ? (
+                                <ICONS.Check className="w-5 h-5" />
+                              ) : (
+                                <ICONS.Pill className="w-5 h-5" />
+                              )}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-slate-900 dark:text-white">
+                                {med?.name || 'Unknown'}
+                              </h4>
+                              <div className="flex items-center gap-2 text-sm">
+                                <span className="text-pink-500 font-semibold">{med?.dose}</span>
+                                <span className="text-slate-300 dark:text-slate-600">•</span>
+                                <span className="text-slate-400">{formatTime(dose.scheduledFor)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {isPending ? (
+                              <>
+                                <button
+                                  onClick={() => handleSkipDose(dose._id)}
+                                  className="px-3 py-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-sm font-medium transition-all"
+                                >
+                                  Skip
+                                </button>
+                                <button
+                                  onClick={() => handleTakeDose(dose._id)}
+                                  className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg text-sm font-bold transition-all"
+                                >
+                                  Take
+                                </button>
+                              </>
+                            ) : (
+                              <span
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase ${
+                                  isTaken
+                                    ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                    : isSkipped
+                                    ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                                    : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                                }`}
+                              >
+                                {dose.status}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
-                      <div className="flex items-center gap-2">
-                        {isCompleted ? (
-                          <span
-                            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider ${getStatusColor(
-                              dose.status
-                            )}`}
-                          >
-                            {dose.status}
-                          </span>
-                        ) : (
+      {/* All Medications Tab */}
+      {activeTab === 'medications' && (
+        <div className="space-y-3">
+          {medications.length === 0 ? (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-700">
+              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <ICONS.Pill className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+              </div>
+              <p className="text-slate-900 dark:text-white font-bold text-lg">No medications yet</p>
+              <p className="text-slate-400 text-sm mt-1">Add your first medication to get started</p>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="mt-6 px-6 py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-all"
+              >
+                Add Medication
+              </button>
+            </div>
+          ) : (
+            medications.map((med) => (
+              <div
+                key={med._id}
+                className="bg-white dark:bg-slate-800 rounded-xl p-5 border border-slate-100 dark:border-slate-700 hover:border-pink-200 dark:hover:border-pink-500/30 transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-pink-50 dark:bg-pink-500/10 rounded-xl flex items-center justify-center group-hover:bg-pink-500 group-hover:text-white transition-all">
+                      <ICONS.Pill className="w-6 h-6 text-pink-500 group-hover:text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white text-lg">{med.name}</h4>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-pink-500 font-semibold">{med.dose}</span>
+                        <span className="text-slate-300 dark:text-slate-600">•</span>
+                        <span className="text-slate-400 capitalize">{med.route}</span>
+                        {med.instructions && (
                           <>
-                            <button
-                              onClick={() => handleSkipDose(dose._id)}
-                              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-                            >
-                              Skip
-                            </button>
-                            <button
-                              onClick={() => handleTakeDose(dose._id)}
-                              className="px-6 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
-                            >
-                              Take
-                            </button>
+                            <span className="text-slate-300 dark:text-slate-600">•</span>
+                            <span className="text-slate-400">{med.instructions}</span>
                           </>
                         )}
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase ${
+                        med.active
+                          ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
+                      }`}
+                    >
+                      {med.active ? 'Active' : 'Inactive'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setMedToDelete(med);
+                        setShowDeleteModal(true);
+                      }}
+                      className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <ICONS.Trash className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
           )}
-        </section>
-      )}
-
-      {/* All Medications View */}
-      {activeTab === 'all' && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-          {medications.map((med) => (
-            <div
-              key={med._id}
-              className="group relative bg-white dark:bg-slate-900 p-8 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] border border-slate-100 dark:border-white/10 shadow-sm hover:shadow-xl hover:border-pink-200 dark:hover:border-pink-500/30 transition-all"
-            >
-              {/* Delete button */}
-              <button
-                onClick={() => handleDeleteMedication(med._id)}
-                className="absolute top-6 right-6 p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
-              >
-                <ICONS.Trash className="w-4 h-4" />
-              </button>
-
-              <div className="flex justify-between items-start mb-6 md:mb-8">
-                <div className="p-4 md:p-5 rounded-2xl bg-pink-50 dark:bg-pink-500/10 text-pink-500 group-hover:bg-pink-600 group-hover:text-white transition-all">
-                  <ICONS.Pill className="w-5 h-5 md:w-6 md:h-6" />
-                </div>
-              </div>
-
-              <div className="mb-8 md:mb-10">
-                <h3 className="text-xl md:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">
-                  {med.name}
-                </h3>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-pink-600 dark:text-pink-400 font-black text-xs md:text-sm">
-                    {med.dose}
-                  </span>
-                  <div className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-700" />
-                  <span className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest">
-                    {med.route}
-                  </span>
-                </div>
-                {med.instructions && (
-                  <p className="text-xs text-slate-400 mt-3">{med.instructions}</p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${
-                    med.active
-                      ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-slate-100 dark:bg-white/5 text-slate-400'
-                  }`}
-                >
-                  {med.active ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-            </div>
-          ))}
-
-          {/* Add New Medication Card */}
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex flex-col items-center justify-center p-8 md:p-12 border-4 border-dashed border-slate-100 dark:border-white/10 rounded-[2.5rem] md:rounded-[3.5rem] hover:border-sky-500 dark:hover:border-sky-500 hover:bg-sky-50/30 dark:hover:bg-sky-500/5 transition-all min-h-[250px] md:min-h-[320px] group"
-          >
-            <div className="w-12 h-12 md:w-16 md:h-16 bg-slate-50 dark:bg-white/5 text-slate-200 dark:text-slate-800 rounded-xl md:rounded-[1.5rem] flex items-center justify-center mb-4 md:mb-6 border border-slate-100 dark:border-white/10 group-hover:bg-sky-500 group-hover:text-white transition-all">
-              <ICONS.Plus className="w-6 h-6 md:w-8 md:h-8" />
-            </div>
-            <p className="text-[9px] md:text-[10px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-widest group-hover:text-sky-500 transition-colors">
-              New Medicine
-            </p>
-          </button>
-        </section>
+        </div>
       )}
 
       {/* Add Medication Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-
-          <div className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 dark:border-white/10 overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="p-6 border-b border-slate-100 dark:border-white/10 flex justify-between items-center">
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">Add Medication</h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-lg w-full animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Add Medication</h2>
+                <p className="text-sm text-slate-400 mt-1">Set up your medication schedule</p>
+              </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
               >
                 <ICONS.X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleAddMedication} className="p-6 space-y-6">
-              {/* Form Error */}
+            <form onSubmit={handleAddMedication} className="p-6 space-y-5">
               {formError && (
-                <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 flex items-center gap-2">
-                  <span className="text-rose-500">⚠️</span>
-                  <p className="text-rose-500 text-sm font-medium">{formError}</p>
+                <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl p-3 flex items-center gap-2">
+                  <ICONS.AlertCircle className="w-5 h-5 text-rose-500" />
+                  <p className="text-rose-600 dark:text-rose-400 text-sm font-medium">{formError}</p>
                 </div>
               )}
 
-              {/* Name */}
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                  Medication Name
-                </label>
-                <input
-                  type="text"
-                  value={newMed.name}
-                  onChange={(e) => setNewMed({ ...newMed, name: e.target.value })}
-                  placeholder="e.g. Phosphate Binder"
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-pink-500/20"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
+                    Medication Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newMed.name}
+                    onChange={(e) => setNewMed({ ...newMed, name: e.target.value })}
+                    placeholder="e.g. Phosphate Binder"
+                    className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
+                    Dose
+                  </label>
+                  <input
+                    type="text"
+                    value={newMed.dose}
+                    onChange={(e) => setNewMed({ ...newMed, dose: e.target.value })}
+                    placeholder="e.g. 800mg"
+                    className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
+                    Route
+                  </label>
+                  <select
+                    value={newMed.route}
+                    onChange={(e) => setNewMed({ ...newMed, route: e.target.value as MedicationRoute })}
+                    className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none"
+                  >
+                    {Object.values(MedicationRoute).map((route) => (
+                      <option key={route} value={route}>
+                        {route.charAt(0).toUpperCase() + route.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* Dose */}
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                  Dose
-                </label>
-                <input
-                  type="text"
-                  value={newMed.dose}
-                  onChange={(e) => setNewMed({ ...newMed, dose: e.target.value })}
-                  placeholder="e.g. 800mg"
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-pink-500/20"
-                  required
-                />
-              </div>
-
-              {/* Route */}
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                  Route
-                </label>
-                <select
-                  value={newMed.route}
-                  onChange={(e) => setNewMed({ ...newMed, route: e.target.value as MedicationRoute })}
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
-                >
-                  {Object.values(MedicationRoute).map((route) => (
-                    <option key={route} value={route}>
-                      {route.charAt(0).toUpperCase() + route.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Schedule Type */}
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
                   Schedule
@@ -642,7 +647,7 @@ const Medications: React.FC = () => {
                 <select
                   value={newMed.scheduleType}
                   onChange={(e) => setNewMed({ ...newMed, scheduleType: e.target.value as ScheduleType })}
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none"
                 >
                   <option value={ScheduleType.DAILY}>Daily</option>
                   <option value={ScheduleType.DIALYSIS_DAYS}>Dialysis Days Only</option>
@@ -651,7 +656,6 @@ const Medications: React.FC = () => {
                 </select>
               </div>
 
-              {/* Times */}
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
                   Times
@@ -663,13 +667,13 @@ const Medications: React.FC = () => {
                         type="time"
                         value={time}
                         onChange={(e) => updateTimeSlot(index, e.target.value)}
-                        className="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                        className="flex-1 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none"
                       />
                       {newMed.times.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeTimeSlot(index)}
-                          className="p-3 text-slate-400 hover:text-rose-500 transition-colors"
+                          className="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all"
                         >
                           <ICONS.X className="w-5 h-5" />
                         </button>
@@ -680,13 +684,12 @@ const Medications: React.FC = () => {
                 <button
                   type="button"
                   onClick={addTimeSlot}
-                  className="mt-2 text-xs font-bold text-sky-500 hover:text-sky-600 flex items-center gap-1"
+                  className="mt-2 text-sm font-bold text-pink-500 hover:text-pink-600 flex items-center gap-1"
                 >
                   <ICONS.Plus className="w-4 h-4" /> Add Time
                 </button>
               </div>
 
-              {/* Instructions */}
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
                   Instructions (Optional)
@@ -696,23 +699,22 @@ const Medications: React.FC = () => {
                   onChange={(e) => setNewMed({ ...newMed, instructions: e.target.value })}
                   placeholder="e.g. Take with food"
                   rows={2}
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none resize-none"
+                  className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none resize-none"
                 />
               </div>
 
-              {/* Submit */}
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-4 text-slate-400 font-bold hover:text-slate-600 transition-colors"
+                  className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !newMed.name || !newMed.dose}
-                  className="flex-[2] py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-black text-sm uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 py-3 bg-pink-500 text-white font-bold rounded-xl hover:bg-pink-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -725,6 +727,62 @@ const Medications: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && medToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center">
+                <ICONS.Trash className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Delete Medication</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl mb-6">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Are you sure you want to delete <strong>{medToDelete.name}</strong>?
+              </p>
+              <p className="text-xs text-slate-400 mt-2">
+                {medToDelete.dose} • {medToDelete.route}
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setMedToDelete(null);
+                }}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteMedication}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-rose-500 text-white font-bold rounded-xl hover:bg-rose-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <ICONS.Trash className="w-5 h-5" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
