@@ -445,3 +445,113 @@ export function isAtLimit(usage: UsageItem): boolean {
 export function isNearLimit(usage: UsageItem): boolean {
   return !usage.unlimited && usage.percentUsed >= 80;
 }
+
+// ============ INVOICES & BILLING HISTORY ============
+
+export interface Invoice {
+  id: string;
+  number: string;
+  status: 'draft' | 'open' | 'paid' | 'void' | 'uncollectible';
+  amount_due: number;
+  amount_paid: number;
+  currency: string;
+  created: number;
+  due_date: number | null;
+  period_start: number;
+  period_end: number;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+  lines?: {
+    data: Array<{
+      description: string;
+      amount: number;
+      period: { start: number; end: number };
+    }>;
+  };
+}
+
+export interface PaymentRecord {
+  _id: string;
+  userId: string;
+  stripePaymentIntentId: string;
+  amount: number;
+  currency: string;
+  status: 'succeeded' | 'pending' | 'failed' | 'refunded';
+  description?: string;
+  metadata?: Record<string, string>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Get upcoming invoice preview
+ * GET /api/v1/subscriptions/invoice/upcoming
+ */
+export async function getUpcomingInvoice(): Promise<Invoice | null> {
+  const result = await authFetch('/subscriptions/invoice/upcoming');
+  return result.data.invoice;
+}
+
+/**
+ * List past invoices
+ * GET /api/v1/subscriptions/invoices
+ */
+export async function getInvoices(limit: number = 10): Promise<Invoice[]> {
+  const result = await authFetch(`/subscriptions/invoices?limit=${limit}`);
+  return result.data.invoices || [];
+}
+
+/**
+ * List payment history
+ * GET /api/v1/subscriptions/payments
+ */
+export async function getPayments(limit: number = 20, offset: number = 0): Promise<{
+  payments: PaymentRecord[];
+  pagination: { total: number; limit: number; offset: number };
+}> {
+  const result = await authFetch(`/subscriptions/payments?limit=${limit}&offset=${offset}`);
+  return result.data;
+}
+
+/**
+ * Cancel subscription
+ * POST /api/v1/subscriptions/cancel
+ */
+export async function cancelSubscription(immediate: boolean = false): Promise<void> {
+  await authFetch('/subscriptions/cancel', {
+    method: 'POST',
+    body: JSON.stringify({ immediate }),
+  });
+}
+
+/**
+ * Reactivate canceled subscription
+ * POST /api/v1/subscriptions/reactivate
+ */
+export async function reactivateSubscription(): Promise<Subscription> {
+  const result = await authFetch('/subscriptions/reactivate', {
+    method: 'POST',
+  });
+  return result.data.subscription;
+}
+
+/**
+ * Format currency amount (from cents)
+ */
+export function formatCurrency(amount: number, currency: string = 'usd'): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency.toUpperCase(),
+  }).format(amount / 100);
+}
+
+/**
+ * Format date from timestamp
+ */
+export function formatInvoiceDate(timestamp: number): string {
+  return new Date(timestamp * 1000).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
