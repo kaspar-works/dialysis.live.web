@@ -1002,8 +1002,8 @@ const Dashboard: React.FC = () => {
 
             <div className="flex items-center gap-8 mb-4">
               <div>
-                <p className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">{currentWeight ?? '--'}</p>
-                <p className="text-slate-400 text-sm">kg current</p>
+                <p className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">{currentWeight !== null ? formatWeight(currentWeight, false) : '--'}</p>
+                <p className="text-slate-400 text-sm">{weightUnit} current</p>
               </div>
               {weightData.length >= 2 && (
                 <div className="flex items-center gap-2">
@@ -1016,7 +1016,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div>
                     <p className={`font-bold ${weightChange <= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                      {weightChange > 0 ? '+' : ''}{weightChange.toFixed(1)} kg
+                      {weightChange > 0 ? '+' : ''}{displayWeight(weightChange)}
                     </p>
                     <p className="text-slate-400 text-xs">vs last</p>
                   </div>
@@ -1027,7 +1027,7 @@ const Dashboard: React.FC = () => {
                   <span className="text-lg">🎯</span>
                 </div>
                 <div>
-                  <p className="font-bold text-slate-900 dark:text-white">{dryWeight ?? '--'} kg</p>
+                  <p className="font-bold text-slate-900 dark:text-white">{dryWeight !== null ? displayWeight(dryWeight) : '--'}</p>
                   <p className="text-slate-400 text-xs">target</p>
                 </div>
               </div>
