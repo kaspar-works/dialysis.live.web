@@ -13,8 +13,6 @@ export interface SubscriptionFeatures {
   aiHealthAnalysis: boolean;
   nutriScanAI: boolean;
   exportData: boolean;
-  caregiverAccess: boolean;
-  familyDashboard: boolean;
 }
 
 export interface Subscription {
@@ -308,8 +306,6 @@ export const featureDisplayNames: Record<keyof SubscriptionFeatures, string> = {
   aiHealthAnalysis: 'AI Health Analysis',
   nutriScanAI: 'Nutri-Scan AI',
   exportData: 'Data Export (PDF/CSV)',
-  caregiverAccess: 'Caregiver Access',
-  familyDashboard: 'Family Dashboard',
 };
 
 /**
@@ -345,7 +341,6 @@ export interface PlanConfig {
     aiHealthAnalysis: boolean;
     nutriScanAI: boolean;
     exportData: boolean;
-    caregiverAccess: boolean;
   };
 }
 
@@ -353,55 +348,52 @@ export const PLAN_CONFIGS: Record<PlanType, PlanConfig> = {
   free: {
     id: 'free',
     name: 'Free',
-    description: 'Basic tracking to get started',
+    description: 'Limited tracking to get started',
     price: { monthly: 0, yearly: 0 },
     limits: {
-      maxSessions: 10,
+      maxSessions: 5,
       maxMedications: 5,
-      maxReports: 1,
-      maxAIRequests: 10,
+      maxReports: 0,
+      maxAIRequests: 0,
     },
     features: {
       aiHealthAnalysis: false,
       nutriScanAI: false,
       exportData: false,
-      caregiverAccess: false,
     },
   },
   basic: {
     id: 'basic',
     name: 'Basic',
-    description: 'Enhanced tracking with AI features',
-    price: { monthly: 9.99, yearly: 99.99 },
+    description: 'Unlimited tracking for all health data',
+    price: { monthly: 4.99, yearly: 49.99 },
     limits: {
-      maxSessions: 100,
-      maxMedications: 20,
-      maxReports: 10,
-      maxAIRequests: 50,
+      maxSessions: null,
+      maxMedications: null,
+      maxReports: 0,
+      maxAIRequests: 0,
     },
     features: {
-      aiHealthAnalysis: true,
-      nutriScanAI: true,
-      exportData: true,
-      caregiverAccess: false,
+      aiHealthAnalysis: false,
+      nutriScanAI: false,
+      exportData: false,
     },
   },
   premium: {
     id: 'premium',
     name: 'Premium',
-    description: 'Full features for serious health management',
-    price: { monthly: 19.99, yearly: 199.99 },
+    description: 'Full features with AI & exports',
+    price: { monthly: 9.99, yearly: 99.99 },
     limits: {
       maxSessions: null,
       maxMedications: null,
       maxReports: null,
-      maxAIRequests: null,
+      maxAIRequests: 30,
     },
     features: {
       aiHealthAnalysis: true,
       nutriScanAI: true,
       exportData: true,
-      caregiverAccess: true,
     },
   },
 };
