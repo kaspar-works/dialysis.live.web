@@ -2,6 +2,7 @@
 import React from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { SettingsProvider } from './contexts/SettingsContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
@@ -41,10 +42,11 @@ const ENABLE_HEALTH_CHECK = import.meta.env.VITE_ENABLE_HEALTH_CHECK === 'true';
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <Router>
-        <SEO />
-        <SessionExpiredModal />
-        <Routes>
+      <SettingsProvider>
+        <Router>
+          <SEO />
+          <SessionExpiredModal />
+          <Routes>
           {/* Public Marketing Routes - redirect to dashboard if authenticated */}
           <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -200,8 +202,9 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-        </Routes>
-      </Router>
+          </Routes>
+        </Router>
+      </SettingsProvider>
     </AuthProvider>
   );
 };

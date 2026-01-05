@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
+import { useSettings } from '../contexts/SettingsContext';
 import { createFluidLog, getTodayFluidIntake, getFluidLogs, deleteFluidLog, FluidLog as FluidLogType, FluidSource, FluidPagination } from '../services/fluid';
 import { SubscriptionLimitError } from '../services/auth';
 
@@ -13,10 +14,13 @@ const beverages: { name: string; source: FluidSource; icon: string; color: strin
   { name: 'Soup', source: 'soup', icon: '🥣', color: 'rose', gradient: 'from-rose-400 to-pink-500' },
 ];
 
-const quickAmounts = [100, 150, 200, 250, 300, 500];
+const quickAmountsMl = [100, 150, 200, 250, 300, 500];
+const quickAmountsOz = [4, 5, 6, 8, 10, 16];
 
 const FluidLog: React.FC = () => {
   const { profile } = useStore();
+  const { fluidUnit, displayFluid, formatFluid, convertFluidFromMl, convertFluidToMl } = useSettings();
+  const quickAmounts = fluidUnit === 'oz' ? quickAmountsOz : quickAmountsMl;
   const [selectedBeverage, setSelectedBeverage] = useState(beverages[0]);
   const [customAmount, setCustomAmount] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -143,8 +147,13 @@ const FluidLog: React.FC = () => {
       return;
     }
 
-    if (amount > 5000) {
-      setError('Amount cannot exceed 5000 ml');
+    // Convert to ml for validation
+    const amountMl = convertFluidToMl(amount);
+    const maxMl = 5000;
+    const maxDisplay = Math.round(convertFluidFromMl(maxMl));
+
+    if (amountMl > maxMl) {
+      setError(`Amount cannot exceed ${maxDisplay} ${fluidUnit}`);
       return;
     }
 
@@ -156,9 +165,9 @@ const FluidLog: React.FC = () => {
     setIsAdding(true);
 
     try {
-      const newLog = await createFluidLog({ amountMl: amount, source: selectedBeverage.source });
+      const newLog = await createFluidLog({ amountMl, source: selectedBeverage.source });
       setLogs(prev => [newLog, ...prev]);
-      setTotalToday(prev => prev + amount);
+      setTotalToday(prev => prev + amountMl);
       setCustomAmount('');
       setRecentlyAdded(newLog._id);
       setTimeout(() => setRecentlyAdded(null), 2000);
@@ -191,7 +200,7 @@ const FluidLog: React.FC = () => {
         setTotalToday(prev => Math.max(prev - deleteModalLog.amountMl, 0));
       }
       setDeleteModalLog(null);
-      setNotification({ message: `${bevName} entry (${amount} ml) deleted`, type: 'success' });
+      setNotification({ message: `${bevName} entry (${displayFluid(amount)}) deleted`, type: 'success' });
       setTimeout(() => setNotification(null), 3000);
     } catch (err) {
       setError('Failed to delete');
@@ -258,7 +267,7 @@ const FluidLog: React.FC = () => {
         <div className="text-right">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Daily Limit</p>
           <p className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-            {profile.dailyFluidLimit}<span className="text-sm text-slate-400 ml-1">ml</span>
+            {formatFluid(profile.dailyFluidLimit, false)}<span className="text-sm text-slate-400 ml-1">{fluidUnit}</span>
           </p>
         </div>
       </header>
@@ -355,8 +364,8 @@ const FluidLog: React.FC = () => {
               {/* Center content */}
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-5xl mb-1">💧</span>
-                <span className="text-4xl font-black text-white tabular-nums">{totalToday}</span>
-                <span className="text-white/40 text-sm font-medium">of {profile.dailyFluidLimit} ml</span>
+                <span className="text-4xl font-black text-white tabular-nums">{formatFluid(totalToday, false)}</span>
+                <span className="text-white/40 text-sm font-medium">of {displayFluid(profile.dailyFluidLimit)}</span>
               </div>
             </div>
           </div>
@@ -369,7 +378,7 @@ const FluidLog: React.FC = () => {
                 {isOverLimit ? 'Over Limit By' : 'Remaining'}
               </p>
               <p className={`text-3xl font-black tabular-nums ${isOverLimit ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {Math.abs(remaining)}<span className="text-lg ml-1">ml</span>
+                {formatFluid(Math.abs(remaining), false)}<span className="text-lg ml-1">{fluidUnit}</span>
               </p>
             </div>
 
@@ -390,7 +399,7 @@ const FluidLog: React.FC = () => {
               {beverageBreakdown.filter(b => b.total > 0).map(bev => (
                 <div key={bev.source} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 rounded-full">
                   <span className="text-sm">{bev.icon}</span>
-                  <span className="text-xs font-bold text-white tabular-nums">{bev.total}</span>
+                  <span className="text-xs font-bold text-white tabular-nums">{formatFluid(bev.total, false)}</span>
                 </div>
               ))}
             </div>
@@ -434,7 +443,7 @@ const FluidLog: React.FC = () => {
                 hover:border-transparent hover:shadow-lg`}
             >
               <span className="relative z-10">{amount}</span>
-              <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-bold text-slate-400 group-hover:text-white/70">ml</span>
+              <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-bold text-slate-400 group-hover:text-white/70">{fluidUnit}</span>
             </button>
           ))}
         </div>
@@ -449,7 +458,7 @@ const FluidLog: React.FC = () => {
               placeholder="Custom amount"
               className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl px-5 py-4 font-bold text-lg text-slate-900 dark:text-white outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-500/10 transition-all"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">ml</span>
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">{fluidUnit}</span>
           </div>
           <button
             onClick={() => handleAdd(parseInt(customAmount) || 0)}
@@ -476,8 +485,8 @@ const FluidLog: React.FC = () => {
               <p className="text-slate-400 text-sm">Hourly intake distribution</p>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-black text-sky-500 tabular-nums">{totalToday}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Total ml</p>
+              <p className="text-2xl font-black text-sky-500 tabular-nums">{formatFluid(totalToday, false)}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Total {fluidUnit}</p>
             </div>
           </div>
 
@@ -544,7 +553,7 @@ const FluidLog: React.FC = () => {
                     <span className={`text-[10px] font-bold mb-1 opacity-0 group-hover:opacity-100 transition-opacity tabular-nums ${
                       isToday ? 'text-sky-500' : 'text-slate-400'
                     }`}>
-                      {day.total || 0}
+                      {formatFluid(day.total || 0, false)}
                     </span>
 
                     {/* Bar */}
@@ -572,7 +581,7 @@ const FluidLog: React.FC = () => {
           {/* Limit line indicator */}
           <div className="mt-2 pt-2 border-t border-dashed border-slate-200 dark:border-slate-700">
             <p className="text-[10px] font-bold text-slate-400 text-center">
-              Daily limit: {profile.dailyFluidLimit} ml
+              Daily limit: {displayFluid(profile.dailyFluidLimit)}
             </p>
           </div>
         </div>
@@ -619,9 +628,9 @@ const FluidLog: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <span className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
-                      {log.amountMl}
+                      {formatFluid(log.amountMl, false)}
                     </span>
-                    <span className="text-sm text-slate-400 ml-1">ml</span>
+                    <span className="text-sm text-slate-400 ml-1">{fluidUnit}</span>
                   </div>
                   <button
                     onClick={() => handleDeleteClick(log)}
@@ -763,7 +772,7 @@ const FluidLog: React.FC = () => {
                 Delete Entry
               </h3>
               <p className="text-slate-500 dark:text-slate-400 mb-6">
-                Are you sure you want to delete this {beverages.find(b => b.source === deleteModalLog.source)?.name.toLowerCase() || 'fluid'} entry of <span className="font-bold text-slate-900 dark:text-white">{deleteModalLog.amountMl} ml</span>?
+                Are you sure you want to delete this {beverages.find(b => b.source === deleteModalLog.source)?.name.toLowerCase() || 'fluid'} entry of <span className="font-bold text-slate-900 dark:text-white">{displayFluid(deleteModalLog.amountMl)}</span>?
               </p>
               <div className="flex gap-3">
                 <button

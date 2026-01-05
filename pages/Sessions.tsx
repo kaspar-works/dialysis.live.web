@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { ICONS } from '../constants';
 import { SubscriptionLimitError } from '../services/auth';
 import {
@@ -47,6 +48,7 @@ type ViewMode = 'list' | 'create' | 'active' | 'end' | 'detail';
 const Sessions: React.FC = () => {
   const { profile } = useStore();
   const { isAuthenticated } = useAuth();
+  const { weightUnit, fluidUnit, displayWeight, displayFluid, formatWeight, formatFluid, convertWeightToKg, convertWeightFromKg, convertFluidToMl, convertFluidFromMl } = useSettings();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [sessions, setSessions] = useState<DialysisSession[]>([]);
   const [activeSession, setActiveSession] = useState<DialysisSession | null>(null);
@@ -226,8 +228,8 @@ const Sessions: React.FC = () => {
       // Update with pre-session data if provided
       if (preData.preWeightKg || preData.targetUfMl || preData.preBpSystolic || preData.preHeartRate) {
         const updateData: any = {};
-        if (preData.preWeightKg) updateData.preWeightKg = parseFloat(preData.preWeightKg);
-        if (preData.targetUfMl) updateData.targetUfMl = parseInt(preData.targetUfMl);
+        if (preData.preWeightKg) updateData.preWeightKg = convertWeightToKg(parseFloat(preData.preWeightKg));
+        if (preData.targetUfMl) updateData.targetUfMl = Math.round(convertFluidToMl(parseInt(preData.targetUfMl)));
         if (preData.preBpSystolic) updateData.preBpSystolic = parseInt(preData.preBpSystolic);
         if (preData.preBpDiastolic) updateData.preBpDiastolic = parseInt(preData.preBpDiastolic);
         if (preData.preHeartRate) updateData.preHeartRate = parseInt(preData.preHeartRate);
@@ -277,15 +279,15 @@ const Sessions: React.FC = () => {
       };
 
       // Add pre-session data
-      if (preData.preWeightKg) data.preWeightKg = parseFloat(preData.preWeightKg);
-      if (preData.targetUfMl) data.targetUfMl = parseInt(preData.targetUfMl);
+      if (preData.preWeightKg) data.preWeightKg = convertWeightToKg(parseFloat(preData.preWeightKg));
+      if (preData.targetUfMl) data.targetUfMl = Math.round(convertFluidToMl(parseInt(preData.targetUfMl)));
       if (preData.preBpSystolic) data.preBpSystolic = parseInt(preData.preBpSystolic);
       if (preData.preBpDiastolic) data.preBpDiastolic = parseInt(preData.preBpDiastolic);
       if (preData.preHeartRate) data.preHeartRate = parseInt(preData.preHeartRate);
 
       // Add post-session data
-      if (postData.postWeightKg) data.postWeightKg = parseFloat(postData.postWeightKg);
-      if (postData.actualUfMl) data.actualUfMl = parseInt(postData.actualUfMl);
+      if (postData.postWeightKg) data.postWeightKg = convertWeightToKg(parseFloat(postData.postWeightKg));
+      if (postData.actualUfMl) data.actualUfMl = Math.round(convertFluidToMl(parseInt(postData.actualUfMl)));
       if (postData.postBpSystolic) data.postBpSystolic = parseInt(postData.postBpSystolic);
       if (postData.postBpDiastolic) data.postBpDiastolic = parseInt(postData.postBpDiastolic);
       if (postData.postHeartRate) data.postHeartRate = parseInt(postData.postHeartRate);
@@ -330,8 +332,8 @@ const Sessions: React.FC = () => {
     setIsSubmitting(true);
     try {
       const endData: any = {};
-      if (postData.postWeightKg) endData.postWeightKg = parseFloat(postData.postWeightKg);
-      if (postData.actualUfMl) endData.actualUfMl = parseInt(postData.actualUfMl);
+      if (postData.postWeightKg) endData.postWeightKg = convertWeightToKg(parseFloat(postData.postWeightKg));
+      if (postData.actualUfMl) endData.actualUfMl = Math.round(convertFluidToMl(parseInt(postData.actualUfMl)));
       if (postData.postBpSystolic) endData.postBpSystolic = parseInt(postData.postBpSystolic);
       if (postData.postBpDiastolic) endData.postBpDiastolic = parseInt(postData.postBpDiastolic);
       if (postData.postHeartRate) endData.postHeartRate = parseInt(postData.postHeartRate);
@@ -407,20 +409,25 @@ const Sessions: React.FC = () => {
     if (!preData.preWeightKg || preData.preWeightKg.trim() === '') {
       errors.push('Pre-weight is required');
     } else {
-      const weight = parseFloat(preData.preWeightKg);
-      if (isNaN(weight) || weight < 20 || weight > 250) {
-        errors.push('Pre-weight must be between 20 and 250 kg');
+      const inputWeight = parseFloat(preData.preWeightKg);
+      const weightKg = convertWeightToKg(inputWeight);
+      const minDisplay = convertWeightFromKg(20);
+      const maxDisplay = convertWeightFromKg(250);
+      if (isNaN(weightKg) || weightKg < 20 || weightKg > 250) {
+        errors.push(`Pre-weight must be between ${minDisplay.toFixed(0)} and ${maxDisplay.toFixed(0)} ${weightUnit}`);
       }
     }
 
     // Target UF validation
     if (preData.targetUfMl) {
-      const uf = parseInt(preData.targetUfMl);
-      if (isNaN(uf) || uf < 0) {
+      const inputUf = parseInt(preData.targetUfMl);
+      const ufMl = convertFluidToMl(inputUf);
+      const maxDisplay = Math.round(convertFluidFromMl(6000));
+      if (isNaN(ufMl) || ufMl < 0) {
         errors.push('Target UF cannot be negative');
       }
-      if (uf > 6000) {
-        errors.push('Target UF exceeds safe limit (6000 ml). Please verify this value.');
+      if (ufMl > 6000) {
+        errors.push(`Target UF exceeds safe limit (${maxDisplay} ${fluidUnit}). Please verify this value.`);
       }
     }
 
@@ -456,31 +463,38 @@ const Sessions: React.FC = () => {
 
     // Post-weight validation
     if (postData.postWeightKg) {
-      const weight = parseFloat(postData.postWeightKg);
-      if (isNaN(weight) || weight < 20 || weight > 250) {
-        errors.push('Post-weight must be between 20 and 250 kg');
+      const inputWeight = parseFloat(postData.postWeightKg);
+      const weightKg = convertWeightToKg(inputWeight);
+      const minDisplay = convertWeightFromKg(20);
+      const maxDisplay = convertWeightFromKg(250);
+      if (isNaN(weightKg) || weightKg < 20 || weightKg > 250) {
+        errors.push(`Post-weight must be between ${minDisplay.toFixed(0)} and ${maxDisplay.toFixed(0)} ${weightUnit}`);
       }
 
       // Check if post weight is reasonable compared to pre weight
-      if (activeSession?.preWeightKg && weight) {
-        const diff = activeSession.preWeightKg - weight;
+      if (activeSession?.preWeightKg && weightKg) {
+        const diff = activeSession.preWeightKg - weightKg;
+        const diffDisplay = convertWeightFromKg(2);
+        const maxLossDisplay = convertWeightFromKg(10);
         if (diff < -2) {
-          errors.push('Post-weight is higher than pre-weight by more than 2 kg. Please verify.');
+          errors.push(`Post-weight is higher than pre-weight by more than ${diffDisplay.toFixed(1)} ${weightUnit}. Please verify.`);
         }
         if (diff > 10) {
-          errors.push('Weight loss exceeds 10 kg. Please verify the values.');
+          errors.push(`Weight loss exceeds ${maxLossDisplay.toFixed(0)} ${weightUnit}. Please verify the values.`);
         }
       }
     }
 
     // Actual UF validation
     if (postData.actualUfMl) {
-      const uf = parseInt(postData.actualUfMl);
-      if (isNaN(uf) || uf < 0) {
+      const inputUf = parseInt(postData.actualUfMl);
+      const ufMl = convertFluidToMl(inputUf);
+      const maxDisplay = Math.round(convertFluidFromMl(8000));
+      if (isNaN(ufMl) || ufMl < 0) {
         errors.push('Actual UF cannot be negative');
       }
-      if (uf > 8000) {
-        errors.push('Actual UF exceeds 8000 ml. Please verify this value.');
+      if (ufMl > 8000) {
+        errors.push(`Actual UF exceeds ${maxDisplay} ${fluidUnit}. Please verify this value.`);
       }
     }
 
@@ -691,15 +705,15 @@ const Sessions: React.FC = () => {
       .slice(-10) // Last 10 sessions
       .map((session, index) => ({
         name: new Date(session.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        preWeight: session.preWeightKg || null,
-        postWeight: session.postWeightKg || null,
-        ufRemoved: session.actualUfMl || 0,
-        targetUf: session.targetUfMl || 0,
+        preWeight: session.preWeightKg ? convertWeightFromKg(session.preWeightKg) : null,
+        postWeight: session.postWeightKg ? convertWeightFromKg(session.postWeightKg) : null,
+        ufRemoved: session.actualUfMl ? convertFluidFromMl(session.actualUfMl) : 0,
+        targetUf: session.targetUfMl ? convertFluidFromMl(session.targetUfMl) : 0,
         weightLoss: session.preWeightKg && session.postWeightKg
-          ? parseFloat((session.preWeightKg - session.postWeightKg).toFixed(1))
+          ? parseFloat(convertWeightFromKg(session.preWeightKg - session.postWeightKg).toFixed(1))
           : 0,
       }));
-  }, [completedSessions]);
+  }, [completedSessions, convertWeightFromKg, convertFluidFromMl]);
 
   // Get dry weight from profile if available
   const dryWeight = profile?.dryWeightKg;
@@ -864,7 +878,7 @@ const Sessions: React.FC = () => {
                         axisLine={false}
                         tickLine={false}
                         tick={{ fill: '#94a3b8', fontSize: 11 }}
-                        tickFormatter={(v) => `${v}kg`}
+                        tickFormatter={(v) => `${v}${weightUnit}`}
                       />
                       <Tooltip
                         contentStyle={{
@@ -875,11 +889,11 @@ const Sessions: React.FC = () => {
                         }}
                         labelStyle={{ color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}
                         itemStyle={{ color: '#fff', fontWeight: 700 }}
-                        formatter={(value: number) => [`${value} kg`, '']}
+                        formatter={(value: number) => [`${value.toFixed(1)} ${weightUnit}`, '']}
                       />
                       {dryWeight && (
                         <ReferenceLine
-                          y={dryWeight}
+                          y={convertWeightFromKg(dryWeight)}
                           stroke="#f43f5e"
                           strokeDasharray="5 5"
                           strokeWidth={2}
@@ -943,7 +957,7 @@ const Sessions: React.FC = () => {
                         axisLine={false}
                         tickLine={false}
                         tick={{ fill: '#94a3b8', fontSize: 11 }}
-                        tickFormatter={(v) => `${(v / 1000).toFixed(1)}L`}
+                        tickFormatter={(v) => fluidUnit === 'oz' ? `${v.toFixed(0)}oz` : `${(v / 1000).toFixed(1)}L`}
                       />
                       <Tooltip
                         contentStyle={{
@@ -954,7 +968,7 @@ const Sessions: React.FC = () => {
                         }}
                         labelStyle={{ color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}
                         itemStyle={{ color: '#fff', fontWeight: 700 }}
-                        formatter={(value: number) => [`${value} ml`, '']}
+                        formatter={(value: number) => [fluidUnit === 'oz' ? `${value.toFixed(1)} oz` : `${Math.round(value)} ml`, '']}
                       />
                       <Bar
                         dataKey="targetUf"
@@ -1015,7 +1029,7 @@ const Sessions: React.FC = () => {
                         <div className="text-right hidden sm:block">
                           <p className="text-sm text-slate-400">UF Removed</p>
                           <p className="font-bold text-sky-500">
-                            {session.actualUfMl ? `${session.actualUfMl} ml` : '--'}
+                            {session.actualUfMl ? displayFluid(session.actualUfMl) : '--'}
                           </p>
                         </div>
                         {session.sessionRating && (
@@ -1194,14 +1208,14 @@ const Sessions: React.FC = () => {
             {/* Pre Weight */}
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                Pre-Weight (kg) {!isQuickLog && <span className="text-rose-500">*</span>}
+                Pre-Weight ({weightUnit}) {!isQuickLog && <span className="text-rose-500">*</span>}
               </label>
               <input
                 type="number"
                 step="0.1"
                 value={preData.preWeightKg}
                 onChange={e => setPreData({ ...preData, preWeightKg: e.target.value })}
-                placeholder="e.g. 76.5"
+                placeholder={weightUnit === 'lb' ? 'e.g. 168.5' : 'e.g. 76.5'}
                 required
                 className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
               />
@@ -1209,12 +1223,12 @@ const Sessions: React.FC = () => {
 
             {/* Target UF */}
             <div>
-              <label className="text-xs font-bold text-sky-500 uppercase tracking-wider mb-2 block">Target UF (ml)</label>
+              <label className="text-xs font-bold text-sky-500 uppercase tracking-wider mb-2 block">Target UF ({fluidUnit})</label>
               <input
                 type="number"
                 value={preData.targetUfMl}
                 onChange={e => setPreData({ ...preData, targetUfMl: e.target.value })}
-                placeholder="e.g. 2500"
+                placeholder={fluidUnit === 'oz' ? 'e.g. 84' : 'e.g. 2500'}
                 className="w-full bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 rounded-xl px-4 py-3 font-semibold text-sky-600 dark:text-sky-400 outline-none"
               />
             </div>
@@ -1261,25 +1275,25 @@ const Sessions: React.FC = () => {
 
                 {/* Post Weight */}
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post-Weight (kg)</label>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post-Weight ({weightUnit})</label>
                   <input
                     type="number"
                     step="0.1"
                     value={postData.postWeightKg}
                     onChange={e => setPostData({ ...postData, postWeightKg: e.target.value })}
-                    placeholder="e.g. 74.5"
+                    placeholder={weightUnit === 'lb' ? 'e.g. 164.0' : 'e.g. 74.5'}
                     className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
                   />
                 </div>
 
                 {/* Actual UF */}
                 <div>
-                  <label className="text-xs font-bold text-sky-500 uppercase tracking-wider mb-2 block">Actual UF Removed (ml)</label>
+                  <label className="text-xs font-bold text-sky-500 uppercase tracking-wider mb-2 block">Actual UF Removed ({fluidUnit})</label>
                   <input
                     type="number"
                     value={postData.actualUfMl}
                     onChange={e => setPostData({ ...postData, actualUfMl: e.target.value })}
-                    placeholder="e.g. 2500"
+                    placeholder={fluidUnit === 'oz' ? 'e.g. 84' : 'e.g. 2500'}
                     className="w-full bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 rounded-xl px-4 py-3 font-semibold text-sky-600 dark:text-sky-400 outline-none"
                   />
                 </div>
@@ -1411,11 +1425,11 @@ const Sessions: React.FC = () => {
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="bg-white/5 rounded-2xl p-4">
                 <p className="text-white/40 text-xs uppercase">Target UF</p>
-                <p className="text-2xl font-bold">{activeSession.targetUfMl || '--'} ml</p>
+                <p className="text-2xl font-bold">{activeSession.targetUfMl ? displayFluid(activeSession.targetUfMl) : '--'}</p>
               </div>
               <div className="bg-white/5 rounded-2xl p-4">
                 <p className="text-white/40 text-xs uppercase">Pre Weight</p>
-                <p className="text-2xl font-bold">{activeSession.preWeightKg || '--'} kg</p>
+                <p className="text-2xl font-bold">{activeSession.preWeightKg ? displayWeight(activeSession.preWeightKg) : '--'}</p>
               </div>
               <div className="bg-white/5 rounded-2xl p-4">
                 <p className="text-white/40 text-xs uppercase">Planned</p>
@@ -1660,25 +1674,25 @@ const Sessions: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Post Weight */}
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post-Weight (kg)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post-Weight ({weightUnit})</label>
               <input
                 type="number"
                 step="0.1"
                 value={postData.postWeightKg}
                 onChange={e => setPostData({ ...postData, postWeightKg: e.target.value })}
-                placeholder="e.g. 74.5"
+                placeholder={weightUnit === 'lb' ? 'e.g. 164.0' : 'e.g. 74.5'}
                 className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
               />
             </div>
 
             {/* Actual UF */}
             <div>
-              <label className="text-xs font-bold text-sky-500 uppercase tracking-wider mb-2 block">Actual UF Removed (ml)</label>
+              <label className="text-xs font-bold text-sky-500 uppercase tracking-wider mb-2 block">Actual UF Removed ({fluidUnit})</label>
               <input
                 type="number"
                 value={postData.actualUfMl}
                 onChange={e => setPostData({ ...postData, actualUfMl: e.target.value })}
-                placeholder="e.g. 2400"
+                placeholder={fluidUnit === 'oz' ? 'e.g. 81' : 'e.g. 2400'}
                 className="w-full bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 rounded-xl px-4 py-3 font-semibold text-sky-600 dark:text-sky-400 outline-none"
               />
             </div>
@@ -1826,14 +1840,14 @@ const Sessions: React.FC = () => {
             </div>
             <div className="bg-sky-50 dark:bg-sky-500/10 rounded-2xl p-4">
               <p className="text-sky-500 text-xs uppercase">UF Removed</p>
-              <p className="text-lg font-bold text-sky-600">{selectedSession.actualUfMl || '--'} ml</p>
+              <p className="text-lg font-bold text-sky-600">{selectedSession.actualUfMl ? displayFluid(selectedSession.actualUfMl) : '--'}</p>
             </div>
             <div className="bg-purple-50 dark:bg-purple-500/10 rounded-2xl p-4">
               <p className="text-purple-500 text-xs uppercase">Weight Loss</p>
               <p className="text-lg font-bold text-purple-600">
                 {selectedSession.preWeightKg && selectedSession.postWeightKg
-                  ? (selectedSession.preWeightKg - selectedSession.postWeightKg).toFixed(1)
-                  : '--'} kg
+                  ? displayWeight(selectedSession.preWeightKg - selectedSession.postWeightKg)
+                  : '--'}
               </p>
             </div>
           </div>
@@ -1844,7 +1858,7 @@ const Sessions: React.FC = () => {
               <div className="space-y-2">
                 <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
                   <span className="text-slate-500">Weight</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.preWeightKg || '--'} kg</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.preWeightKg ? displayWeight(selectedSession.preWeightKg) : '--'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
                   <span className="text-slate-500">Blood Pressure</span>
@@ -1860,7 +1874,7 @@ const Sessions: React.FC = () => {
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-slate-500">Target UF</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.targetUfMl || '--'} ml</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.targetUfMl ? displayFluid(selectedSession.targetUfMl) : '--'}</span>
                 </div>
               </div>
             </div>
@@ -1870,7 +1884,7 @@ const Sessions: React.FC = () => {
               <div className="space-y-2">
                 <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
                   <span className="text-slate-500">Weight</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.postWeightKg || '--'} kg</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.postWeightKg ? displayWeight(selectedSession.postWeightKg) : '--'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
                   <span className="text-slate-500">Blood Pressure</span>
@@ -1886,7 +1900,7 @@ const Sessions: React.FC = () => {
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-slate-500">Actual UF</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.actualUfMl || '--'} ml</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.actualUfMl ? displayFluid(selectedSession.actualUfMl) : '--'}</span>
                 </div>
               </div>
             </div>
@@ -2027,7 +2041,7 @@ const Sessions: React.FC = () => {
               {sessionToDelete.actualDurationMin && (
                 <p className="text-xs text-slate-400 mt-2">
                   Duration: {formatDuration(sessionToDelete.actualDurationMin)}
-                  {sessionToDelete.actualUfMl && ` • UF: ${sessionToDelete.actualUfMl} ml`}
+                  {sessionToDelete.actualUfMl && ` • UF: ${displayFluid(sessionToDelete.actualUfMl)}`}
                 </p>
               )}
             </div>
@@ -2169,13 +2183,13 @@ const Sessions: React.FC = () => {
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-emerald-500">
-                    {analysisData.statistics.avgWeightLoss?.toFixed(1) || '--'} kg
+                    {analysisData.statistics.avgWeightLoss ? displayWeight(analysisData.statistics.avgWeightLoss) : '--'}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">Avg Weight Loss</p>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-blue-500">
-                    {analysisData.statistics.avgUfRemoved || '--'} ml
+                    {analysisData.statistics.avgUfRemoved ? displayFluid(analysisData.statistics.avgUfRemoved) : '--'}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">Avg UF Removed</p>
                 </div>

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
+import { useSettings } from '../contexts/SettingsContext';
 import { createWeightLog, getWeightLogs, deleteWeightLog, deleteAllWeightLogs, analyzeWeightLogs, exportWeightLogs, WeightLog as WeightLogApi, WeightContext, WeightAnalysis } from '../services/weight';
 import { SubscriptionLimitError } from '../services/auth';
 
@@ -27,8 +28,12 @@ const ITEMS_PER_PAGE = 10;
 
 const WeightLog: React.FC = () => {
   const { profile } = useStore();
+  const { weightUnit, displayWeight, formatWeight, convertWeightFromKg, convertWeightToKg } = useSettings();
   const [weights, setWeights] = useState<WeightLogApi[]>([]);
-  const [newValue, setNewValue] = useState(profile.weightGoal?.toString() || '75.0');
+  const [newValue, setNewValue] = useState(() => {
+    const goalKg = profile.weightGoal || 75.0;
+    return weightUnit === 'lb' ? (goalKg * 2.20462).toFixed(1) : goalKg.toString();
+  });
   const [newType, setNewType] = useState<'morning' | 'pre-dialysis' | 'post-dialysis'>('morning');
   const [timeRange, setTimeRange] = useState<'7' | '30' | '90'>('30');
   const [isLoading, setIsLoading] = useState(true);
@@ -161,10 +166,11 @@ const WeightLog: React.FC = () => {
   };
 
   const safeWeights = allWeights && Array.isArray(allWeights) ? allWeights : [];
-  const currentWeight = safeWeights[0]?.weightKg || profile.weightGoal;
-  const previousWeight = safeWeights[1]?.weightKg || currentWeight;
-  const weightChange = currentWeight - previousWeight;
-  const targetDiff = currentWeight - profile.weightGoal;
+  const currentWeightKg = safeWeights[0]?.weightKg || profile.weightGoal;
+  const currentWeight = convertWeightFromKg(currentWeightKg);
+  const previousWeightKg = safeWeights[1]?.weightKg || currentWeightKg;
+  const weightChange = convertWeightFromKg(currentWeightKg - previousWeightKg);
+  const targetDiff = currentWeight - convertWeightFromKg(profile.weightGoal);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,21 +183,26 @@ const WeightLog: React.FC = () => {
       return;
     }
 
-    const weightValue = parseFloat(newValue);
-    if (isNaN(weightValue) || weightValue < 20 || weightValue > 300) {
-      setError('Weight must be between 20-300 kg');
+    const inputValue = parseFloat(newValue);
+    const weightKg = convertWeightToKg(inputValue);
+    const minKg = 20, maxKg = 300;
+    const minDisplay = convertWeightFromKg(minKg);
+    const maxDisplay = convertWeightFromKg(maxKg);
+
+    if (isNaN(inputValue) || weightKg < minKg || weightKg > maxKg) {
+      setError(`Weight must be between ${minDisplay.toFixed(0)}-${maxDisplay.toFixed(0)} ${weightUnit}`);
       return;
     }
 
     setIsSubmitting(true);
     try {
       await createWeightLog({
-        weightKg: weightValue,
+        weightKg: weightKg,
         context: typeToApi[newType],
         loggedAt: new Date().toISOString(),
       });
       await fetchAllData();
-      setSuccessMessage(`${contextConfig[newType].icon} ${weightValue.toFixed(1)} kg logged!`);
+      setSuccessMessage(`${contextConfig[newType].icon} ${inputValue.toFixed(1)} ${weightUnit} logged!`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       if (err instanceof SubscriptionLimitError) {
@@ -214,25 +225,28 @@ const WeightLog: React.FC = () => {
       .reverse()
       .map(w => ({
         date: new Date(w.loggedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-        weight: w.weightKg,
+        weight: convertWeightFromKg(w.weightKg),
         context: apiToType[w.context],
       }));
-  }, [allWeights, timeRange]);
+  }, [allWeights, timeRange, convertWeightFromKg]);
+
+  const targetWeight = convertWeightFromKg(profile.weightGoal);
 
   const weightRange = useMemo(() => {
-    if (chartData.length === 0) return { min: 70, max: 80 };
+    if (chartData.length === 0) return { min: convertWeightFromKg(70), max: convertWeightFromKg(80) };
     const values = chartData.map(d => d.weight);
-    const min = Math.min(...values, profile.weightGoal);
-    const max = Math.max(...values, profile.weightGoal);
+    const min = Math.min(...values, targetWeight);
+    const max = Math.max(...values, targetWeight);
     const padding = (max - min) * 0.2 || 2;
     return { min: Math.floor(min - padding), max: Math.ceil(max + padding) };
-  }, [chartData, profile.weightGoal]);
+  }, [chartData, targetWeight, convertWeightFromKg]);
 
   const weeklyTrend = useMemo(() => {
     if (!allWeights?.length || allWeights.length < 2) return 0;
     const last7 = allWeights.slice(0, 7);
-    return (last7[0]?.weightKg || 0) - (last7[last7.length - 1]?.weightKg || 0);
-  }, [allWeights]);
+    const diffKg = (last7[0]?.weightKg || 0) - (last7[last7.length - 1]?.weightKg || 0);
+    return convertWeightFromKg(Math.abs(diffKg)) * (diffKg >= 0 ? 1 : -1);
+  }, [allWeights, convertWeightFromKg]);
 
   const avgWeight = useMemo(() => {
     if (!chartData.length) return 0;
@@ -403,22 +417,22 @@ const WeightLog: React.FC = () => {
             </div>
           </div>
           <p className="text-3xl font-black text-slate-900 dark:text-white">{currentWeight.toFixed(1)}</p>
-          <p className="text-xs text-slate-400">kg</p>
+          <p className="text-xs text-slate-400">{weightUnit}</p>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[10px] font-bold text-slate-400 uppercase">vs Target</span>
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              Math.abs(targetDiff) <= 0.5 ? 'bg-emerald-100 dark:bg-emerald-500/10' : 'bg-amber-100 dark:bg-amber-500/10'
+              Math.abs(targetDiff) <= (weightUnit === 'lb' ? 1.1 : 0.5) ? 'bg-emerald-100 dark:bg-emerald-500/10' : 'bg-amber-100 dark:bg-amber-500/10'
             }`}>
-              <span className="text-sm">{Math.abs(targetDiff) <= 0.5 ? '🎯' : '📊'}</span>
+              <span className="text-sm">{Math.abs(targetDiff) <= (weightUnit === 'lb' ? 1.1 : 0.5) ? '🎯' : '📊'}</span>
             </div>
           </div>
-          <p className={`text-3xl font-black ${Math.abs(targetDiff) <= 0.5 ? 'text-emerald-500' : targetDiff > 0 ? 'text-amber-500' : 'text-sky-500'}`}>
+          <p className={`text-3xl font-black ${Math.abs(targetDiff) <= (weightUnit === 'lb' ? 1.1 : 0.5) ? 'text-emerald-500' : targetDiff > 0 ? 'text-amber-500' : 'text-sky-500'}`}>
             {targetDiff > 0 ? '+' : ''}{targetDiff.toFixed(1)}
           </p>
-          <p className="text-xs text-slate-400">from {profile.weightGoal} kg</p>
+          <p className="text-xs text-slate-400">from {targetWeight.toFixed(1)} {weightUnit}</p>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
@@ -435,7 +449,7 @@ const WeightLog: React.FC = () => {
           <p className={`text-3xl font-black ${weeklyTrend <= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
             {weeklyTrend > 0 ? '+' : ''}{weeklyTrend.toFixed(1)}
           </p>
-          <p className="text-xs text-slate-400">kg this week</p>
+          <p className="text-xs text-slate-400">{weightUnit} this week</p>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700">
@@ -545,7 +559,7 @@ const WeightLog: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-6 h-0.5 border-t-2 border-dashed border-emerald-500" />
-                <span className="text-xs text-slate-500">Target ({profile.weightGoal} kg)</span>
+                <span className="text-xs text-slate-500">Target ({targetWeight.toFixed(1)} {weightUnit})</span>
               </div>
             </div>
           </div>
@@ -590,7 +604,10 @@ const WeightLog: React.FC = () => {
               weights.map((w) => {
                 const displayType = apiToType[w.context] || w.context;
                 const cfg = contextConfig[displayType as keyof typeof contextConfig];
-                const diff = w.weightKg - profile.weightGoal;
+                const displayedWeight = convertWeightFromKg(w.weightKg);
+                const diff = displayedWeight - targetWeight;
+                const thresholdSmall = weightUnit === 'lb' ? 1.1 : 0.5;
+                const thresholdMed = weightUnit === 'lb' ? 3.3 : 1.5;
 
                 return (
                   <div key={w._id} className="p-4 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all group">
@@ -599,11 +616,11 @@ const WeightLog: React.FC = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-black text-slate-900 dark:text-white">{w.weightKg.toFixed(1)}</span>
-                        <span className="text-sm text-slate-400">kg</span>
+                        <span className="text-lg font-black text-slate-900 dark:text-white">{displayedWeight.toFixed(1)}</span>
+                        <span className="text-sm text-slate-400">{weightUnit}</span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          Math.abs(diff) <= 0.5 ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600' :
-                          Math.abs(diff) <= 1.5 ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600' :
+                          Math.abs(diff) <= thresholdSmall ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600' :
+                          Math.abs(diff) <= thresholdMed ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600' :
                           'bg-rose-100 dark:bg-rose-500/20 text-rose-600'
                         }`}>
                           {diff > 0 ? '+' : ''}{diff.toFixed(1)}
@@ -695,16 +712,16 @@ const WeightLog: React.FC = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4">
                     <p className="text-xs text-slate-400">Average</p>
-                    <p className="text-xl font-bold text-slate-900 dark:text-white">{analysisResult.statistics.averageWeight} kg</p>
+                    <p className="text-xl font-bold text-slate-900 dark:text-white">{convertWeightFromKg(analysisResult.statistics.averageWeight).toFixed(1)} {weightUnit}</p>
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4">
                     <p className="text-xs text-slate-400">Range</p>
-                    <p className="text-xl font-bold text-slate-900 dark:text-white">{analysisResult.statistics.minWeight}-{analysisResult.statistics.maxWeight}</p>
+                    <p className="text-xl font-bold text-slate-900 dark:text-white">{convertWeightFromKg(analysisResult.statistics.minWeight).toFixed(1)}-{convertWeightFromKg(analysisResult.statistics.maxWeight).toFixed(1)}</p>
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4">
                     <p className="text-xs text-slate-400">Change</p>
                     <p className={`text-xl font-bold ${analysisResult.statistics.weightChange <= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {analysisResult.statistics.weightChange > 0 ? '+' : ''}{analysisResult.statistics.weightChange} kg
+                      {analysisResult.statistics.weightChange > 0 ? '+' : ''}{convertWeightFromKg(analysisResult.statistics.weightChange).toFixed(1)} {weightUnit}
                     </p>
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4">

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
+import { useSettings } from '../contexts/SettingsContext';
 import { ICONS } from '../constants';
 import { Link } from 'react-router-dom';
 import OnboardingModal from '../components/OnboardingModal';
@@ -37,6 +38,7 @@ import { createFluidLog } from '../services/fluid';
 
 const Dashboard: React.FC = () => {
   const { profile, addFluid } = useStore();
+  const { weightUnit, fluidUnit, displayWeight, displayFluid, formatWeight, formatFluid, convertWeightFromKg, convertFluidFromMl } = useSettings();
   const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
   const [healthOverview, setHealthOverview] = useState<HealthOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -546,7 +548,7 @@ const Dashboard: React.FC = () => {
                 <div>
                   <p className="text-white/50 text-xs font-medium">Hydration</p>
                   <p className="text-white font-bold">
-                    {dailyFluidLimit > 0 ? `${fluidPercentage}%` : todayFluid > 0 ? `${todayFluid} ml` : '--'}
+                    {dailyFluidLimit > 0 ? `${fluidPercentage}%` : todayFluid > 0 ? displayFluid(todayFluid) : '--'}
                   </p>
                 </div>
               </div>
@@ -556,7 +558,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-white/50 text-xs font-medium">Weight</p>
-                  <p className="text-white font-bold">{currentWeight !== null ? `${currentWeight} kg` : '--'}</p>
+                  <p className="text-white font-bold">{currentWeight !== null ? displayWeight(currentWeight) : '--'}</p>
                 </div>
               </div>
               <div className="glass rounded-2xl px-4 py-3 flex items-center gap-3">
@@ -845,8 +847,8 @@ const Dashboard: React.FC = () => {
               <div>
                 <p className="text-white/60 text-xs font-bold uppercase tracking-wider">Today's Hydration</p>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-4xl font-black text-white tabular-nums">{todayFluid}</span>
-                  <span className="text-white/60 font-medium">{dailyFluidLimit > 0 ? `/ ${dailyFluidLimit} ml` : 'ml'}</span>
+                  <span className="text-4xl font-black text-white tabular-nums">{formatFluid(todayFluid, false)}</span>
+                  <span className="text-white/60 font-medium">{dailyFluidLimit > 0 ? `/ ${displayFluid(dailyFluidLimit)}` : fluidUnit}</span>
                 </div>
               </div>
               <div className="text-right">
@@ -857,7 +859,7 @@ const Dashboard: React.FC = () => {
                     }`}>
                       {fluidPercentage}%
                     </div>
-                    <p className="text-white/60 text-sm">{fluidRemaining} ml left</p>
+                    <p className="text-white/60 text-sm">{displayFluid(fluidRemaining)} left</p>
                   </>
                 ) : (
                   <p className="text-white/60 text-sm">No limit set</p>
