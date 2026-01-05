@@ -13,7 +13,18 @@ export interface AuthUser {
   authProvider: string;
   status: string;
   onboardingCompleted: boolean;
+  hasAcceptedTerms?: boolean;
+  termsAcceptedAt?: string;
   createdAt?: string;
+}
+
+export interface AcceptTermsResponse {
+  success: boolean;
+  data: {
+    hasAcceptedTerms: boolean;
+    termsAcceptedAt: string;
+    termsVersion: string;
+  };
 }
 
 export interface AuthProfile {
@@ -262,6 +273,26 @@ export class FeatureRestrictedError extends Error {
     this.feature = details?.feature;
     this.requiredPlan = details?.requiredPlan;
   }
+}
+
+// Accept terms and consent
+export async function acceptTerms(version: string = '1.0'): Promise<AcceptTermsResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/accept-terms`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ version })
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to accept terms');
+  }
+
+  return result;
 }
 
 // Delete account permanently

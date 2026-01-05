@@ -197,6 +197,61 @@ export async function cancelSubscription(): Promise<void> {
   });
 }
 
+// ============ PAYMENT METHODS ============
+
+export interface PaymentMethod {
+  id: string;
+  type: string;
+  card?: {
+    brand: string;
+    last4: string;
+    exp_month: number;
+    exp_year: number;
+  };
+  created: number;
+}
+
+/**
+ * Get setup intent for adding new payment method
+ * POST /api/v1/subscriptions/setup-intent
+ */
+export async function createSetupIntent(): Promise<{ clientSecret: string; publishableKey: string }> {
+  const result = await authFetch('/subscriptions/setup-intent', {
+    method: 'POST',
+  });
+  return result.data;
+}
+
+/**
+ * List payment methods
+ * GET /api/v1/subscriptions/payment-methods
+ */
+export async function getPaymentMethods(): Promise<PaymentMethod[]> {
+  const result = await authFetch('/subscriptions/payment-methods');
+  return result.data.paymentMethods || [];
+}
+
+/**
+ * Remove a payment method
+ * DELETE /api/v1/subscriptions/payment-methods/:id
+ */
+export async function removePaymentMethod(paymentMethodId: string): Promise<void> {
+  await authFetch(`/subscriptions/payment-methods/${paymentMethodId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Set default payment method for subscription
+ * POST /api/v1/subscriptions/payment-methods/default
+ */
+export async function setDefaultPaymentMethod(paymentMethodId: string): Promise<void> {
+  await authFetch('/subscriptions/payment-methods/default', {
+    method: 'POST',
+    body: JSON.stringify({ paymentMethodId }),
+  });
+}
+
 // Helper Functions
 
 /**

@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { UserProfile } from '../types';
+import { acceptTerms as acceptTermsApi } from '../services/auth';
+import ConsentModal from '../components/ConsentModal';
 
 // Types matching the auth service
 export interface AuthUser {
@@ -8,6 +10,8 @@ export interface AuthUser {
   authProvider: string;
   status: string;
   onboardingCompleted: boolean;
+  hasAcceptedTerms?: boolean;
+  termsAcceptedAt?: string;
   createdAt?: string;
 }
 
@@ -30,6 +34,7 @@ interface AuthState {
   authProfile: AuthProfile | null;
   sessionExpiresAt: number | null;
   showSessionExpiredModal: boolean;
+  showConsentModal: boolean;
 }
 
 interface AuthContextValue extends AuthState {
@@ -43,6 +48,8 @@ interface AuthContextValue extends AuthState {
   updateAuthProfile: (profile: Partial<AuthProfile>) => void;
   setUser: (user: AuthUser | null) => void;
   setAuthProfile: (profile: AuthProfile | null) => void;
+  acceptTerms: () => Promise<void>;
+  hasAcceptedTerms: boolean;
 }
 
 const API_BASE_URL = import.meta.env.DEV ? '/api/v1' : 'https://api.dialysis.live/api/v1';
@@ -88,6 +95,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     authProfile: null,
     sessionExpiresAt: null,
     showSessionExpiredModal: false,
+    showConsentModal: false,
   });
 
   const lastRefreshRef = useRef<number>(0);
@@ -124,6 +132,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Session is valid, set 30-day expiry (backend uses 30-day sessions)
         const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
 
+        // Check if user needs to accept terms
+        const needsConsent = !result.data.user?.hasAcceptedTerms;
+
         setState(prev => ({
           ...prev,
           isAuthenticated: true,
@@ -132,6 +143,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           authProfile: result.data.profile,
           sessionExpiresAt: expiresAt,
           showSessionExpiredModal: false,
+          showConsentModal: needsConsent,
         }));
 
         // Update localStorage for backward compatibility
@@ -254,6 +266,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       ? new Date(result.data.session.expiresAt).getTime()
       : (Date.now() + 30 * 24 * 60 * 60 * 1000);
 
+    // Check if user needs to accept terms
+    const needsConsent = !result.data?.user?.hasAcceptedTerms;
+
     setState(prev => ({
       ...prev,
       isAuthenticated: true,
@@ -261,6 +276,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       authProfile: result.data?.profile || null,
       sessionExpiresAt: expiresAt,
       showSessionExpiredModal: false,
+      showConsentModal: needsConsent,
     }));
 
     // Update localStorage for backward compatibility
@@ -304,6 +320,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       ? new Date(result.data.session.expiresAt).getTime()
       : (Date.now() + 30 * 24 * 60 * 60 * 1000);
 
+    // Check if user needs to accept terms
+    const needsConsent = !result.data?.user?.hasAcceptedTerms;
+
     setState(prev => ({
       ...prev,
       isAuthenticated: true,
@@ -311,6 +330,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       authProfile: result.data?.profile || null,
       sessionExpiresAt: expiresAt,
       showSessionExpiredModal: false,
+      showConsentModal: needsConsent,
     }));
 
     // Update localStorage for backward compatibility
@@ -373,6 +393,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       : (Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     // Use user data from registration result
+    // New users always need to accept terms
     setState(prev => ({
       ...prev,
       isAuthenticated: true,
@@ -380,6 +401,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       authProfile: registerResult.data?.profile || loginResult.data?.profile || null,
       sessionExpiresAt: expiresAt,
       showSessionExpiredModal: false,
+      showConsentModal: true,
     }));
 
     // Update localStorage for backward compatibility
@@ -445,6 +467,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const setAuthProfile = useCallback((profile: AuthProfile | null) => {
     setState(prev => ({ ...prev, authProfile: profile }));
   }, []);
+
+  // Accept terms and consent
+  const acceptTerms = useCallback(async () => {
+    await acceptTermsApi();
+    // Update user state with accepted terms
+    setState(prev => ({
+      ...prev,
+      user: prev.user ? { ...prev.user, hasAcceptedTerms: true } : null,
+      showConsentModal: false,
+    }));
+  }, []);
+
+  // Handle consent cancel - log user out
+  const handleConsentCancel = useCallback(async () => {
+    await logout();
+  }, [logout]);
 
   // Initial session validation
   useEffect(() => {
@@ -520,11 +558,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     updateAuthProfile,
     setUser,
     setAuthProfile,
+    acceptTerms,
+    hasAcceptedTerms: state.user?.hasAcceptedTerms ?? false,
   };
 
   return (
     <AuthContext.Provider value={value}>
       {children}
+      <ConsentModal
+        visible={state.showConsentModal}
+        onAccept={acceptTerms}
+        onCancel={handleConsentCancel}
+      />
     </AuthContext.Provider>
   );
 }
