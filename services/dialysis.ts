@@ -243,6 +243,11 @@ export async function getActiveSession(): Promise<DialysisSession | null> {
   }
 }
 
+// Delete session
+export async function deleteSession(sessionId: string): Promise<void> {
+  await authFetch(`/dialysis/sessions/${sessionId}`, { method: 'DELETE' });
+}
+
 // Helper to format duration
 export function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60);

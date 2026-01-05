@@ -30,6 +30,7 @@ import {
   listSessions,
   getActiveSession,
   getSessionDetails,
+  deleteSession,
   formatDuration,
   getStatusColor,
   getRatingColor,
@@ -121,6 +122,11 @@ const Sessions: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [showAnalysisDropdown, setShowAnalysisDropdown] = useState(false);
+
+  // Delete state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<DialysisSession | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const hasFetched = useRef(false);
 
@@ -655,6 +661,24 @@ const Sessions: React.FC = () => {
     }
   };
 
+  // Delete handler
+  const handleDeleteSession = async () => {
+    if (!sessionToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteSession(sessionToDelete._id);
+      setSessions(prev => prev.filter(s => s._id !== sessionToDelete._id));
+      setShowDeleteModal(false);
+      setSessionToDelete(null);
+    } catch (err: any) {
+      console.error('Failed to delete session:', err);
+      setValidationErrors([err?.message || 'Failed to delete session. Please try again.']);
+      setShowValidationModal(true);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const completedSessions = useMemo(() =>
     sessions.filter(s => s.status === SessionStatus.COMPLETED),
     [sessions]
@@ -999,6 +1023,17 @@ const Sessions: React.FC = () => {
                             {session.sessionRating === SessionRating.GOOD ? '😊' : session.sessionRating === SessionRating.OK ? '😐' : '😞'}
                           </span>
                         )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSessionToDelete(session);
+                            setShowDeleteModal(true);
+                          }}
+                          className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all"
+                          title="Delete session"
+                        >
+                          <ICONS.Trash className="w-5 h-5" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1967,6 +2002,66 @@ const Sessions: React.FC = () => {
           >
             Back to Sessions
           </button>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && sessionToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center">
+                <ICONS.Trash className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Delete Session</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl mb-6">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Are you sure you want to delete the <strong>{sessionToDelete.type.toUpperCase()}</strong> session from{' '}
+                <strong>{new Date(sessionToDelete.startedAt).toLocaleDateString()}</strong>?
+              </p>
+              {sessionToDelete.actualDurationMin && (
+                <p className="text-xs text-slate-400 mt-2">
+                  Duration: {formatDuration(sessionToDelete.actualDurationMin)}
+                  {sessionToDelete.actualUfMl && ` • UF: ${sessionToDelete.actualUfMl} ml`}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSessionToDelete(null);
+                }}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteSession}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-rose-500 text-white font-bold rounded-xl hover:bg-rose-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <ICONS.Trash className="w-5 h-5" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
