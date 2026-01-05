@@ -49,7 +49,7 @@ export async function getSettings(): Promise<UserSettings> {
 // Update user settings
 export async function updateSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
   const result = await authFetch('/settings', {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(settings),
   });
   return result.data.settings;
