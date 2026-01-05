@@ -1,6 +1,7 @@
-
 // Use relative URL in development (for Vite proxy), full URL in production
-const API_BASE_URL = import.meta.env.DEV ? '/api/v1' : 'https://api.dialysis.live/api/v1';
+const API_BASE_URL = import.meta.env.DEV
+  ? '/api/v1'
+  : `${import.meta.env.VITE_API_URL || 'https://api.dialysis.live'}/api/v1`;
 
 export interface AuthTokens {
   accessToken: string;
