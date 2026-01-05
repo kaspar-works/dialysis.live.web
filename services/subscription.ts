@@ -187,16 +187,6 @@ export async function updateSubscription(
   return result.data.subscription;
 }
 
-/**
- * Cancel subscription
- * POST /api/v1/subscriptions/cancel
- */
-export async function cancelSubscription(): Promise<void> {
-  await authFetch('/subscriptions/cancel', {
-    method: 'POST',
-  });
-}
-
 // ============ PAYMENT METHODS ============
 
 export interface PaymentMethod {
