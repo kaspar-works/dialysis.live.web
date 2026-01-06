@@ -77,7 +77,7 @@ const Landing: React.FC = () => {
     { value: '9+', label: 'Core Features' },
     { value: '256-bit', label: 'Encryption' },
     { value: '24/7', label: 'Access' },
-    { value: '100%', label: 'HIPAA Ready' }
+    { value: '100%', label: 'Private' }
   ];
 
   const howItWorks = [

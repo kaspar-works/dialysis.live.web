@@ -55,7 +55,7 @@ const Reports: React.FC = () => {
         weights: weightsRes.logs || [],
         fluids: fluidsRes.logs || [],
         vitals: vitalsRes.logs || [],
-        medications: Array.isArray(medsRes) ? medsRes : (medsRes.medications || []),
+        medications: Array.isArray(medsRes) ? medsRes : ((medsRes as any)?.medications || []),
       });
       setSubscription(subRes);
     } catch (err: any) {
@@ -121,13 +121,28 @@ const Reports: React.FC = () => {
 
   const canExport = subscription?.features?.exportData === true;
 
-  const filterByDateRange = <T extends { loggedAt?: string; startedAt?: string }>(items: T[]): T[] => {
+  const filterSessionsByDateRange = (items: DialysisSession[]): DialysisSession[] => {
     const days = parseInt(dateRange);
     const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    return items.filter(item => {
-      const date = new Date(item.loggedAt || item.startedAt || '');
-      return date > threshold;
-    });
+    return items.filter(item => new Date(item.startedAt || '') > threshold);
+  };
+
+  const filterWeightsByDateRange = (items: WeightLog[]): WeightLog[] => {
+    const days = parseInt(dateRange);
+    const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    return items.filter(item => new Date(item.loggedAt) > threshold);
+  };
+
+  const filterFluidsByDateRange = (items: FluidLog[]): FluidLog[] => {
+    const days = parseInt(dateRange);
+    const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    return items.filter(item => new Date(item.loggedAt) > threshold);
+  };
+
+  const filterVitalsByDateRange = (items: VitalLog[]): VitalLog[] => {
+    const days = parseInt(dateRange);
+    const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    return items.filter(item => new Date(item.loggedAt) > threshold);
   };
 
   const exportAsJSON = () => {
@@ -137,10 +152,10 @@ const Reports: React.FC = () => {
       dateRange: `${dateRange} days`,
     };
 
-    if (selectedDataPoints.includes('sessions')) exportData.sessions = filterByDateRange(data.sessions);
-    if (selectedDataPoints.includes('weights')) exportData.weights = filterByDateRange(data.weights);
-    if (selectedDataPoints.includes('fluids')) exportData.fluids = filterByDateRange(data.fluids);
-    if (selectedDataPoints.includes('vitals')) exportData.vitals = filterByDateRange(data.vitals);
+    if (selectedDataPoints.includes('sessions')) exportData.sessions = filterSessionsByDateRange(data.sessions);
+    if (selectedDataPoints.includes('weights')) exportData.weights = filterWeightsByDateRange(data.weights);
+    if (selectedDataPoints.includes('fluids')) exportData.fluids = filterFluidsByDateRange(data.fluids);
+    if (selectedDataPoints.includes('vitals')) exportData.vitals = filterVitalsByDateRange(data.vitals);
     if (selectedDataPoints.includes('meds')) exportData.medications = data.medications;
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -161,9 +176,9 @@ const Reports: React.FC = () => {
       return;
     }
 
-    const sessions = selectedDataPoints.includes('sessions') ? filterByDateRange(data.sessions) : [];
-    const weights = selectedDataPoints.includes('weights') ? filterByDateRange(data.weights) : [];
-    const vitals = selectedDataPoints.includes('vitals') ? filterByDateRange(data.vitals) : [];
+    const sessions = selectedDataPoints.includes('sessions') ? filterSessionsByDateRange(data.sessions) : [];
+    const weights = selectedDataPoints.includes('weights') ? filterWeightsByDateRange(data.weights) : [];
+    const vitals = selectedDataPoints.includes('vitals') ? filterVitalsByDateRange(data.vitals) : [];
     const medications = selectedDataPoints.includes('meds') ? data.medications : [];
 
     const html = `
@@ -247,13 +262,13 @@ const Reports: React.FC = () => {
           <div class="section">
             <div class="section-title">Current Medications</div>
             <table>
-              <thead><tr><th>Medication</th><th>Dosage</th><th>Frequency</th><th>Instructions</th></tr></thead>
+              <thead><tr><th>Medication</th><th>Dose</th><th>Route</th><th>Instructions</th></tr></thead>
               <tbody>
                 ${medications.map(m => `
                   <tr>
                     <td><strong>${m.name}</strong></td>
-                    <td>${m.dosage} ${m.dosageUnit}</td>
-                    <td>${m.frequency}</td>
+                    <td>${m.dose}</td>
+                    <td>${m.route}</td>
                     <td>${m.instructions || '-'}</td>
                   </tr>
                 `).join('')}

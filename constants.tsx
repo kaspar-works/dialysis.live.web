@@ -1,13 +1,70 @@
 
 import React from 'react';
 
+// ============================================
+// Design System Tokens
+// ============================================
+
 export const COLORS = {
-  primary: '#0ea5e9', // Sky Blue (Core arterial)
-  secondary: '#db2777', // Deep Pink (Venous/Vitality)
-  accent: '#f97316', // Orange (Warm highlight)
-  success: '#10b981', // Emerald
-  warning: '#f59e0b', // Amber
-  background: '#f8fafc',
+  primary: '#0ea5e9', // Sky Blue (Core arterial) - sky-500
+  secondary: '#db2777', // Deep Pink (Venous/Vitality) - pink-600
+  accent: '#f97316', // Orange (Warm highlight) - orange-500
+  success: '#10b981', // Emerald - emerald-500
+  warning: '#f59e0b', // Amber - amber-500
+  error: '#ef4444', // Red - red-500
+  background: {
+    dark: '#020617', // slate-950 equivalent - used for dark pages
+    light: '#f8fafc', // slate-50 - light mode background
+  },
+};
+
+// Standardized Tailwind class strings for consistency
+export const STYLES = {
+  // Page backgrounds
+  pageBg: 'bg-slate-50 dark:bg-[#020617]',
+  marketingPageBg: 'bg-[#020617]', // Dark only for landing/pricing
+
+  // Cards
+  card: 'bg-white dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm dark:shadow-none',
+  cardHover: 'hover:shadow-lg dark:hover:border-white/10 transition-all',
+  cardGlass: 'bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10',
+
+  // Buttons
+  btnPrimary: 'px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-2xl font-bold hover:opacity-90 transition-all',
+  btnSecondary: 'px-8 py-4 bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white rounded-2xl font-bold border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all',
+  btnGradient: 'px-8 py-4 bg-gradient-to-r from-sky-500 to-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-sky-500/20 hover:shadow-xl hover:shadow-sky-500/30 transition-all',
+  btnDanger: 'px-8 py-4 bg-rose-500 text-white rounded-2xl font-bold hover:bg-rose-600 transition-all',
+  btnGhost: 'px-8 py-4 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl font-bold transition-all',
+
+  // Form inputs
+  input: 'w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all',
+  inputLabel: 'block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2',
+
+  // Typography
+  heading1: 'text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white',
+  heading2: 'text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white',
+  heading3: 'text-xl md:text-2xl font-bold text-slate-900 dark:text-white',
+  bodyText: 'text-base text-slate-600 dark:text-slate-400',
+  smallText: 'text-sm text-slate-500 dark:text-slate-500',
+  label: 'text-xs font-bold uppercase tracking-wider text-slate-400',
+
+  // Navigation
+  navLink: 'text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors',
+  navLinkActive: 'text-xs font-bold uppercase tracking-wider text-sky-500',
+
+  // Gradients (for text or backgrounds)
+  gradientPrimary: 'from-sky-500 to-emerald-500',
+  gradientAccent: 'from-sky-400 via-pink-400 to-orange-400',
+  gradientText: 'text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400',
+
+  // Shadows
+  shadowCard: 'shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none',
+  shadowCardHover: 'shadow-[0_20px_50px_rgba(14,165,233,0.1)]',
+  shadowGlow: 'shadow-[0_0_40px_rgba(14,165,233,0.15)]',
+
+  // Background effects (blurs)
+  bgBlur1: 'absolute top-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-sky-500/10 rounded-full blur-[150px]',
+  bgBlur2: 'absolute bottom-[-20%] left-[-10%] w-[50vw] h-[50vw] bg-pink-500/5 rounded-full blur-[120px]',
 };
 
 export const ICONS = {
@@ -88,5 +145,59 @@ export const ICONS = {
   ),
   RefreshCw: (props: any) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
-  )
+  ),
+  Sparkles: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+  ),
+  Eye: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+  ),
+  ChevronDown: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m6 9 6 6 6-6"/></svg>
+  ),
+  ChevronRight: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m9 18 6-6-6-6"/></svg>
+  ),
+  MessageSquare: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  ),
+  Send: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+  ),
+  Lock: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+  ),
+  ArrowRight: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  ),
+  User: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+  ),
+  Bot: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+  ),
+  Lightbulb: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+  ),
+  Stethoscope: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>
+  ),
+  AlertTriangle: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+  ),
+  CheckCircle: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+  ),
+  Phone: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+  ),
+  TrendingUp: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+  ),
+  TrendingDown: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
+  ),
+  Minus: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14"/></svg>
+  ),
 };

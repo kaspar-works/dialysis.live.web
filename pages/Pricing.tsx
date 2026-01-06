@@ -38,9 +38,9 @@ const Pricing: React.FC = () => {
         { text: "Session tracking", included: true },
         { text: "Medication reminders", included: true },
         { text: "90 days data retention", included: true },
+        { text: "Community support", included: true },
         { text: "AI Features", included: false },
         { text: "Data Export", included: false },
-        { text: "Priority support", included: false },
       ],
       cta: "Start Free",
       icon: "🎯",
@@ -57,6 +57,7 @@ const Pricing: React.FC = () => {
         { text: "Unlimited fluid logs", included: true },
         { text: "Advanced analytics", included: true },
         { text: "1 year data retention", included: true },
+        { text: "Email support", included: true },
         { text: "AI Features", included: false },
         { text: "Data Export", included: false },
       ],
@@ -197,7 +198,7 @@ const Pricing: React.FC = () => {
             <Link to="/" className="hidden md:block text-sm font-semibold text-white/50 hover:text-white transition-colors">Home</Link>
             <Link to="/features" className="hidden md:block text-sm font-semibold text-white/50 hover:text-white transition-colors">Features</Link>
             <Link to="/login" className="text-sm font-semibold text-white/50 hover:text-white transition-colors">Login</Link>
-            <Link to="/register" className="px-6 py-3 bg-white text-slate-950 rounded-full font-bold text-sm hover:scale-105 transition-transform">
+            <Link to="/register" className="px-6 py-3 bg-white text-slate-950 rounded-2xl font-bold text-sm hover:scale-105 transition-transform">
               Get Started
             </Link>
           </div>

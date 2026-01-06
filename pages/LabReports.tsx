@@ -492,7 +492,7 @@ const LabReports: React.FC = () => {
           {activeTab === 'overview' && (
             <>
               {/* Latest Results by Category */}
-              {Object.entries(groupedResults).map(([category, results]) => {
+              {Object.entries(groupedResults).map(([category, results]: [string, LatestResult[]]) => {
                 if (results.length === 0) return null;
                 const catConfig = CATEGORY_CONFIG[category as LabTestCategory];
 
@@ -533,7 +533,7 @@ const LabReports: React.FC = () => {
                             </div>
                             <div className="flex items-baseline gap-1">
                               <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-                                {('latestValue' in result ? result.latestValue : result.value).toFixed(1)}
+                                {result.latestValue.toFixed(1)}
                               </span>
                               <span className="text-xs text-slate-400">{result.unit}</span>
                             </div>
@@ -545,7 +545,7 @@ const LabReports: React.FC = () => {
                                 }`}
                                 style={{
                                   width: `${Math.min(100, Math.max(0,
-                                    (('latestValue' in result ? result.latestValue : result.value) - result.referenceRange.low) /
+                                    (result.latestValue - result.referenceRange.low) /
                                     (result.referenceRange.high - result.referenceRange.low) * 100
                                   ))}%`
                                 }}

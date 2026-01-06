@@ -226,6 +226,7 @@ export interface UserProfile {
   timeZone: string;
   dailyFluidLimit: number;
   weightGoal: number;
+  dryWeightKg?: number;
   preferredDialysisType: DialysisType;
   dialysisMode: 'home' | 'clinic' | 'none';
   isOnDialysis: boolean;

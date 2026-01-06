@@ -232,10 +232,10 @@ const Dashboard: React.FC = () => {
     const hours = Array.from({ length: 24 }, (_, i) => ({ hour: i, amount: 0 }));
     // Only populate if we have fluid data from API
     if (todayFluid > 0 && dashboardData?.fluid?.history) {
-      dashboardData.fluid.history.forEach((entry: { date: string; amount: number }) => {
+      dashboardData.fluid.history.forEach((entry: { date: string; total: number }) => {
         const hour = new Date(entry.date).getHours();
         if (hour >= 0 && hour < 24) {
-          hours[hour].amount += entry.amount;
+          hours[hour].amount += entry.total;
         }
       });
     }
@@ -612,8 +612,8 @@ const Dashboard: React.FC = () => {
               if (alert.severity === 'critical') return '🚨';
               if (alert.severity === 'high') return '⚠️';
               if (alert.severity === 'medium') return '⚡';
-              if (alert.type === 'warning') return '⚠️';
-              if (alert.type === 'success') return '✨';
+              if ((alert.type as string) === 'warning') return '⚠️';
+              if ((alert.type as string) === 'success') return '✨';
               return 'ℹ️';
             };
 

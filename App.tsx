@@ -52,6 +52,9 @@ const Symptoms = lazy(() => import('./pages/Symptoms'));
 const Reminders = lazy(() => import('./pages/Reminders'));
 const Appointments = lazy(() => import('./pages/Appointments'));
 const HealthCheck = lazy(() => import('./pages/HealthCheck'));
+const AIChat = lazy(() => import('./pages/AIChat'));
+const AIInsights = lazy(() => import('./pages/AIInsights'));
+const SymptomAnalysis = lazy(() => import('./pages/SymptomAnalysis'));
 
 // Check if health check page is enabled via env variable
 const ENABLE_HEALTH_CHECK = import.meta.env.VITE_ENABLE_HEALTH_CHECK === 'true';
@@ -218,6 +221,30 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <Layout><SEO title="Clinical Reports" noIndex /><Reports /></Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ai-chat"
+                element={
+                  <ProtectedRoute>
+                    <Layout><SEO title="AI Health Assistant" noIndex /><AIChat /></Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ai-insights"
+                element={
+                  <ProtectedRoute>
+                    <Layout><SEO title="AI Health Insights" noIndex /><AIInsights /></Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/symptom-analysis"
+                element={
+                  <ProtectedRoute>
+                    <Layout><SEO title="Symptom Analysis" noIndex /><SymptomAnalysis /></Layout>
                   </ProtectedRoute>
                 }
               />

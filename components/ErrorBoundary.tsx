@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { captureError } from '../config/sentry';
 
@@ -12,10 +12,11 @@ interface State {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
+    this.handleReset = this.handleReset.bind(this);
   }
 
   static getDerivedStateFromError(error: Error): State {
@@ -30,11 +31,11 @@ class ErrorBoundary extends Component<Props, State> {
     });
   }
 
-  handleReset = () => {
+  handleReset(): void {
     this.setState({ hasError: false, error: null });
-  };
+  }
 
-  render() {
+  render(): React.ReactNode {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;

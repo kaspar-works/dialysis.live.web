@@ -6,6 +6,7 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
+import type { StripeCardElement } from '@stripe/stripe-js';
 import { ICONS } from '../constants';
 import { PlanType, PLAN_CONFIGS } from '../services/subscription';
 
@@ -64,7 +65,7 @@ const PaymentForm: React.FC<{
     setIsProcessing(true);
     setError(null);
 
-    const cardElement = elements.getElement(CardElement);
+    const cardElement = elements.getElement(CardElement) as unknown as StripeCardElement | null;
     if (!cardElement) {
       setError('Card element not found');
       setIsProcessing(false);

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ICONS } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
-import { SubscriptionLimitError } from '../services/auth';
+import { SubscriptionLimitError, FeatureRestrictedError } from '../services/auth';
 import {
   Medication,
   MedicationDose,
@@ -18,6 +18,7 @@ import {
   markDoseSkipped,
   getTodayDoseStats,
 } from '../services/medications';
+import { checkMedications, MedicationCheckResponse, MEDICAL_DISCLAIMER } from '../services/ai';
 
 type TabView = 'today' | 'medications';
 
@@ -41,6 +42,12 @@ const Medications: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [medToDelete, setMedToDelete] = useState<Medication | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Medication interaction check
+  const [isCheckingInteractions, setIsCheckingInteractions] = useState(false);
+  const [interactionResults, setInteractionResults] = useState<MedicationCheckResponse | null>(null);
+  const [showInteractionModal, setShowInteractionModal] = useState(false);
+  const [interactionError, setInteractionError] = useState<{ message: string; type: 'limit' | 'feature' | 'error' } | null>(null);
 
   // New medication form
   const [newMed, setNewMed] = useState({
@@ -177,6 +184,36 @@ const Medications: React.FC = () => {
     }
   };
 
+  const handleCheckInteractions = async () => {
+    const activeMeds = medications.filter(m => m.active);
+    if (activeMeds.length < 2) {
+      setInteractionError({ message: 'At least 2 active medications are required to check interactions.', type: 'error' });
+      setShowInteractionModal(true);
+      return;
+    }
+
+    setIsCheckingInteractions(true);
+    setInteractionError(null);
+    setInteractionResults(null);
+    setShowInteractionModal(true);
+
+    try {
+      const medNames = activeMeds.map(m => `${m.name} ${m.dose}`.trim());
+      const results = await checkMedications(medNames);
+      setInteractionResults(results);
+    } catch (err) {
+      if (err instanceof FeatureRestrictedError) {
+        setInteractionError({ message: err.message, type: 'feature' });
+      } else if (err instanceof SubscriptionLimitError) {
+        setInteractionError({ message: err.message, type: 'limit' });
+      } else {
+        setInteractionError({ message: 'Failed to check interactions. Please try again.', type: 'error' });
+      }
+    } finally {
+      setIsCheckingInteractions(false);
+    }
+  };
+
   const addTimeSlot = () => {
     setNewMed(prev => ({ ...prev, times: [...prev.times, '12:00'] }));
   };
@@ -211,7 +248,7 @@ const Medications: React.FC = () => {
     return acc;
   }, {} as Record<string, DoseWithMed[]>);
 
-  const pendingDoses = todayDoses.filter(d => d.status === DoseStatus.PENDING);
+  const pendingDoses = todayDoses.filter(d => d.status === DoseStatus.SCHEDULED);
   const nextDose = pendingDoses.length > 0 ? pendingDoses[0] : null;
 
   if (isLoading) {
@@ -237,13 +274,34 @@ const Medications: React.FC = () => {
             <p className="text-slate-400 text-sm mt-1">{medications.length} active medication{medications.length !== 1 ? 's' : ''}</p>
           )}
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-5 py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-all shadow-lg shadow-pink-500/20"
-        >
-          <ICONS.Plus className="w-5 h-5" />
-          Add Medication
-        </button>
+        <div className="flex items-center gap-3">
+          {medications.length >= 2 && (
+            <button
+              onClick={handleCheckInteractions}
+              disabled={isCheckingInteractions}
+              className="flex items-center gap-2 px-5 py-3 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-all shadow-lg shadow-purple-500/20 disabled:opacity-50"
+            >
+              {isCheckingInteractions ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Checking...
+                </>
+              ) : (
+                <>
+                  <ICONS.Sparkles className="w-5 h-5" />
+                  Check Interactions
+                </>
+              )}
+            </button>
+          )}
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-3 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition-all shadow-lg shadow-pink-500/20"
+          >
+            <ICONS.Plus className="w-5 h-5" />
+            Add Medication
+          </button>
+        </div>
       </header>
 
       {/* Limit Error Banner */}
@@ -403,7 +461,7 @@ const Medications: React.FC = () => {
               </button>
             </div>
           ) : (
-            Object.entries(groupedDoses).map(([period, doses]) => (
+            Object.entries(groupedDoses).map(([period, doses]: [string, DoseWithMed[]]) => (
               <div key={period}>
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">{period}</h3>
                 <div className="space-y-2">
@@ -412,7 +470,7 @@ const Medications: React.FC = () => {
                     const isTaken = dose.status === DoseStatus.TAKEN;
                     const isSkipped = dose.status === DoseStatus.SKIPPED;
                     const isMissed = dose.status === DoseStatus.MISSED;
-                    const isPending = dose.status === DoseStatus.PENDING;
+                    const isPending = dose.status === DoseStatus.SCHEDULED;
 
                     return (
                       <div
@@ -781,6 +839,201 @@ const Medications: React.FC = () => {
                     Delete
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Medication Interaction Check Modal */}
+      {showInteractionModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 dark:bg-purple-500/20 rounded-xl flex items-center justify-center">
+                  <ICONS.Sparkles className="w-5 h-5 text-purple-500" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">AI Medication Check</h2>
+                  <p className="text-sm text-slate-400 mt-0.5">Drug interactions & dialysis considerations</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowInteractionModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
+              >
+                <ICONS.X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {isCheckingInteractions && (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
+                  <p className="text-slate-500 mt-4">Analyzing your medications...</p>
+                </div>
+              )}
+
+              {interactionError && (
+                <div className={`rounded-2xl p-5 ${
+                  interactionError.type === 'feature' ? 'bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20' :
+                  interactionError.type === 'limit' ? 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20' :
+                  'bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20'
+                }`}>
+                  <div className="flex items-start gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      interactionError.type === 'feature' ? 'bg-purple-500/20' :
+                      interactionError.type === 'limit' ? 'bg-amber-500/20' : 'bg-rose-500/20'
+                    }`}>
+                      <ICONS.AlertCircle className={`w-5 h-5 ${
+                        interactionError.type === 'feature' ? 'text-purple-500' :
+                        interactionError.type === 'limit' ? 'text-amber-500' : 'text-rose-500'
+                      }`} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className={`font-bold ${
+                        interactionError.type === 'feature' ? 'text-purple-700 dark:text-purple-400' :
+                        interactionError.type === 'limit' ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'
+                      }`}>
+                        {interactionError.type === 'feature' ? 'Premium Feature' :
+                         interactionError.type === 'limit' ? 'Limit Reached' : 'Error'}
+                      </h3>
+                      <p className={`text-sm mt-1 ${
+                        interactionError.type === 'feature' ? 'text-purple-600 dark:text-purple-300' :
+                        interactionError.type === 'limit' ? 'text-amber-600 dark:text-amber-300' : 'text-rose-600 dark:text-rose-300'
+                      }`}>{interactionError.message}</p>
+                      {(interactionError.type === 'feature' || interactionError.type === 'limit') && (
+                        <Link
+                          to="/subscription/pricing"
+                          className={`inline-flex items-center gap-2 mt-3 text-sm font-medium ${
+                            interactionError.type === 'feature' ? 'text-purple-500 hover:text-purple-600' : 'text-amber-500 hover:text-amber-600'
+                          }`}
+                        >
+                          Upgrade Plan <ICONS.ArrowRight className="w-4 h-4" />
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {interactionResults && !isCheckingInteractions && (
+                <div className="space-y-6">
+                  {/* Summary */}
+                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-500/10 dark:to-indigo-500/10 rounded-2xl p-5">
+                    <h3 className="font-bold text-slate-900 dark:text-white mb-3">Summary</h3>
+                    <p className="text-slate-600 dark:text-slate-300">{interactionResults.summary}</p>
+                  </div>
+
+                  {/* Interactions */}
+                  {interactionResults.interactions && interactionResults.interactions.length > 0 && (
+                    <div>
+                      <h3 className="font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                        <span className="text-amber-500">⚠️</span> Drug Interactions
+                      </h3>
+                      <div className="space-y-3">
+                        {interactionResults.interactions.map((interaction, idx) => (
+                          <div
+                            key={idx}
+                            className={`p-4 rounded-xl border ${
+                              interaction.severity === 'major' ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20' :
+                              interaction.severity === 'moderate' ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20' :
+                              'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1">
+                                <p className="font-bold text-slate-900 dark:text-white text-sm">
+                                  {interaction.drug1} + {interaction.drug2}
+                                </p>
+                                <p className="text-slate-600 dark:text-slate-300 text-sm mt-1">{interaction.description}</p>
+                              </div>
+                              <span className={`px-2 py-1 rounded-lg text-xs font-bold uppercase ${
+                                interaction.severity === 'major' ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400' :
+                                interaction.severity === 'moderate' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' :
+                                'bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-300'
+                              }`}>
+                                {interaction.severity}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dialysis Considerations */}
+                  {interactionResults.dialysisConsiderations && interactionResults.dialysisConsiderations.length > 0 && (
+                    <div>
+                      <h3 className="font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                        <ICONS.Clock className="w-5 h-5 text-sky-500" /> Dialysis Timing
+                      </h3>
+                      <div className="space-y-2">
+                        {interactionResults.dialysisConsiderations.map((item, idx) => (
+                          <div key={idx} className="flex items-start gap-3 p-3 bg-sky-50 dark:bg-sky-500/10 rounded-xl">
+                            <div className="w-6 h-6 bg-sky-100 dark:bg-sky-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <span className="text-sky-500 text-xs font-bold">{idx + 1}</span>
+                            </div>
+                            <p className="text-slate-600 dark:text-slate-300 text-sm">{item}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dietary Interactions */}
+                  {interactionResults.dietaryInteractions && interactionResults.dietaryInteractions.length > 0 && (
+                    <div>
+                      <h3 className="font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                        <span className="text-emerald-500">🥗</span> Food & Dietary Interactions
+                      </h3>
+                      <div className="space-y-2">
+                        {interactionResults.dietaryInteractions.map((item, idx) => (
+                          <div key={idx} className="flex items-start gap-3 p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl">
+                            <ICONS.Check className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                            <p className="text-slate-600 dark:text-slate-300 text-sm">{item}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recommendations */}
+                  {interactionResults.recommendations && interactionResults.recommendations.length > 0 && (
+                    <div>
+                      <h3 className="font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                        <ICONS.Lightbulb className="w-5 h-5 text-purple-500" /> Recommendations
+                      </h3>
+                      <div className="space-y-2">
+                        {interactionResults.recommendations.map((rec, idx) => (
+                          <div key={idx} className="flex items-start gap-3 p-3 bg-purple-50 dark:bg-purple-500/10 rounded-xl">
+                            <div className="w-6 h-6 bg-purple-100 dark:bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <span className="text-purple-500 text-xs font-bold">{idx + 1}</span>
+                            </div>
+                            <p className="text-slate-600 dark:text-slate-300 text-sm">{rec}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Disclaimer */}
+                  <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-100 dark:border-slate-600">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+                      {interactionResults.disclaimer || MEDICAL_DISCLAIMER}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-slate-100 dark:border-slate-700">
+              <button
+                onClick={() => setShowInteractionModal(false)}
+                className="w-full py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

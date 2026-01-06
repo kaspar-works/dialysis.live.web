@@ -234,7 +234,7 @@ const Vitals: React.FC = () => {
       // Reset to defaults for next entry
       const config = vitalConfig[selectedType];
       setVal1(config.defaultVal1 || '');
-      setVal2(config.defaultVal2 || '80');
+      setVal2('defaultVal2' in config ? config.defaultVal2 : '80');
     } catch (err) {
       console.error('Failed to add vital:', err);
 
@@ -288,7 +288,7 @@ const Vitals: React.FC = () => {
   useEffect(() => {
     const config = vitalConfig[selectedType];
     setVal1(config.defaultVal1 || '');
-    setVal2(config.defaultVal2 || '80');
+    setVal2('defaultVal2' in config ? config.defaultVal2 : '80');
   }, [selectedType]);
 
   // Get status for a vital reading

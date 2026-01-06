@@ -82,7 +82,7 @@ const Features: React.FC = () => {
 
   const securityFeatures = [
     { title: "256-bit Encryption", desc: "End-to-end encryption for all health data" },
-    { title: "HIPAA Ready", desc: "Built with healthcare compliance in mind" },
+    { title: "Privacy First", desc: "Your data stays private and secure" },
     { title: "Local-First", desc: "Your data stays on your device first" },
     { title: "Secure Sync", desc: "Encrypted cloud backup with Firebase" }
   ];
