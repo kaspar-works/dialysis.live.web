@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import Logo from '../components/Logo';
 import SEO from '../components/SEO';
 

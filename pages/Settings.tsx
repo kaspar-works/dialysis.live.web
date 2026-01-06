@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { getSettings, updateSettings, UserSettings, defaultSettings } from '../services/settings';
 import {
   getCurrentSubscription,

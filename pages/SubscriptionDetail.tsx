@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { SubscriptionPlan, SubscriptionStatus } from '../types';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 const SubscriptionDetail: React.FC = () => {
   const { profile, setProfile, sessions, medications } = useStore();

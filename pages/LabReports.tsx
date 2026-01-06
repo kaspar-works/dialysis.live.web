@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { ICONS } from '../constants';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,

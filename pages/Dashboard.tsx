@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { useSettings } from '../contexts/SettingsContext';
 import { ICONS } from '../constants';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import OnboardingModal from '../components/OnboardingModal';
 import { getDashboard, getHealthOverview, DashboardStats, HealthOverview } from '../services/dashboard';
 import {

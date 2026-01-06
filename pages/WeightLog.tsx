@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { useSettings } from '../contexts/SettingsContext';

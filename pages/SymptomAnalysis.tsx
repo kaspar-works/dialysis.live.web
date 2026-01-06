@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { ICONS } from '../constants';
 import { analyzeSymptoms, getAIUsage, SymptomAnalysis, AIUsage, getSeverityColor, getSeverityLabel, MEDICAL_DISCLAIMER } from '../services/ai';
 import { FeatureRestrictedError, SubscriptionLimitError } from '../services/auth';

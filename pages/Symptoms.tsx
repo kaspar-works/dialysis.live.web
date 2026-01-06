@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { ICONS } from '../constants';
 import { SymptomType } from '../types';
 import { createSymptomLog, getSymptomLogs, getSymptomTypes, SymptomLog, SymptomTypeConfig } from '../services/symptoms';

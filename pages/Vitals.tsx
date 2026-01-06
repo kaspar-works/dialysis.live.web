@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 import { createVitalRecord, getVitalRecords, deleteVitalRecord, VitalRecord, analyzeVitals, VitalsAnalysis } from '../services/vitals';
 import { SubscriptionLimitError } from '../services/auth';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 type AnalysisDays = 10 | 30;
 
