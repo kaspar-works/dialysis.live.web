@@ -842,7 +842,17 @@ const Dashboard: React.FC = () => {
             </svg>
           </div>
 
-          <div className="relative z-10">
+          {/* Vertical Progress Bar */}
+          {dailyFluidLimit > 0 && (
+            <div className="absolute right-4 top-6 bottom-6 w-2 bg-white/20 rounded-full overflow-hidden">
+              <div
+                className="absolute bottom-0 left-0 right-0 bg-white/60 rounded-full transition-all duration-1000"
+                style={{ height: `${Math.min(fluidPercentage, 100)}%` }}
+              />
+            </div>
+          )}
+
+          <div className="relative z-10 pr-6">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-white/60 text-xs font-bold uppercase tracking-wider">Today's Hydration</p>
