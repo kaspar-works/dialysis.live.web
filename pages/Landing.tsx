@@ -236,7 +236,7 @@ const Landing: React.FC = () => {
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-white/60 to-white/20">Nothing You Don't.</span>
           </h2>
           <p className="text-white/40 text-lg md:text-xl font-medium max-w-2xl mx-auto leading-relaxed">
-            Nine powerful modules designed specifically for dialysis patients. Track, analyze, and optimize your renal health journey.
+            Nine powerful modules designed specifically for dialysis patients. Track, analyze, and optimize your renal health journey. <Link to="/features" className="text-sky-400 hover:text-sky-300 underline underline-offset-4">Explore all features</Link>.
           </p>
         </div>
 
@@ -275,6 +275,9 @@ const Landing: React.FC = () => {
           <div className="text-center space-y-6 mb-16 md:mb-24">
             <span className="text-[9px] md:text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] md:tracking-[0.5em]">Simple Process</span>
             <h2 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter leading-none">How It Works.</h2>
+            <p className="text-white/40 text-lg md:text-xl font-medium max-w-xl mx-auto">
+              Get started in minutes. <Link to="/register" className="text-emerald-400 hover:text-emerald-300 underline underline-offset-4">Create your free account</Link> today.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
@@ -301,6 +304,9 @@ const Landing: React.FC = () => {
         <div className="text-center space-y-6 mb-16 md:mb-24">
           <span className="text-[9px] md:text-[10px] font-black text-pink-400 uppercase tracking-[0.3em] md:tracking-[0.5em]">Patient Stories</span>
           <h2 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter leading-none">Trusted by<br/>Patients.</h2>
+          <p className="text-white/40 text-lg md:text-xl font-medium max-w-xl mx-auto">
+            See what patients are saying about their experience. <Link to="/pricing" className="text-pink-400 hover:text-pink-300 underline underline-offset-4">View our plans</Link>.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
@@ -330,7 +336,7 @@ const Landing: React.FC = () => {
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">Today.</span>
               </h2>
               <p className="text-white/40 text-lg md:text-xl font-medium max-w-xl mx-auto">
-                Join thousands of dialysis patients taking control of their health with clinical-grade tracking.
+                Join thousands of dialysis patients taking control of their health with clinical-grade tracking. Read our <Link to="/privacy" className="text-sky-400 hover:text-sky-300 underline underline-offset-4">privacy policy</Link> and <Link to="/terms" className="text-sky-400 hover:text-sky-300 underline underline-offset-4">terms of service</Link>.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6 pt-4">
                 <Link to="/register" className="w-full sm:w-auto px-12 md:px-16 py-6 md:py-8 bg-white text-slate-950 rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] hover:scale-105 active:scale-95 transition-all">Create Free Account</Link>

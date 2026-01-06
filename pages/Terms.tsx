@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
+import SEO from '../components/SEO';
 
 const Terms: React.FC = () => {
   const sections = [
@@ -53,6 +54,10 @@ const Terms: React.FC = () => {
 
   return (
     <div className="bg-white min-h-screen selection:bg-sky-100 selection:text-sky-900">
+      <SEO
+        title="Terms & Conditions - Dialysis Management Platform"
+        description="Read the terms and conditions for using dialysis.live, the clinical-grade dialysis tracking platform for renal patients and caregivers."
+      />
       {/* Navigation Header */}
       <nav className="fixed top-0 left-0 right-0 h-24 bg-white/70 backdrop-blur-2xl border-b border-slate-100 flex items-center justify-between px-10 lg:px-20 z-50">
         <Link to="/" className="flex items-center gap-3 group">

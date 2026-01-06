@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useStore } from '../store';
 import Logo from '../components/Logo';
+import SEO from '../components/SEO';
 
 // Google Client ID from environment
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -166,6 +167,10 @@ const Register: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col lg:flex-row animate-in fade-in duration-700 transition-colors">
+      <SEO
+        title="Create Account - Start Your Dialysis Tracking Journey"
+        description="Sign up for dialysis.live to track your dialysis sessions, monitor vitals, log medications, and get AI-powered nutrition insights."
+      />
       {/* Form Side */}
       <div className="flex-1 p-12 lg:p-24 flex items-center justify-center order-2 lg:order-1 relative">
         {/* Back Home Link */}

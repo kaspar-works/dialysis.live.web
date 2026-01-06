@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Logo from '../components/Logo';
+import SEO from '../components/SEO';
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -15,6 +16,10 @@ const ForgotPassword: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row animate-in fade-in duration-700">
+      <SEO
+        title="Reset Password - Recover Your Account"
+        description="Reset your dialysis.live password securely. Enter your email to receive password recovery instructions."
+      />
       {/* Visual Side */}
       <div className="lg:w-1/2 bg-slate-50 p-12 lg:p-24 flex flex-col justify-between relative overflow-hidden order-1 lg:order-2">
         <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[120px] -translate-y-1/2 -translate-x-1/2"></div>

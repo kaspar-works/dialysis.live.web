@@ -24,8 +24,8 @@ const SEO: React.FC<SEOProps> = ({
   const location = useLocation();
 
   useEffect(() => {
-    const baseTitle = 'dialysis.live';
-    const finalTitle = title ? `${title} | ${baseTitle}` : baseTitle;
+    // Don't append domain to title for SEO best practices
+    const finalTitle = title || 'Modern Kidney Dialysis Management Platform';
     const finalDescription = description || DEFAULT_DESCRIPTION;
     const currentUrl = `${BASE_URL}${location.pathname}`;
 

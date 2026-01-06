@@ -1,0 +1,9 @@
+# Redirect www to non-www (301 permanent redirect)
+https://www.dialysis.live/* https://dialysis.live/:splat 301!
+http://www.dialysis.live/* https://dialysis.live/:splat 301!
+
+# Force HTTPS
+http://dialysis.live/* https://dialysis.live/:splat 301!
+
+# SPA fallback for client-side routing
+/*    /index.html   200

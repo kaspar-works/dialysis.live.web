@@ -51,14 +51,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-slate-950 transition-colors duration-500">
       {/* Desktop Sidebar */}
-      <aside className={`${isSidebarOpen ? 'w-72' : 'w-24'} bg-white dark:bg-slate-950 border-r border-slate-100 dark:border-white/5 transition-all duration-500 ease-in-out flex flex-col hidden lg:flex relative z-30 shadow-[10px_0_30px_rgba(0,0,0,0.01)] dark:shadow-none`}>
+      <aside
+        className={`${isSidebarOpen ? 'w-72' : 'w-24'} bg-white dark:bg-slate-950 border-r border-slate-100 dark:border-white/5 transition-all duration-500 ease-in-out flex flex-col hidden lg:flex relative z-30 shadow-[10px_0_30px_rgba(0,0,0,0.01)] dark:shadow-none`}
+        role="complementary"
+        aria-label="Main sidebar navigation"
+      >
         <div className="p-8">
-          <Link to="/dashboard">
+          <Link to="/dashboard" aria-label="Go to dashboard">
             <Logo showText={isSidebarOpen} className="w-10 h-10" />
           </Link>
         </div>
-        
-        <nav className="flex-1 mt-4 px-4 space-y-2 overflow-y-auto custom-scrollbar">
+
+        <nav className="flex-1 mt-4 px-4 space-y-2 overflow-y-auto custom-scrollbar" aria-label="Main navigation">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
@@ -66,9 +70,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Link
                 key={item.name}
                 to={item.path}
+                aria-label={`Navigate to ${item.name}`}
+                aria-current={isActive ? 'page' : undefined}
                 className={`flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-300 group ${
-                  isActive 
-                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 shadow-xl dark:shadow-white/5' 
+                  isActive
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 shadow-xl dark:shadow-white/5'
                     : 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -85,8 +91,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <ICONS.Settings className="w-5 h-5" />
             {isSidebarOpen && <span className="font-bold text-sm">Settings</span>}
           </Link>
-          <button 
+          <button
             onClick={handleLogout}
+            aria-label="Logout from your account"
             className="w-full flex items-center gap-4 px-4 py-3 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-2xl transition-all font-bold text-sm"
           >
              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -106,7 +113,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* Universal Header */}
-        <header className="h-20 lg:h-24 bg-white/80 dark:bg-slate-950/80 backdrop-blur-2xl border-b border-slate-50 dark:border-white/5 flex items-center justify-between px-6 lg:px-12 z-40 sticky top-0 safe-pt">
+        <header
+          className="h-20 lg:h-24 bg-white/80 dark:bg-slate-950/80 backdrop-blur-2xl border-b border-slate-50 dark:border-white/5 flex items-center justify-between px-6 lg:px-12 z-40 sticky top-0 safe-pt"
+          role="banner"
+        >
           <div className="flex items-center gap-4 lg:hidden">
             <Logo className="w-8 h-8" />
             <h1 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tighter">dialysis.live</h1>
@@ -132,24 +142,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 )}
              </button>
 
-             <button 
+             <button
                 onClick={() => navigate('/sessions')}
+                aria-label="Start new dialysis session"
                 className="w-10 h-10 lg:w-auto lg:px-6 lg:py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-2xl flex items-center justify-center gap-2 shadow-xl hover:bg-sky-600 dark:hover:bg-sky-500 dark:hover:text-white transition-all active:scale-95 group"
               >
                 <ICONS.Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-500" />
                 <span className="hidden lg:block text-xs font-black uppercase tracking-widest">New Cycle</span>
              </button>
 
-             <Link to="/profile" className="flex items-center gap-3">
+             <Link to="/profile" aria-label="View your profile" className="flex items-center gap-3">
                 <div className="relative">
-                  <img src={profile.avatarUrl || defaultAvatar} className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl ring-4 ring-slate-50 dark:ring-white/5 shadow-md object-cover" alt="user" />
+                  <img src={profile.avatarUrl || defaultAvatar} className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl ring-4 ring-slate-50 dark:ring-white/5 shadow-md object-cover" alt={`${profile.name}'s profile picture`} />
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-slate-950 rounded-full shadow-sm animate-pulse"></div>
                 </div>
              </Link>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-white dark:bg-slate-950 relative custom-scrollbar pb-32 lg:pb-12 flex flex-col transition-colors duration-500">
+        <main className="flex-1 overflow-y-auto bg-white dark:bg-slate-950 relative custom-scrollbar pb-32 lg:pb-12 flex flex-col transition-colors duration-500" role="main" aria-label="Main content">
           {/* Subtle Dynamic BG Elements */}
           <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden opacity-40 dark:opacity-10">
             <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-sky-50 dark:bg-sky-500/10 rounded-full blur-[150px] -translate-y-1/2 translate-x-1/2"></div>
@@ -184,7 +195,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </main>
 
         {/* Native-feeling Mobile Navigation Bar */}
-        <nav className="fixed bottom-0 left-0 right-0 h-24 glass-panel border-t border-slate-100 dark:border-white/5 lg:hidden flex items-center justify-around px-4 z-50 safe-pb">
+        <nav
+          className="fixed bottom-0 left-0 right-0 h-24 glass-panel border-t border-slate-100 dark:border-white/5 lg:hidden flex items-center justify-around px-4 z-50 safe-pb"
+          role="navigation"
+          aria-label="Mobile navigation"
+        >
           {[
             { path: '/dashboard', icon: ICONS.Dashboard, label: 'Home' },
             { path: '/sessions', icon: ICONS.Activity, label: 'Cycles' },
@@ -195,9 +210,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
             return (
-              <Link 
-                key={item.path} 
-                to={item.path} 
+              <Link
+                key={item.path}
+                to={item.path}
+                aria-label={`Navigate to ${item.label}`}
+                aria-current={isActive ? 'page' : undefined}
                 className={`flex flex-col items-center gap-1.5 transition-all duration-500 ${isActive ? 'text-slate-900 dark:text-white -translate-y-1' : 'text-slate-400 dark:text-slate-600'}`}
               >
                 <div className={`p-3 rounded-2xl transition-all duration-500 ${isActive ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 shadow-2xl shadow-slate-400 dark:shadow-none rotate-6 scale-110' : 'bg-slate-50 dark:bg-white/5'}`}>
