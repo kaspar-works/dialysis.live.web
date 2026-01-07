@@ -36,6 +36,66 @@ const Register: React.FC = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [googleLoaded, setGoogleLoaded] = useState(false);
 
+  // Validation state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+  // Validation functions
+  const validateName = (value: string): string => {
+    if (!value || value.trim() === '') return 'Name is required';
+    if (value.trim().length < 2) return 'Name must be at least 2 characters';
+    if (value.trim().length > 50) return 'Name cannot exceed 50 characters';
+    return '';
+  };
+
+  const validateEmail = (value: string): string => {
+    if (!value || value.trim() === '') return 'Email is required';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) return 'Enter a valid email address';
+    return '';
+  };
+
+  const validatePassword = (value: string): string => {
+    if (!value || value.trim() === '') return 'Password is required';
+    if (value.length < 8) return 'Password must be at least 8 characters';
+    // Check for at least one letter and one number
+    if (!/[a-zA-Z]/.test(value)) return 'Password must contain at least one letter';
+    if (!/[0-9]/.test(value)) return 'Password must contain at least one number';
+    return '';
+  };
+
+  // Handle field change with validation
+  const handleFieldChange = (field: string, value: string) => {
+    if (field === 'name') setName(value);
+    else if (field === 'email') setEmail(value);
+    else if (field === 'password') setPassword(value);
+
+    if (touchedFields[field]) {
+      let error = '';
+      switch (field) {
+        case 'name': error = validateName(value); break;
+        case 'email': error = validateEmail(value); break;
+        case 'password': error = validatePassword(value); break;
+      }
+      setFieldErrors(prev => ({ ...prev, [field]: error }));
+    }
+  };
+
+  // Handle field blur
+  const handleFieldBlur = (field: string) => {
+    setTouchedFields(prev => ({ ...prev, [field]: true }));
+    let error = '';
+    switch (field) {
+      case 'name': error = validateName(name); break;
+      case 'email': error = validateEmail(email); break;
+      case 'password': error = validatePassword(password); break;
+    }
+    setFieldErrors(prev => ({ ...prev, [field]: error }));
+  };
+
+  // Check if form has errors
+  const hasFormErrors = Object.values(fieldErrors).some(error => error !== '');
+
   const { register: authRegister, loginWithGoogle } = useAuth();
   const { setProfile, profile } = useStore();
   const navigate = useNavigate();
@@ -124,14 +184,24 @@ const Register: React.FC = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
 
-    // Validate password length
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
-      setIsLoading(false);
+    // Mark all fields as touched
+    setTouchedFields({ name: true, email: true, password: true });
+
+    // Validate all fields
+    const newErrors: Record<string, string> = {
+      name: validateName(name),
+      email: validateEmail(email),
+      password: validatePassword(password),
+    };
+    setFieldErrors(newErrors);
+
+    // Check for validation errors
+    if (Object.values(newErrors).some(error => error !== '')) {
       return;
     }
+
+    setIsLoading(true);
 
     try {
       await authRegister(email, password, name);
@@ -251,44 +321,71 @@ const Register: React.FC = () => {
 
               <form onSubmit={handleRegister} className="space-y-4">
                 <div className="space-y-2">
-                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">Full Name</label>
+                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">
+                     Full Name <span className="text-rose-500">*</span>
+                   </label>
                    <input
                      type="text"
                      value={name}
-                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all outline-none"
+                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('name', e.target.value)}
+                     onBlur={() => handleFieldBlur('name')}
+                     className={`w-full rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white transition-all outline-none ${
+                       fieldErrors.name && touchedFields.name
+                         ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                         : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500'
+                     }`}
                      placeholder="Alex Johnson"
                      autoComplete="name"
-                     required
                      disabled={isLoading || isGoogleLoading}
                    />
+                   {fieldErrors.name && touchedFields.name && (
+                     <p className="text-xs text-rose-500 ml-1">{fieldErrors.name}</p>
+                   )}
                 </div>
 
                 <div className="space-y-2">
-                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">Email Address</label>
+                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">
+                     Email Address <span className="text-rose-500">*</span>
+                   </label>
                    <input
                      type="email"
                      value={email}
-                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all outline-none"
+                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('email', e.target.value)}
+                     onBlur={() => handleFieldBlur('email')}
+                     className={`w-full rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white transition-all outline-none ${
+                       fieldErrors.email && touchedFields.email
+                         ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                         : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500'
+                     }`}
                      placeholder="you@example.com"
                      autoComplete="email"
-                     required
                      disabled={isLoading || isGoogleLoading}
                    />
+                   {fieldErrors.email && touchedFields.email && (
+                     <p className="text-xs text-rose-500 ml-1">{fieldErrors.email}</p>
+                   )}
                 </div>
 
                 <div className="space-y-2">
-                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">Password</label>
+                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">
+                     Password <span className="text-rose-500">*</span>
+                   </label>
                    <input
                      type="password"
                      value={password}
-                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all outline-none"
-                     placeholder="Min. 8 characters"
-                     required
+                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange('password', e.target.value)}
+                     onBlur={() => handleFieldBlur('password')}
+                     className={`w-full rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white transition-all outline-none ${
+                       fieldErrors.password && touchedFields.password
+                         ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                         : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500'
+                     }`}
+                     placeholder="Min. 8 characters with letter & number"
                      disabled={isLoading || isGoogleLoading}
                    />
+                   {fieldErrors.password && touchedFields.password && (
+                     <p className="text-xs text-rose-500 ml-1">{fieldErrors.password}</p>
+                   )}
                 </div>
 
                 <div className="p-4 bg-sky-50 dark:bg-sky-500/10 rounded-xl border border-sky-100 dark:border-sky-500/20">
@@ -299,7 +396,7 @@ const Register: React.FC = () => {
 
                 <button
                   type="submit"
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading || isGoogleLoading || hasFormErrors}
                   className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold hover:bg-slate-800 dark:hover:bg-slate-100 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isLoading ? (

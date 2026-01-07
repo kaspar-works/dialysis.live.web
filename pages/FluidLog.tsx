@@ -38,6 +38,48 @@ const FluidLog: React.FC = () => {
   const hasFetched = useRef(false);
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Validation state
+  const [customAmountError, setCustomAmountError] = useState('');
+  const [customAmountTouched, setCustomAmountTouched] = useState(false);
+
+  // Validate custom fluid amount
+  const validateFluidAmount = (value: string): string => {
+    if (!value || value.trim() === '') {
+      return ''; // Empty is ok, they can use quick buttons
+    }
+    const amount = parseFloat(value);
+    if (isNaN(amount)) {
+      return 'Enter a valid number';
+    }
+    if (amount <= 0) {
+      return 'Must be greater than 0';
+    }
+    const amountMl = convertFluidToMl(amount);
+    const maxMl = 5000;
+    if (amountMl > maxMl) {
+      const maxDisplay = Math.round(convertFluidFromMl(maxMl));
+      return `Cannot exceed ${maxDisplay} ${fluidUnit}`;
+    }
+    if (!Number.isInteger(amount) && value.split('.')[1]?.length > 1) {
+      return 'Max one decimal place';
+    }
+    return '';
+  };
+
+  // Handle custom amount change
+  const handleCustomAmountChange = (value: string) => {
+    setCustomAmount(value);
+    if (customAmountTouched) {
+      setCustomAmountError(validateFluidAmount(value));
+    }
+  };
+
+  // Handle custom amount blur
+  const handleCustomAmountBlur = () => {
+    setCustomAmountTouched(true);
+    setCustomAmountError(validateFluidAmount(customAmount));
+  };
+
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
@@ -137,13 +179,27 @@ const FluidLog: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
   const todayLogs = logs.filter(l => l.loggedAt.startsWith(today));
 
-  const handleAdd = async (amount: number) => {
+  const handleAdd = async (amount: number, isCustom: boolean = false) => {
     if (isAdding) return;
     setError(null);
 
+    // For custom input, validate inline
+    if (isCustom) {
+      setCustomAmountTouched(true);
+      const validationError = validateFluidAmount(customAmount);
+      setCustomAmountError(validationError);
+      if (validationError) {
+        return;
+      }
+    }
+
     // Validate amount
     if (isNaN(amount) || amount <= 0) {
-      setError('Please enter a valid amount greater than 0');
+      if (isCustom) {
+        setCustomAmountError('Must be greater than 0');
+      } else {
+        setError('Please enter a valid amount greater than 0');
+      }
       return;
     }
 
@@ -153,12 +209,20 @@ const FluidLog: React.FC = () => {
     const maxDisplay = Math.round(convertFluidFromMl(maxMl));
 
     if (amountMl > maxMl) {
-      setError(`Amount cannot exceed ${maxDisplay} ${fluidUnit}`);
+      if (isCustom) {
+        setCustomAmountError(`Cannot exceed ${maxDisplay} ${fluidUnit}`);
+      } else {
+        setError(`Amount cannot exceed ${maxDisplay} ${fluidUnit}`);
+      }
       return;
     }
 
     if (!Number.isInteger(amount) && amount.toString().split('.')[1]?.length > 1) {
-      setError('Please enter a whole number or one decimal place');
+      if (isCustom) {
+        setCustomAmountError('Max one decimal place');
+      } else {
+        setError('Please enter a whole number or one decimal place');
+      }
       return;
     }
 
@@ -169,6 +233,9 @@ const FluidLog: React.FC = () => {
       setLogs(prev => [newLog, ...prev]);
       setTotalToday(prev => prev + amountMl);
       setCustomAmount('');
+      // Clear validation state on success
+      setCustomAmountError('');
+      setCustomAmountTouched(false);
       setRecentlyAdded(newLog._id);
       setTimeout(() => setRecentlyAdded(null), 2000);
     } catch (err) {
@@ -450,20 +517,36 @@ const FluidLog: React.FC = () => {
 
         {/* Custom Input */}
         <div className="flex gap-3">
-          <div className="flex-1 relative">
-            <input
-              type="number"
-              value={customAmount}
-              onChange={e => setCustomAmount(e.target.value)}
-              placeholder="Custom amount"
-              className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl px-5 py-4 font-bold text-lg text-slate-900 dark:text-white outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-500/10 transition-all"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">{fluidUnit}</span>
+          <div className="flex-1">
+            <div className="relative">
+              <input
+                type="number"
+                value={customAmount}
+                onChange={e => handleCustomAmountChange(e.target.value)}
+                onBlur={handleCustomAmountBlur}
+                placeholder="Custom amount"
+                className={`w-full rounded-xl px-5 py-4 font-bold text-lg text-slate-900 dark:text-white outline-none transition-all ${
+                  customAmountError && customAmountTouched
+                    ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                    : 'bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 focus:border-sky-400 focus:ring-4 focus:ring-sky-500/10'
+                }`}
+              />
+              <span className={`absolute right-4 top-1/2 -translate-y-1/2 font-bold ${
+                customAmountError && customAmountTouched ? 'text-rose-400' : 'text-slate-400'
+              }`}>{fluidUnit}</span>
+            </div>
+            {customAmountError && customAmountTouched && (
+              <p className="text-xs text-rose-500 mt-1.5 ml-1">{customAmountError}</p>
+            )}
           </div>
           <button
-            onClick={() => handleAdd(parseInt(customAmount) || 0)}
-            disabled={!customAmount || isAdding}
-            className={`px-8 rounded-xl font-black text-white transition-all bg-gradient-to-r ${selectedBeverage.gradient} hover:shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100`}
+            onClick={() => handleAdd(parseFloat(customAmount) || 0, true)}
+            disabled={!customAmount || isAdding || (customAmountError !== '' && customAmountTouched)}
+            className={`px-8 rounded-xl font-black text-white transition-all ${
+              customAmountError && customAmountTouched
+                ? 'bg-slate-400 cursor-not-allowed'
+                : `bg-gradient-to-r ${selectedBeverage.gradient} hover:shadow-lg hover:scale-105 active:scale-95`
+            } disabled:opacity-50 disabled:hover:scale-100`}
           >
             {isAdding ? (
               <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />

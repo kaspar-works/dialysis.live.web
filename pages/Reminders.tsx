@@ -46,6 +46,70 @@ const Reminders: React.FC = () => {
     notificationSettings: { push: true, email: false, sms: false },
   });
 
+  // Validation state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+  // Validation functions
+  const validateTitle = (value: string): string => {
+    if (!value || value.trim() === '') return 'Title is required';
+    if (value.trim().length < 2) return 'Title must be at least 2 characters';
+    if (value.trim().length > 100) return 'Title cannot exceed 100 characters';
+    return '';
+  };
+
+  const validateDescription = (value: string): string => {
+    if (value && value.length > 300) return 'Description cannot exceed 300 characters';
+    return '';
+  };
+
+  const validateTime = (value: string): string => {
+    if (!value) return 'Time is required';
+    return '';
+  };
+
+  const validateDaysOfWeek = (days: number[] | undefined, frequency: string): string => {
+    if (frequency === 'weekly' && (!days || days.length === 0)) {
+      return 'Select at least one day';
+    }
+    return '';
+  };
+
+  // Handle field change with validation
+  const handleFieldChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (touchedFields[field]) {
+      let error = '';
+      switch (field) {
+        case 'title': error = validateTitle(value); break;
+        case 'description': error = validateDescription(value); break;
+        case 'time': error = validateTime(value); break;
+      }
+      setFieldErrors(prev => ({ ...prev, [field]: error }));
+    }
+  };
+
+  // Handle field blur
+  const handleFieldBlur = (field: string) => {
+    setTouchedFields(prev => ({ ...prev, [field]: true }));
+    let error = '';
+    switch (field) {
+      case 'title': error = validateTitle(formData.title); break;
+      case 'description': error = validateDescription(formData.description || ''); break;
+      case 'time': error = validateTime(formData.time); break;
+    }
+    setFieldErrors(prev => ({ ...prev, [field]: error }));
+  };
+
+  // Check if form has errors
+  const hasFormErrors = Object.values(fieldErrors).some(error => error !== '');
+
+  // Reset form validation
+  const resetFormValidation = () => {
+    setFieldErrors({});
+    setTouchedFields({});
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -74,6 +138,30 @@ const Reminders: React.FC = () => {
     e.preventDefault();
     setError(null);
 
+    // Mark all fields as touched
+    const newTouchedFields: Record<string, boolean> = {
+      title: true,
+      description: true,
+      time: true,
+      daysOfWeek: true,
+    };
+    setTouchedFields(newTouchedFields);
+
+    // Validate all fields
+    const newErrors: Record<string, string> = {
+      title: validateTitle(formData.title),
+      description: validateDescription(formData.description || ''),
+      time: validateTime(formData.time),
+      daysOfWeek: validateDaysOfWeek(formData.daysOfWeek, formData.frequency),
+    };
+    setFieldErrors(newErrors);
+
+    // Check for validation errors
+    const hasErrors = Object.values(newErrors).some(error => error !== '');
+    if (hasErrors) {
+      return;
+    }
+
     try {
       if (editingReminder) {
         await updateReminder(editingReminder._id, formData);
@@ -83,6 +171,7 @@ const Reminders: React.FC = () => {
       setShowModal(false);
       setEditingReminder(null);
       resetForm();
+      resetFormValidation();
       fetchData();
     } catch (err: any) {
       setError(err.message || 'Failed to save reminder');
@@ -156,10 +245,17 @@ const Reminders: React.FC = () => {
 
   const toggleDayOfWeek = (day: number) => {
     const days = formData.daysOfWeek || [];
+    let newDays: number[];
     if (days.includes(day)) {
-      setFormData({ ...formData, daysOfWeek: days.filter((d) => d !== day) });
+      newDays = days.filter((d) => d !== day);
     } else {
-      setFormData({ ...formData, daysOfWeek: [...days, day].sort() });
+      newDays = [...days, day].sort();
+    }
+    setFormData({ ...formData, daysOfWeek: newDays });
+    // Validate if touched
+    if (touchedFields.daysOfWeek) {
+      const error = validateDaysOfWeek(newDays, formData.frequency);
+      setFieldErrors(prev => ({ ...prev, daysOfWeek: error }));
     }
   };
 
@@ -443,16 +539,23 @@ const Reminders: React.FC = () => {
               {/* Title */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Title *
+                  Title <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  onChange={(e) => handleFieldChange('title', e.target.value)}
+                  onBlur={() => handleFieldBlur('title')}
                   placeholder="e.g., Take morning medication"
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                  required
+                  className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all ${
+                    fieldErrors.title && touchedFields.title
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                  }`}
                 />
+                {fieldErrors.title && touchedFields.title && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.title}</p>
+                )}
               </div>
 
               {/* Description */}
@@ -462,11 +565,19 @@ const Reminders: React.FC = () => {
                 </label>
                 <textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => handleFieldChange('description', e.target.value)}
+                  onBlur={() => handleFieldBlur('description')}
                   placeholder="Optional details..."
                   rows={2}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
+                  className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none resize-none transition-all ${
+                    fieldErrors.description && touchedFields.description
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                  }`}
                 />
+                {fieldErrors.description && touchedFields.description && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.description}</p>
+                )}
               </div>
 
               {/* Type */}
@@ -496,15 +607,22 @@ const Reminders: React.FC = () => {
               {/* Time */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Time *
+                  Time <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="time"
                   value={formData.time}
-                  onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                  required
+                  onChange={(e) => handleFieldChange('time', e.target.value)}
+                  onBlur={() => handleFieldBlur('time')}
+                  className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white focus:outline-none transition-all ${
+                    fieldErrors.time && touchedFields.time
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                  }`}
                 />
+                {fieldErrors.time && touchedFields.time && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.time}</p>
+                )}
               </div>
 
               {/* Frequency */}
@@ -534,14 +652,21 @@ const Reminders: React.FC = () => {
               {formData.frequency === 'weekly' && (
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Days of Week
+                    Days of Week <span className="text-rose-500">*</span>
                   </label>
-                  <div className="flex gap-2">
+                  <div className={`flex gap-2 p-2 rounded-xl transition-all ${
+                    fieldErrors.daysOfWeek && touchedFields.daysOfWeek
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : ''
+                  }`}>
                     {DAY_NAMES.map((day, index) => (
                       <button
                         key={index}
                         type="button"
-                        onClick={() => toggleDayOfWeek(index)}
+                        onClick={() => {
+                          setTouchedFields(prev => ({ ...prev, daysOfWeek: true }));
+                          toggleDayOfWeek(index);
+                        }}
                         className={`w-10 h-10 rounded-xl text-sm font-semibold transition-all ${
                           formData.daysOfWeek?.includes(index)
                             ? 'bg-sky-500 text-white'
@@ -552,6 +677,9 @@ const Reminders: React.FC = () => {
                       </button>
                     ))}
                   </div>
+                  {fieldErrors.daysOfWeek && touchedFields.daysOfWeek && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.daysOfWeek}</p>
+                  )}
                 </div>
               )}
 
@@ -616,6 +744,7 @@ const Reminders: React.FC = () => {
                   onClick={() => {
                     setShowModal(false);
                     setEditingReminder(null);
+                    resetFormValidation();
                   }}
                   className="flex-1 px-5 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-semibold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                 >
@@ -623,7 +752,8 @@ const Reminders: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-5 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-semibold transition-colors"
+                  disabled={hasFormErrors}
+                  className="flex-1 px-5 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editingReminder ? 'Update' : 'Create'}
                 </button>

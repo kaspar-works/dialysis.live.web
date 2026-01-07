@@ -52,6 +52,143 @@ const Appointments: React.FC = () => {
     reminderMinutesBefore: 60,
   });
 
+  // Validation state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+  // Validation functions
+  const validateTitle = (value: string): string => {
+    if (!value || value.trim() === '') return 'Title is required';
+    if (value.trim().length < 2) return 'Title must be at least 2 characters';
+    if (value.trim().length > 100) return 'Title cannot exceed 100 characters';
+    return '';
+  };
+
+  const validateDate = (value: string): string => {
+    if (!value) return 'Date is required';
+    const selectedDate = new Date(value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // Allow dates up to 1 year in the future
+    const maxDate = new Date();
+    maxDate.setFullYear(maxDate.getFullYear() + 1);
+    if (selectedDate > maxDate) {
+      return 'Date cannot be more than 1 year in the future';
+    }
+    return '';
+  };
+
+  const validateStartTime = (value: string): string => {
+    if (!value) return 'Start time is required';
+    return '';
+  };
+
+  const validateEndTime = (startTime: string, endTime: string): string => {
+    if (endTime && startTime) {
+      if (endTime <= startTime) {
+        return 'End time must be after start time';
+      }
+    }
+    return '';
+  };
+
+  const validateLocation = (value: string): string => {
+    if (value && value.length > 100) return 'Location cannot exceed 100 characters';
+    return '';
+  };
+
+  const validateAddress = (value: string): string => {
+    if (value && value.length > 200) return 'Address cannot exceed 200 characters';
+    return '';
+  };
+
+  const validateProviderPhone = (value: string): string => {
+    if (value && value.length > 0) {
+      // Basic phone validation - allow digits, spaces, dashes, parens, plus
+      const phoneRegex = /^[+]?[\d\s\-()]{7,20}$/;
+      if (!phoneRegex.test(value)) {
+        return 'Enter a valid phone number';
+      }
+    }
+    return '';
+  };
+
+  const validateDescription = (value: string): string => {
+    if (value && value.length > 500) return 'Description cannot exceed 500 characters';
+    return '';
+  };
+
+  const validateNotes = (value: string): string => {
+    if (value && value.length > 500) return 'Notes cannot exceed 500 characters';
+    return '';
+  };
+
+  // Handle field change with validation
+  const handleFieldChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (touchedFields[field]) {
+      let error = '';
+      switch (field) {
+        case 'title': error = validateTitle(value); break;
+        case 'date': error = validateDate(value); break;
+        case 'startTime': error = validateStartTime(value); break;
+        case 'endTime': error = validateEndTime(formData.startTime, value); break;
+        case 'location': error = validateLocation(value); break;
+        case 'address': error = validateAddress(value); break;
+        case 'description': error = validateDescription(value); break;
+        case 'notes': error = validateNotes(value); break;
+      }
+      setFieldErrors(prev => ({ ...prev, [field]: error }));
+    }
+  };
+
+  // Handle field blur
+  const handleFieldBlur = (field: string) => {
+    setTouchedFields(prev => ({ ...prev, [field]: true }));
+    let error = '';
+    switch (field) {
+      case 'title': error = validateTitle(formData.title); break;
+      case 'date': error = validateDate(formData.date); break;
+      case 'startTime': error = validateStartTime(formData.startTime); break;
+      case 'endTime': error = validateEndTime(formData.startTime, formData.endTime || ''); break;
+      case 'location': error = validateLocation(formData.location || ''); break;
+      case 'address': error = validateAddress(formData.address || ''); break;
+      case 'description': error = validateDescription(formData.description || ''); break;
+      case 'notes': error = validateNotes(formData.notes || ''); break;
+    }
+    setFieldErrors(prev => ({ ...prev, [field]: error }));
+  };
+
+  // Handle provider field change
+  const handleProviderChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      provider: { ...prev.provider, [field]: value },
+    }));
+    if (touchedFields[`provider_${field}`] && field === 'phone') {
+      const error = validateProviderPhone(value);
+      setFieldErrors(prev => ({ ...prev, [`provider_${field}`]: error }));
+    }
+  };
+
+  // Handle provider field blur
+  const handleProviderBlur = (field: string) => {
+    setTouchedFields(prev => ({ ...prev, [`provider_${field}`]: true }));
+    if (field === 'phone') {
+      const error = validateProviderPhone(formData.provider?.phone || '');
+      setFieldErrors(prev => ({ ...prev, [`provider_${field}`]: error }));
+    }
+  };
+
+  // Check if form has errors
+  const hasFormErrors = Object.values(fieldErrors).some(error => error !== '');
+
+  // Reset form validation
+  const resetFormValidation = () => {
+    setFieldErrors({});
+    setTouchedFields({});
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -80,6 +217,32 @@ const Appointments: React.FC = () => {
     e.preventDefault();
     setError(null);
 
+    // Mark all fields as touched
+    const fieldsToValidate = ['title', 'date', 'startTime', 'endTime', 'location', 'address', 'description', 'notes', 'provider_phone'];
+    const newTouchedFields: Record<string, boolean> = {};
+    fieldsToValidate.forEach(field => { newTouchedFields[field] = true; });
+    setTouchedFields(newTouchedFields);
+
+    // Validate all fields
+    const newErrors: Record<string, string> = {
+      title: validateTitle(formData.title),
+      date: validateDate(formData.date),
+      startTime: validateStartTime(formData.startTime),
+      endTime: validateEndTime(formData.startTime, formData.endTime || ''),
+      location: validateLocation(formData.location || ''),
+      address: validateAddress(formData.address || ''),
+      description: validateDescription(formData.description || ''),
+      notes: validateNotes(formData.notes || ''),
+      provider_phone: validateProviderPhone(formData.provider?.phone || ''),
+    };
+    setFieldErrors(newErrors);
+
+    // Check for validation errors
+    const hasErrors = Object.values(newErrors).some(error => error !== '');
+    if (hasErrors) {
+      return;
+    }
+
     try {
       if (editingAppointment) {
         await updateAppointment(editingAppointment._id, formData);
@@ -89,6 +252,7 @@ const Appointments: React.FC = () => {
       setShowModal(false);
       setEditingAppointment(null);
       resetForm();
+      resetFormValidation();
       fetchData();
     } catch (err: any) {
       setError(err.message || 'Failed to save appointment');
@@ -473,16 +637,23 @@ const Appointments: React.FC = () => {
               {/* Title */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Title *
+                  Title <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  onChange={(e) => handleFieldChange('title', e.target.value)}
+                  onBlur={() => handleFieldBlur('title')}
                   placeholder="e.g., Nephrologist Consultation"
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                  required
+                  className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all ${
+                    fieldErrors.title && touchedFields.title
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                  }`}
                 />
+                {fieldErrors.title && touchedFields.title && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.title}</p>
+                )}
               </div>
 
               {/* Type */}
@@ -513,27 +684,41 @@ const Appointments: React.FC = () => {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Date *
+                    Date <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="date"
                     value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    required
+                    onChange={(e) => handleFieldChange('date', e.target.value)}
+                    onBlur={() => handleFieldBlur('date')}
+                    className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white focus:outline-none transition-all ${
+                      fieldErrors.date && touchedFields.date
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                    }`}
                   />
+                  {fieldErrors.date && touchedFields.date && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.date}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Start Time *
+                    Start Time <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="time"
                     value={formData.startTime}
-                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    required
+                    onChange={(e) => handleFieldChange('startTime', e.target.value)}
+                    onBlur={() => handleFieldBlur('startTime')}
+                    className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white focus:outline-none transition-all ${
+                      fieldErrors.startTime && touchedFields.startTime
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                    }`}
                   />
+                  {fieldErrors.startTime && touchedFields.startTime && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.startTime}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
@@ -542,9 +727,17 @@ const Appointments: React.FC = () => {
                   <input
                     type="time"
                     value={formData.endTime}
-                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    onChange={(e) => handleFieldChange('endTime', e.target.value)}
+                    onBlur={() => handleFieldBlur('endTime')}
+                    className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white focus:outline-none transition-all ${
+                      fieldErrors.endTime && touchedFields.endTime
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                    }`}
                   />
+                  {fieldErrors.endTime && touchedFields.endTime && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.endTime}</p>
+                  )}
                 </div>
               </div>
 
@@ -557,10 +750,18 @@ const Appointments: React.FC = () => {
                   <input
                     type="text"
                     value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    onChange={(e) => handleFieldChange('location', e.target.value)}
+                    onBlur={() => handleFieldBlur('location')}
                     placeholder="e.g., City Hospital"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all ${
+                      fieldErrors.location && touchedFields.location
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                    }`}
                   />
+                  {fieldErrors.location && touchedFields.location && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.location}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
@@ -569,10 +770,18 @@ const Appointments: React.FC = () => {
                   <input
                     type="text"
                     value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    onChange={(e) => handleFieldChange('address', e.target.value)}
+                    onBlur={() => handleFieldBlur('address')}
                     placeholder="Full address"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all ${
+                      fieldErrors.address && touchedFields.address
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                    }`}
                   />
+                  {fieldErrors.address && touchedFields.address && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.address}</p>
+                  )}
                 </div>
               </div>
 
@@ -585,39 +794,34 @@ const Appointments: React.FC = () => {
                   <input
                     type="text"
                     value={formData.provider?.name || ''}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        provider: { ...formData.provider, name: e.target.value },
-                      })
-                    }
+                    onChange={(e) => handleProviderChange('name', e.target.value)}
                     placeholder="Doctor name"
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
                   <input
                     type="text"
                     value={formData.provider?.specialty || ''}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        provider: { ...formData.provider, specialty: e.target.value },
-                      })
-                    }
+                    onChange={(e) => handleProviderChange('specialty', e.target.value)}
                     placeholder="Specialty"
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
-                  <input
-                    type="tel"
-                    value={formData.provider?.phone || ''}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        provider: { ...formData.provider, phone: e.target.value },
-                      })
-                    }
-                    placeholder="Phone"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                  />
+                  <div>
+                    <input
+                      type="tel"
+                      value={formData.provider?.phone || ''}
+                      onChange={(e) => handleProviderChange('phone', e.target.value)}
+                      onBlur={() => handleProviderBlur('phone')}
+                      placeholder="Phone"
+                      className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all ${
+                        fieldErrors.provider_phone && touchedFields.provider_phone
+                          ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                          : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                      }`}
+                    />
+                    {fieldErrors.provider_phone && touchedFields.provider_phone && (
+                      <p className="text-xs text-rose-500 mt-1">{fieldErrors.provider_phone}</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -628,11 +832,19 @@ const Appointments: React.FC = () => {
                 </label>
                 <textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => handleFieldChange('description', e.target.value)}
+                  onBlur={() => handleFieldBlur('description')}
                   placeholder="Additional details about the appointment..."
                   rows={2}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
+                  className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none resize-none transition-all ${
+                    fieldErrors.description && touchedFields.description
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                  }`}
                 />
+                {fieldErrors.description && touchedFields.description && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.description}</p>
+                )}
               </div>
 
               {/* Notes */}
@@ -642,11 +854,19 @@ const Appointments: React.FC = () => {
                 </label>
                 <textarea
                   value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  onChange={(e) => handleFieldChange('notes', e.target.value)}
+                  onBlur={() => handleFieldBlur('notes')}
                   placeholder="Personal notes, things to remember..."
                   rows={2}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
+                  className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none resize-none transition-all ${
+                    fieldErrors.notes && touchedFields.notes
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500'
+                  }`}
                 />
+                {fieldErrors.notes && touchedFields.notes && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.notes}</p>
+                )}
               </div>
 
               {/* Reminder */}
@@ -697,6 +917,7 @@ const Appointments: React.FC = () => {
                   onClick={() => {
                     setShowModal(false);
                     setEditingAppointment(null);
+                    resetFormValidation();
                   }}
                   className="flex-1 px-5 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-semibold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                 >
@@ -704,7 +925,8 @@ const Appointments: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-5 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-semibold transition-colors"
+                  disabled={hasFormErrors}
+                  className="flex-1 px-5 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editingAppointment ? 'Update' : 'Create'}
                 </button>

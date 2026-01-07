@@ -119,6 +119,10 @@ const Sessions: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showValidationModal, setShowValidationModal] = useState(false);
 
+  // Field-level validation errors for inline display
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
   // AI Analysis state
   const [analysisData, setAnalysisData] = useState<SessionAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -204,6 +208,26 @@ const Sessions: React.FC = () => {
   }, [activeSession?._id, viewMode]);
 
   const handleCreateSession = async () => {
+    // Mark all create session fields as touched to show inline errors
+    const createFields = ['plannedDurationMin', 'preWeightKg', 'targetUfMl', 'preBpSystolic', 'preBpDiastolic', 'preHeartRate'];
+    const newTouched: Record<string, boolean> = {};
+    createFields.forEach(f => newTouched[f] = true);
+    setTouchedFields(prev => ({ ...prev, ...newTouched }));
+
+    // Validate individual fields and set errors
+    const newFieldErrors: Record<string, string> = {};
+    newFieldErrors.plannedDurationMin = validateField('plannedDurationMin', String(newSession.plannedDurationMin));
+    newFieldErrors.preWeightKg = validateField('preWeightKg', preData.preWeightKg);
+    if (preData.targetUfMl) newFieldErrors.targetUfMl = validateField('targetUfMl', preData.targetUfMl);
+    if (preData.preBpSystolic) newFieldErrors.preBpSystolic = validateField('preBpSystolic', preData.preBpSystolic);
+    if (preData.preBpDiastolic) newFieldErrors.preBpDiastolic = validateField('preBpDiastolic', preData.preBpDiastolic);
+    if (preData.preBpSystolic && preData.preBpDiastolic) {
+      newFieldErrors.preBpPair = validateBpPair(preData.preBpSystolic, preData.preBpDiastolic);
+    }
+    if (preData.preHeartRate) newFieldErrors.preHeartRate = validateField('preHeartRate', preData.preHeartRate);
+
+    setFieldErrors(prev => ({ ...prev, ...newFieldErrors }));
+
     // Validate before submitting
     const errors = validateCreateSession();
     if (errors.length > 0) {
@@ -258,16 +282,97 @@ const Sessions: React.FC = () => {
 
   // Handle Quick Log submission (manual entry of completed session)
   const handleQuickLogSession = async () => {
+    // Mark all Quick Log fields as touched
+    const quickLogFields = [
+      'sessionDate', 'quickLogDuration', 'preWeightKg', 'targetUfMl',
+      'preBpSystolic', 'preBpDiastolic', 'preHeartRate',
+      'postWeightKg', 'actualUfMl', 'postBpSystolic', 'postBpDiastolic', 'postHeartRate'
+    ];
+    const newTouched: Record<string, boolean> = {};
+    quickLogFields.forEach(f => newTouched[f] = true);
+    setTouchedFields(prev => ({ ...prev, ...newTouched }));
+
+    // Validate all Quick Log fields
+    const errors: string[] = [];
+    const newFieldErrors: Record<string, string> = {};
+
+    // Session date validation
+    const dateError = validateField('sessionDate', quickLogData.sessionDate);
+    if (dateError) {
+      errors.push(dateError);
+      newFieldErrors.sessionDate = dateError;
+    }
+
+    // Duration validation
+    const durationMin = (quickLogData.durationHours * 60) + quickLogData.durationMinutes;
+    if (durationMin < 30) {
+      errors.push('Duration must be at least 30 minutes');
+      newFieldErrors.quickLogDuration = 'Must be at least 30 min';
+    } else if (durationMin > 720) {
+      errors.push('Duration cannot exceed 12 hours');
+      newFieldErrors.quickLogDuration = 'Cannot exceed 12 hours';
+    }
+
+    // Validate optional vitals fields if provided
+    if (preData.preWeightKg) {
+      const e = validateField('preWeightKg', preData.preWeightKg);
+      if (e) { errors.push(e); newFieldErrors.preWeightKg = e; }
+    }
+    if (preData.targetUfMl) {
+      const e = validateField('targetUfMl', preData.targetUfMl);
+      if (e) { errors.push(e); newFieldErrors.targetUfMl = e; }
+    }
+    if (preData.preBpSystolic) {
+      const e = validateField('preBpSystolic', preData.preBpSystolic);
+      if (e) { errors.push(e); newFieldErrors.preBpSystolic = e; }
+    }
+    if (preData.preBpDiastolic) {
+      const e = validateField('preBpDiastolic', preData.preBpDiastolic);
+      if (e) { errors.push(e); newFieldErrors.preBpDiastolic = e; }
+    }
+    if (preData.preBpSystolic && preData.preBpDiastolic) {
+      const bpError = validateBpPair(preData.preBpSystolic, preData.preBpDiastolic);
+      if (bpError) { errors.push(bpError); newFieldErrors.preBpPair = bpError; }
+    }
+    if (preData.preHeartRate) {
+      const e = validateField('preHeartRate', preData.preHeartRate);
+      if (e) { errors.push(e); newFieldErrors.preHeartRate = e; }
+    }
+    if (postData.postWeightKg) {
+      const e = validateField('postWeightKg', postData.postWeightKg);
+      if (e) { errors.push(e); newFieldErrors.postWeightKg = e; }
+    }
+    if (postData.actualUfMl) {
+      const e = validateField('actualUfMl', postData.actualUfMl);
+      if (e) { errors.push(e); newFieldErrors.actualUfMl = e; }
+    }
+    if (postData.postBpSystolic) {
+      const e = validateField('postBpSystolic', postData.postBpSystolic);
+      if (e) { errors.push(e); newFieldErrors.postBpSystolic = e; }
+    }
+    if (postData.postBpDiastolic) {
+      const e = validateField('postBpDiastolic', postData.postBpDiastolic);
+      if (e) { errors.push(e); newFieldErrors.postBpDiastolic = e; }
+    }
+    if (postData.postBpSystolic && postData.postBpDiastolic) {
+      const bpError = validateBpPair(postData.postBpSystolic, postData.postBpDiastolic);
+      if (bpError) { errors.push(bpError); newFieldErrors.postBpPair = bpError; }
+    }
+    if (postData.postHeartRate) {
+      const e = validateField('postHeartRate', postData.postHeartRate);
+      if (e) { errors.push(e); newFieldErrors.postHeartRate = e; }
+    }
+
+    setFieldErrors(prev => ({ ...prev, ...newFieldErrors }));
+
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setShowValidationModal(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const durationMin = (quickLogData.durationHours * 60) + quickLogData.durationMinutes;
-
-      if (durationMin < 30) {
-        setValidationErrors(['Duration must be at least 30 minutes']);
-        setShowValidationModal(true);
-        setIsSubmitting(false);
-        return;
-      }
 
       const data: QuickLogSessionData = {
         mode: newSession.mode,
@@ -391,7 +496,179 @@ const Sessions: React.FC = () => {
       durationHours: 4,
       durationMinutes: 0,
     });
+    setFieldErrors({});
+    setTouchedFields({});
   };
+
+  // Field-level validation helpers for inline feedback
+  const validateField = (fieldName: string, value: string): string => {
+    switch (fieldName) {
+      case 'plannedDurationMin': {
+        const duration = parseInt(value);
+        if (isNaN(duration) || duration < 30) return 'Must be at least 30 minutes';
+        if (duration > 480) return 'Cannot exceed 8 hours (480 min)';
+        return '';
+      }
+      case 'preWeightKg': {
+        if (!value || value.trim() === '') return 'Pre-weight is required';
+        const inputWeight = parseFloat(value);
+        if (isNaN(inputWeight)) return 'Enter a valid number';
+        const weightKg = convertWeightToKg(inputWeight);
+        if (weightKg < 20 || weightKg > 250) {
+          const minDisplay = convertWeightFromKg(20);
+          const maxDisplay = convertWeightFromKg(250);
+          return `Must be ${minDisplay.toFixed(0)}-${maxDisplay.toFixed(0)} ${weightUnit}`;
+        }
+        return '';
+      }
+      case 'postWeightKg': {
+        if (!value || value.trim() === '') return '';
+        const inputWeight = parseFloat(value);
+        if (isNaN(inputWeight)) return 'Enter a valid number';
+        const weightKg = convertWeightToKg(inputWeight);
+        if (weightKg < 20 || weightKg > 250) {
+          const minDisplay = convertWeightFromKg(20);
+          const maxDisplay = convertWeightFromKg(250);
+          return `Must be ${minDisplay.toFixed(0)}-${maxDisplay.toFixed(0)} ${weightUnit}`;
+        }
+        return '';
+      }
+      case 'targetUfMl':
+      case 'actualUfMl': {
+        if (!value) return '';
+        const inputUf = parseInt(value);
+        if (isNaN(inputUf)) return 'Enter a valid number';
+        const ufMl = convertFluidToMl(inputUf);
+        if (ufMl < 0) return 'Cannot be negative';
+        const maxUf = fieldName === 'targetUfMl' ? 6000 : 8000;
+        if (ufMl > maxUf) {
+          const maxDisplay = Math.round(convertFluidFromMl(maxUf));
+          return `Exceeds safe limit (${maxDisplay} ${fluidUnit})`;
+        }
+        return '';
+      }
+      case 'preBpSystolic':
+      case 'postBpSystolic': {
+        if (!value) return '';
+        const sys = parseInt(value);
+        if (isNaN(sys)) return 'Enter a valid number';
+        if (sys < 60 || sys > 250) return 'Must be 60-250 mmHg';
+        return '';
+      }
+      case 'preBpDiastolic':
+      case 'postBpDiastolic': {
+        if (!value) return '';
+        const dia = parseInt(value);
+        if (isNaN(dia)) return 'Enter a valid number';
+        if (dia < 30 || dia > 150) return 'Must be 30-150 mmHg';
+        return '';
+      }
+      case 'preHeartRate':
+      case 'postHeartRate': {
+        if (!value) return '';
+        const hr = parseInt(value);
+        if (isNaN(hr)) return 'Enter a valid number';
+        if (hr < 30 || hr > 220) return 'Must be 30-220 bpm';
+        return '';
+      }
+      case 'sessionDate': {
+        if (!value) return 'Session date is required';
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return 'Enter a valid date';
+        if (date > new Date()) return 'Cannot be in the future';
+        return '';
+      }
+      case 'quickLogDuration': {
+        const totalMin = (quickLogData.durationHours * 60) + quickLogData.durationMinutes;
+        if (totalMin < 30) return 'Must be at least 30 minutes';
+        if (totalMin > 720) return 'Cannot exceed 12 hours';
+        return '';
+      }
+      // Vitals form fields
+      case 'vitalsBpSystolic': {
+        if (!value) return '';
+        const sys = parseInt(value);
+        if (isNaN(sys)) return 'Enter a valid number';
+        if (sys < 60 || sys > 250) return 'Must be 60-250 mmHg';
+        return '';
+      }
+      case 'vitalsBpDiastolic': {
+        if (!value) return '';
+        const dia = parseInt(value);
+        if (isNaN(dia)) return 'Enter a valid number';
+        if (dia < 30 || dia > 150) return 'Must be 30-150 mmHg';
+        return '';
+      }
+      case 'vitalsHeartRate': {
+        if (!value) return '';
+        const hr = parseInt(value);
+        if (isNaN(hr)) return 'Enter a valid number';
+        if (hr < 30 || hr > 220) return 'Must be 30-220 bpm';
+        return '';
+      }
+      case 'vitalsSpo2': {
+        if (!value) return '';
+        const spo2 = parseFloat(value);
+        if (isNaN(spo2)) return 'Enter a valid number';
+        if (spo2 < 50 || spo2 > 100) return 'Must be 50-100%';
+        return '';
+      }
+      case 'vitalsTemperature': {
+        if (!value) return '';
+        const temp = parseFloat(value);
+        if (isNaN(temp)) return 'Enter a valid number';
+        if (temp < 30 || temp > 43) return 'Must be 30-43°C';
+        return '';
+      }
+      default:
+        return '';
+    }
+  };
+
+  // Validate BP pair (systolic must be > diastolic)
+  const validateBpPair = (systolic: string, diastolic: string): string => {
+    if (!systolic || !diastolic) return '';
+    const sys = parseInt(systolic);
+    const dia = parseInt(diastolic);
+    if (!isNaN(sys) && !isNaN(dia) && sys <= dia) {
+      return 'Systolic must be higher than diastolic';
+    }
+    return '';
+  };
+
+  // Handle field blur for validation
+  const handleFieldBlur = (fieldName: string, value: string) => {
+    setTouchedFields(prev => ({ ...prev, [fieldName]: true }));
+    const error = validateField(fieldName, value);
+    setFieldErrors(prev => ({ ...prev, [fieldName]: error }));
+
+    // Check BP pair if either BP field is blurred
+    if (fieldName === 'preBpSystolic' || fieldName === 'preBpDiastolic') {
+      const bpError = validateBpPair(preData.preBpSystolic, preData.preBpDiastolic);
+      setFieldErrors(prev => ({ ...prev, preBpPair: bpError }));
+    }
+    if (fieldName === 'postBpSystolic' || fieldName === 'postBpDiastolic') {
+      const bpError = validateBpPair(postData.postBpSystolic, postData.postBpDiastolic);
+      setFieldErrors(prev => ({ ...prev, postBpPair: bpError }));
+    }
+  };
+
+  // Handle field change with real-time validation for touched fields
+  const handleFieldChange = (fieldName: string, value: string, setter: (val: string) => void) => {
+    setter(value);
+    // Only validate if field was already touched
+    if (touchedFields[fieldName]) {
+      const error = validateField(fieldName, value);
+      setFieldErrors(prev => ({ ...prev, [fieldName]: error }));
+    }
+  };
+
+  // Check if form has any errors
+  const hasFieldErrors = Object.values(fieldErrors).some(error => error !== '');
+
+  // Check if vitals form has any errors
+  const hasVitalsFieldErrors = ['vitalsBpSystolic', 'vitalsBpDiastolic', 'vitalsBpPair', 'vitalsHeartRate', 'vitalsSpo2', 'vitalsTemperature']
+    .some(f => fieldErrors[f] && fieldErrors[f] !== '');
 
   // Validation functions
   const validateCreateSession = (): string[] => {
@@ -587,6 +864,25 @@ const Sessions: React.FC = () => {
   const handleLogVitals = async () => {
     if (!activeSession) return;
 
+    // Mark all vitals fields as touched to show inline errors
+    const vitalsFields = ['vitalsBpSystolic', 'vitalsBpDiastolic', 'vitalsHeartRate', 'vitalsSpo2', 'vitalsTemperature'];
+    const newTouched: Record<string, boolean> = {};
+    vitalsFields.forEach(f => newTouched[f] = true);
+    setTouchedFields(prev => ({ ...prev, ...newTouched }));
+
+    // Validate individual fields and set field errors
+    const newFieldErrors: Record<string, string> = {};
+    if (vitalsData.bpSystolic) newFieldErrors.vitalsBpSystolic = validateField('vitalsBpSystolic', vitalsData.bpSystolic);
+    if (vitalsData.bpDiastolic) newFieldErrors.vitalsBpDiastolic = validateField('vitalsBpDiastolic', vitalsData.bpDiastolic);
+    if (vitalsData.bpSystolic && vitalsData.bpDiastolic) {
+      newFieldErrors.vitalsBpPair = validateBpPair(vitalsData.bpSystolic, vitalsData.bpDiastolic);
+    }
+    if (vitalsData.heartRate) newFieldErrors.vitalsHeartRate = validateField('vitalsHeartRate', vitalsData.heartRate);
+    if (vitalsData.spo2) newFieldErrors.vitalsSpo2 = validateField('vitalsSpo2', vitalsData.spo2);
+    if (vitalsData.temperature) newFieldErrors.vitalsTemperature = validateField('vitalsTemperature', vitalsData.temperature);
+
+    setFieldErrors(prev => ({ ...prev, ...newFieldErrors }));
+
     // Validate before submitting
     const errors = validateVitals();
     if (errors.length > 0) {
@@ -640,6 +936,15 @@ const Sessions: React.FC = () => {
       await createVitalRecord(recordData);
       setVitalsSuccess(`${vitalCount} vital(s) logged!`);
       setVitalsData({ bpSystolic: '', bpDiastolic: '', heartRate: '', spo2: '', temperature: '' });
+      // Clear vitals field errors and touched state
+      setFieldErrors(prev => {
+        const { vitalsBpSystolic, vitalsBpDiastolic, vitalsBpPair, vitalsHeartRate, vitalsSpo2, vitalsTemperature, ...rest } = prev;
+        return rest;
+      });
+      setTouchedFields(prev => {
+        const { vitalsBpSystolic, vitalsBpDiastolic, vitalsHeartRate, vitalsSpo2, vitalsTemperature, ...rest } = prev;
+        return rest;
+      });
       // Refresh the vitals list
       fetchSessionVitals(activeSession._id);
       setTimeout(() => setVitalsSuccess(''), 3000);
@@ -1122,20 +1427,38 @@ const Sessions: React.FC = () => {
             {/* Session Date (Quick Log only) */}
             {isQuickLog && (
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Session Date</label>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
+                  Session Date <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="date"
                   value={quickLogData.sessionDate}
-                  onChange={e => setQuickLogData({ ...quickLogData, sessionDate: e.target.value })}
-                  className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                  onChange={e => {
+                    setQuickLogData({ ...quickLogData, sessionDate: e.target.value });
+                    if (touchedFields.sessionDate) {
+                      setFieldErrors(prev => ({ ...prev, sessionDate: validateField('sessionDate', e.target.value) }));
+                    }
+                  }}
+                  onBlur={e => handleFieldBlur('sessionDate', e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                    fieldErrors.sessionDate && touchedFields.sessionDate
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                  }`}
                 />
+                {fieldErrors.sessionDate && touchedFields.sessionDate && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.sessionDate}</p>
+                )}
               </div>
             )}
 
             {/* Duration (Quick Log only) */}
             {isQuickLog && (
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Duration</label>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
+                  Duration <span className="text-rose-500">*</span>
+                </label>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <input
@@ -1143,8 +1466,30 @@ const Sessions: React.FC = () => {
                       min="0"
                       max="12"
                       value={quickLogData.durationHours}
-                      onChange={e => setQuickLogData({ ...quickLogData, durationHours: parseInt(e.target.value) || 0 })}
-                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                      onChange={e => {
+                        const hours = parseInt(e.target.value) || 0;
+                        setQuickLogData({ ...quickLogData, durationHours: hours });
+                        if (touchedFields.quickLogDuration) {
+                          const totalMin = (hours * 60) + quickLogData.durationMinutes;
+                          setFieldErrors(prev => ({
+                            ...prev,
+                            quickLogDuration: totalMin < 30 ? 'Must be at least 30 min' : totalMin > 720 ? 'Cannot exceed 12 hours' : ''
+                          }));
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouchedFields(prev => ({ ...prev, quickLogDuration: true }));
+                        const totalMin = (quickLogData.durationHours * 60) + quickLogData.durationMinutes;
+                        setFieldErrors(prev => ({
+                          ...prev,
+                          quickLogDuration: totalMin < 30 ? 'Must be at least 30 min' : totalMin > 720 ? 'Cannot exceed 12 hours' : ''
+                        }));
+                      }}
+                      className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                        fieldErrors.quickLogDuration && touchedFields.quickLogDuration
+                          ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                          : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                      }`}
                     />
                     <span className="text-xs text-slate-400 mt-1 block text-center">Hours</span>
                   </div>
@@ -1154,12 +1499,37 @@ const Sessions: React.FC = () => {
                       min="0"
                       max="59"
                       value={quickLogData.durationMinutes}
-                      onChange={e => setQuickLogData({ ...quickLogData, durationMinutes: parseInt(e.target.value) || 0 })}
-                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                      onChange={e => {
+                        const minutes = parseInt(e.target.value) || 0;
+                        setQuickLogData({ ...quickLogData, durationMinutes: minutes });
+                        if (touchedFields.quickLogDuration) {
+                          const totalMin = (quickLogData.durationHours * 60) + minutes;
+                          setFieldErrors(prev => ({
+                            ...prev,
+                            quickLogDuration: totalMin < 30 ? 'Must be at least 30 min' : totalMin > 720 ? 'Cannot exceed 12 hours' : ''
+                          }));
+                        }
+                      }}
+                      onBlur={() => {
+                        setTouchedFields(prev => ({ ...prev, quickLogDuration: true }));
+                        const totalMin = (quickLogData.durationHours * 60) + quickLogData.durationMinutes;
+                        setFieldErrors(prev => ({
+                          ...prev,
+                          quickLogDuration: totalMin < 30 ? 'Must be at least 30 min' : totalMin > 720 ? 'Cannot exceed 12 hours' : ''
+                        }));
+                      }}
+                      className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                        fieldErrors.quickLogDuration && touchedFields.quickLogDuration
+                          ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                          : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                      }`}
                     />
                     <span className="text-xs text-slate-400 mt-1 block text-center">Minutes</span>
                   </div>
                 </div>
+                {fieldErrors.quickLogDuration && touchedFields.quickLogDuration && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.quickLogDuration}</p>
+                )}
               </div>
             )}
 
@@ -1199,9 +1569,23 @@ const Sessions: React.FC = () => {
                 <input
                   type="number"
                   value={newSession.plannedDurationMin}
-                  onChange={e => setNewSession({ ...newSession, plannedDurationMin: parseInt(e.target.value) || 240 })}
-                  className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                  onChange={e => {
+                    const val = parseInt(e.target.value) || 0;
+                    setNewSession({ ...newSession, plannedDurationMin: val });
+                    if (touchedFields.plannedDurationMin) {
+                      setFieldErrors(prev => ({ ...prev, plannedDurationMin: validateField('plannedDurationMin', e.target.value) }));
+                    }
+                  }}
+                  onBlur={e => handleFieldBlur('plannedDurationMin', e.target.value)}
+                  className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                    fieldErrors.plannedDurationMin && touchedFields.plannedDurationMin
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                  }`}
                 />
+                {fieldErrors.plannedDurationMin && touchedFields.plannedDurationMin && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.plannedDurationMin}</p>
+                )}
               </div>
             )}
 
@@ -1214,11 +1598,19 @@ const Sessions: React.FC = () => {
                 type="number"
                 step="0.1"
                 value={preData.preWeightKg}
-                onChange={e => setPreData({ ...preData, preWeightKg: e.target.value })}
+                onChange={e => handleFieldChange('preWeightKg', e.target.value, val => setPreData({ ...preData, preWeightKg: val }))}
+                onBlur={e => handleFieldBlur('preWeightKg', e.target.value)}
                 placeholder={weightUnit === 'lb' ? 'e.g. 168.5' : 'e.g. 76.5'}
-                required
-                className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                required={!isQuickLog}
+                className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                  fieldErrors.preWeightKg && touchedFields.preWeightKg
+                    ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                    : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                }`}
               />
+              {fieldErrors.preWeightKg && touchedFields.preWeightKg && (
+                <p className="text-xs text-rose-500 mt-1">{fieldErrors.preWeightKg}</p>
+              )}
             </div>
 
             {/* Target UF */}
@@ -1227,31 +1619,60 @@ const Sessions: React.FC = () => {
               <input
                 type="number"
                 value={preData.targetUfMl}
-                onChange={e => setPreData({ ...preData, targetUfMl: e.target.value })}
+                onChange={e => handleFieldChange('targetUfMl', e.target.value, val => setPreData({ ...preData, targetUfMl: val }))}
+                onBlur={e => handleFieldBlur('targetUfMl', e.target.value)}
                 placeholder={fluidUnit === 'oz' ? 'e.g. 84' : 'e.g. 2500'}
-                className="w-full bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 rounded-xl px-4 py-3 font-semibold text-sky-600 dark:text-sky-400 outline-none"
+                className={`w-full rounded-xl px-4 py-3 font-semibold outline-none transition-colors ${
+                  fieldErrors.targetUfMl && touchedFields.targetUfMl
+                    ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500 text-rose-600 dark:text-rose-400'
+                    : 'bg-sky-50 dark:bg-sky-500/10 border-2 border-sky-100 dark:border-sky-500/20 text-sky-600 dark:text-sky-400'
+                }`}
               />
+              {fieldErrors.targetUfMl && touchedFields.targetUfMl && (
+                <p className="text-xs text-rose-500 mt-1">{fieldErrors.targetUfMl}</p>
+              )}
             </div>
 
             {/* Blood Pressure */}
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Pre Blood Pressure</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Pre Blood Pressure (mmHg)</label>
               <div className="flex gap-2">
-                <input
-                  type="number"
-                  value={preData.preBpSystolic}
-                  onChange={e => setPreData({ ...preData, preBpSystolic: e.target.value })}
-                  placeholder="Sys"
-                  className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
-                />
-                <input
-                  type="number"
-                  value={preData.preBpDiastolic}
-                  onChange={e => setPreData({ ...preData, preBpDiastolic: e.target.value })}
-                  placeholder="Dia"
-                  className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
-                />
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    value={preData.preBpSystolic}
+                    onChange={e => handleFieldChange('preBpSystolic', e.target.value, val => setPreData({ ...preData, preBpSystolic: val }))}
+                    onBlur={e => handleFieldBlur('preBpSystolic', e.target.value)}
+                    placeholder="Systolic"
+                    className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                      (fieldErrors.preBpSystolic || fieldErrors.preBpPair) && touchedFields.preBpSystolic
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                    }`}
+                  />
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    value={preData.preBpDiastolic}
+                    onChange={e => handleFieldChange('preBpDiastolic', e.target.value, val => setPreData({ ...preData, preBpDiastolic: val }))}
+                    onBlur={e => handleFieldBlur('preBpDiastolic', e.target.value)}
+                    placeholder="Diastolic"
+                    className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                      (fieldErrors.preBpDiastolic || fieldErrors.preBpPair) && touchedFields.preBpDiastolic
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                    }`}
+                  />
+                </div>
               </div>
+              {((fieldErrors.preBpSystolic && touchedFields.preBpSystolic) ||
+                (fieldErrors.preBpDiastolic && touchedFields.preBpDiastolic) ||
+                (fieldErrors.preBpPair && (touchedFields.preBpSystolic || touchedFields.preBpDiastolic))) && (
+                <p className="text-xs text-rose-500 mt-1">
+                  {fieldErrors.preBpSystolic || fieldErrors.preBpDiastolic || fieldErrors.preBpPair}
+                </p>
+              )}
             </div>
 
             {/* Heart Rate */}
@@ -1260,10 +1681,18 @@ const Sessions: React.FC = () => {
               <input
                 type="number"
                 value={preData.preHeartRate}
-                onChange={e => setPreData({ ...preData, preHeartRate: e.target.value })}
+                onChange={e => handleFieldChange('preHeartRate', e.target.value, val => setPreData({ ...preData, preHeartRate: val }))}
+                onBlur={e => handleFieldBlur('preHeartRate', e.target.value)}
                 placeholder="e.g. 72"
-                className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                  fieldErrors.preHeartRate && touchedFields.preHeartRate
+                    ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                    : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                }`}
               />
+              {fieldErrors.preHeartRate && touchedFields.preHeartRate && (
+                <p className="text-xs text-rose-500 mt-1">{fieldErrors.preHeartRate}</p>
+              )}
             </div>
 
             {/* Post-session fields (Quick Log only) */}
@@ -1280,10 +1709,18 @@ const Sessions: React.FC = () => {
                     type="number"
                     step="0.1"
                     value={postData.postWeightKg}
-                    onChange={e => setPostData({ ...postData, postWeightKg: e.target.value })}
+                    onChange={e => handleFieldChange('postWeightKg', e.target.value, val => setPostData({ ...postData, postWeightKg: val }))}
+                    onBlur={e => handleFieldBlur('postWeightKg', e.target.value)}
                     placeholder={weightUnit === 'lb' ? 'e.g. 164.0' : 'e.g. 74.5'}
-                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                    className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                      fieldErrors.postWeightKg && touchedFields.postWeightKg
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                    }`}
                   />
+                  {fieldErrors.postWeightKg && touchedFields.postWeightKg && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.postWeightKg}</p>
+                  )}
                 </div>
 
                 {/* Actual UF */}
@@ -1292,31 +1729,60 @@ const Sessions: React.FC = () => {
                   <input
                     type="number"
                     value={postData.actualUfMl}
-                    onChange={e => setPostData({ ...postData, actualUfMl: e.target.value })}
+                    onChange={e => handleFieldChange('actualUfMl', e.target.value, val => setPostData({ ...postData, actualUfMl: val }))}
+                    onBlur={e => handleFieldBlur('actualUfMl', e.target.value)}
                     placeholder={fluidUnit === 'oz' ? 'e.g. 84' : 'e.g. 2500'}
-                    className="w-full bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 rounded-xl px-4 py-3 font-semibold text-sky-600 dark:text-sky-400 outline-none"
+                    className={`w-full rounded-xl px-4 py-3 font-semibold outline-none transition-colors ${
+                      fieldErrors.actualUfMl && touchedFields.actualUfMl
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500 text-rose-600 dark:text-rose-400'
+                        : 'bg-sky-50 dark:bg-sky-500/10 border-2 border-sky-100 dark:border-sky-500/20 text-sky-600 dark:text-sky-400'
+                    }`}
                   />
+                  {fieldErrors.actualUfMl && touchedFields.actualUfMl && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.actualUfMl}</p>
+                  )}
                 </div>
 
                 {/* Post Blood Pressure */}
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post Blood Pressure</label>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post Blood Pressure (mmHg)</label>
                   <div className="flex gap-2">
-                    <input
-                      type="number"
-                      value={postData.postBpSystolic}
-                      onChange={e => setPostData({ ...postData, postBpSystolic: e.target.value })}
-                      placeholder="Sys"
-                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
-                    />
-                    <input
-                      type="number"
-                      value={postData.postBpDiastolic}
-                      onChange={e => setPostData({ ...postData, postBpDiastolic: e.target.value })}
-                      placeholder="Dia"
-                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
-                    />
+                    <div className="flex-1">
+                      <input
+                        type="number"
+                        value={postData.postBpSystolic}
+                        onChange={e => handleFieldChange('postBpSystolic', e.target.value, val => setPostData({ ...postData, postBpSystolic: val }))}
+                        onBlur={e => handleFieldBlur('postBpSystolic', e.target.value)}
+                        placeholder="Systolic"
+                        className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                          (fieldErrors.postBpSystolic || fieldErrors.postBpPair) && touchedFields.postBpSystolic
+                            ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                            : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        type="number"
+                        value={postData.postBpDiastolic}
+                        onChange={e => handleFieldChange('postBpDiastolic', e.target.value, val => setPostData({ ...postData, postBpDiastolic: val }))}
+                        onBlur={e => handleFieldBlur('postBpDiastolic', e.target.value)}
+                        placeholder="Diastolic"
+                        className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                          (fieldErrors.postBpDiastolic || fieldErrors.postBpPair) && touchedFields.postBpDiastolic
+                            ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                            : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                        }`}
+                      />
+                    </div>
                   </div>
+                  {((fieldErrors.postBpSystolic && touchedFields.postBpSystolic) ||
+                    (fieldErrors.postBpDiastolic && touchedFields.postBpDiastolic) ||
+                    (fieldErrors.postBpPair && (touchedFields.postBpSystolic || touchedFields.postBpDiastolic))) && (
+                    <p className="text-xs text-rose-500 mt-1">
+                      {fieldErrors.postBpSystolic || fieldErrors.postBpDiastolic || fieldErrors.postBpPair}
+                    </p>
+                  )}
                 </div>
 
                 {/* Post Heart Rate */}
@@ -1325,10 +1791,18 @@ const Sessions: React.FC = () => {
                   <input
                     type="number"
                     value={postData.postHeartRate}
-                    onChange={e => setPostData({ ...postData, postHeartRate: e.target.value })}
+                    onChange={e => handleFieldChange('postHeartRate', e.target.value, val => setPostData({ ...postData, postHeartRate: val }))}
+                    onBlur={e => handleFieldBlur('postHeartRate', e.target.value)}
                     placeholder="e.g. 70"
-                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                    className={`w-full rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none transition-colors ${
+                      fieldErrors.postHeartRate && touchedFields.postHeartRate
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                    }`}
                   />
+                  {fieldErrors.postHeartRate && touchedFields.postHeartRate && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.postHeartRate}</p>
+                  )}
                 </div>
 
                 {/* Session Rating */}
@@ -1380,8 +1854,10 @@ const Sessions: React.FC = () => {
             </button>
             <button
               onClick={isQuickLog ? handleQuickLogSession : handleCreateSession}
-              disabled={isSubmitting}
-              className="flex-[2] py-4 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              disabled={isSubmitting || hasFieldErrors}
+              className={`flex-[2] py-4 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
+                hasFieldErrors ? 'bg-slate-400 cursor-not-allowed' : 'bg-purple-500 hover:bg-purple-600'
+              }`}
             >
               {isSubmitting ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1517,24 +1993,53 @@ const Sessions: React.FC = () => {
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
                 {/* BP */}
                 <div className="col-span-2">
-                  <label className="text-xs font-bold text-rose-500 uppercase tracking-wider mb-2 block">Blood Pressure</label>
+                  <label className="text-xs font-bold text-rose-500 uppercase tracking-wider mb-2 block">Blood Pressure (mmHg)</label>
                   <div className="flex gap-2">
                     <input
                       type="number"
                       value={vitalsData.bpSystolic}
-                      onChange={e => setVitalsData({ ...vitalsData, bpSystolic: e.target.value })}
-                      placeholder="Sys"
-                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm"
+                      onChange={e => handleFieldChange('vitalsBpSystolic', e.target.value, val => setVitalsData({ ...vitalsData, bpSystolic: val }))}
+                      onBlur={e => {
+                        handleFieldBlur('vitalsBpSystolic', e.target.value);
+                        if (vitalsData.bpDiastolic) {
+                          const bpError = validateBpPair(e.target.value, vitalsData.bpDiastolic);
+                          setFieldErrors(prev => ({ ...prev, vitalsBpPair: bpError }));
+                        }
+                      }}
+                      placeholder="Systolic"
+                      className={`w-full rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm transition-colors ${
+                        (fieldErrors.vitalsBpSystolic || fieldErrors.vitalsBpPair) && touchedFields.vitalsBpSystolic
+                          ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                          : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                      }`}
                     />
                     <span className="text-slate-400 self-center">/</span>
                     <input
                       type="number"
                       value={vitalsData.bpDiastolic}
-                      onChange={e => setVitalsData({ ...vitalsData, bpDiastolic: e.target.value })}
-                      placeholder="Dia"
-                      className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm"
+                      onChange={e => handleFieldChange('vitalsBpDiastolic', e.target.value, val => setVitalsData({ ...vitalsData, bpDiastolic: val }))}
+                      onBlur={e => {
+                        handleFieldBlur('vitalsBpDiastolic', e.target.value);
+                        if (vitalsData.bpSystolic) {
+                          const bpError = validateBpPair(vitalsData.bpSystolic, e.target.value);
+                          setFieldErrors(prev => ({ ...prev, vitalsBpPair: bpError }));
+                        }
+                      }}
+                      placeholder="Diastolic"
+                      className={`w-full rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm transition-colors ${
+                        (fieldErrors.vitalsBpDiastolic || fieldErrors.vitalsBpPair) && touchedFields.vitalsBpDiastolic
+                          ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                          : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                      }`}
                     />
                   </div>
+                  {((fieldErrors.vitalsBpSystolic && touchedFields.vitalsBpSystolic) ||
+                    (fieldErrors.vitalsBpDiastolic && touchedFields.vitalsBpDiastolic) ||
+                    (fieldErrors.vitalsBpPair && (touchedFields.vitalsBpSystolic || touchedFields.vitalsBpDiastolic))) && (
+                    <p className="text-xs text-rose-500 mt-1">
+                      {fieldErrors.vitalsBpSystolic || fieldErrors.vitalsBpDiastolic || fieldErrors.vitalsBpPair}
+                    </p>
+                  )}
                 </div>
 
                 {/* Heart Rate */}
@@ -1543,10 +2048,18 @@ const Sessions: React.FC = () => {
                   <input
                     type="number"
                     value={vitalsData.heartRate}
-                    onChange={e => setVitalsData({ ...vitalsData, heartRate: e.target.value })}
+                    onChange={e => handleFieldChange('vitalsHeartRate', e.target.value, val => setVitalsData({ ...vitalsData, heartRate: val }))}
+                    onBlur={e => handleFieldBlur('vitalsHeartRate', e.target.value)}
                     placeholder="bpm"
-                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm"
+                    className={`w-full rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm transition-colors ${
+                      fieldErrors.vitalsHeartRate && touchedFields.vitalsHeartRate
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                    }`}
                   />
+                  {fieldErrors.vitalsHeartRate && touchedFields.vitalsHeartRate && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.vitalsHeartRate}</p>
+                  )}
                 </div>
 
                 {/* SpO2 */}
@@ -1555,30 +2068,48 @@ const Sessions: React.FC = () => {
                   <input
                     type="number"
                     value={vitalsData.spo2}
-                    onChange={e => setVitalsData({ ...vitalsData, spo2: e.target.value })}
+                    onChange={e => handleFieldChange('vitalsSpo2', e.target.value, val => setVitalsData({ ...vitalsData, spo2: val }))}
+                    onBlur={e => handleFieldBlur('vitalsSpo2', e.target.value)}
                     placeholder="%"
-                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm"
+                    className={`w-full rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm transition-colors ${
+                      fieldErrors.vitalsSpo2 && touchedFields.vitalsSpo2
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                    }`}
                   />
+                  {fieldErrors.vitalsSpo2 && touchedFields.vitalsSpo2 && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.vitalsSpo2}</p>
+                  )}
                 </div>
 
                 {/* Temperature */}
                 <div>
-                  <label className="text-xs font-bold text-purple-500 uppercase tracking-wider mb-2 block">Temp</label>
+                  <label className="text-xs font-bold text-purple-500 uppercase tracking-wider mb-2 block">Temp (°C)</label>
                   <input
                     type="number"
                     step="0.1"
                     value={vitalsData.temperature}
-                    onChange={e => setVitalsData({ ...vitalsData, temperature: e.target.value })}
+                    onChange={e => handleFieldChange('vitalsTemperature', e.target.value, val => setVitalsData({ ...vitalsData, temperature: val }))}
+                    onBlur={e => handleFieldBlur('vitalsTemperature', e.target.value)}
                     placeholder="°C"
-                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm"
+                    className={`w-full rounded-xl px-3 py-2 font-semibold text-slate-900 dark:text-white outline-none text-sm transition-colors ${
+                      fieldErrors.vitalsTemperature && touchedFields.vitalsTemperature
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-100 dark:bg-slate-700 border-2 border-transparent'
+                    }`}
                   />
+                  {fieldErrors.vitalsTemperature && touchedFields.vitalsTemperature && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.vitalsTemperature}</p>
+                  )}
                 </div>
               </div>
 
               <button
                 onClick={handleLogVitals}
-                disabled={isLoggingVitals}
-                className="w-full py-3 bg-rose-500 text-white rounded-xl font-bold hover:bg-rose-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+                disabled={isLoggingVitals || hasVitalsFieldErrors}
+                className={`w-full py-3 text-white rounded-xl font-bold disabled:opacity-50 flex items-center justify-center gap-2 transition-all ${
+                  hasVitalsFieldErrors ? 'bg-slate-400 cursor-not-allowed' : 'bg-rose-500 hover:bg-rose-600'
+                }`}
               >
                 {isLoggingVitals ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

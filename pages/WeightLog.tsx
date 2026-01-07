@@ -57,6 +57,43 @@ const WeightLog: React.FC = () => {
   const [analysisDays, setAnalysisDays] = useState('30');
   const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
 
+  // Validation state
+  const [weightError, setWeightError] = useState('');
+  const [weightTouched, setWeightTouched] = useState(false);
+
+  // Validate weight field
+  const validateWeight = (value: string): string => {
+    if (!value || value.trim() === '') {
+      return 'Weight is required';
+    }
+    const inputValue = parseFloat(value);
+    if (isNaN(inputValue)) {
+      return 'Enter a valid number';
+    }
+    const weightKg = convertWeightToKg(inputValue);
+    const minKg = 20, maxKg = 300;
+    if (weightKg < minKg || weightKg > maxKg) {
+      const minDisplay = convertWeightFromKg(minKg);
+      const maxDisplay = convertWeightFromKg(maxKg);
+      return `Must be ${minDisplay.toFixed(0)}-${maxDisplay.toFixed(0)} ${weightUnit}`;
+    }
+    return '';
+  };
+
+  // Handle weight input change
+  const handleWeightChange = (value: string) => {
+    setNewValue(value);
+    if (weightTouched) {
+      setWeightError(validateWeight(value));
+    }
+  };
+
+  // Handle weight input blur
+  const handleWeightBlur = () => {
+    setWeightTouched(true);
+    setWeightError(validateWeight(newValue));
+  };
+
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
   useEffect(() => {
@@ -178,21 +215,17 @@ const WeightLog: React.FC = () => {
     setError(null);
     setSuccessMessage(null);
 
-    if (!newValue || newValue.trim() === '') {
-      setError('Please enter a weight value');
+    // Mark field as touched and validate
+    setWeightTouched(true);
+    const validationError = validateWeight(newValue);
+    setWeightError(validationError);
+
+    if (validationError) {
       return;
     }
 
     const inputValue = parseFloat(newValue);
     const weightKg = convertWeightToKg(inputValue);
-    const minKg = 20, maxKg = 300;
-    const minDisplay = convertWeightFromKg(minKg);
-    const maxDisplay = convertWeightFromKg(maxKg);
-
-    if (isNaN(inputValue) || weightKg < minKg || weightKg > maxKg) {
-      setError(`Weight must be between ${minDisplay.toFixed(0)}-${maxDisplay.toFixed(0)} ${weightUnit}`);
-      return;
-    }
 
     setIsSubmitting(true);
     try {
@@ -203,6 +236,9 @@ const WeightLog: React.FC = () => {
       });
       await fetchAllData();
       setSuccessMessage(`${contextConfig[newType].icon} ${inputValue.toFixed(1)} ${weightUnit} logged!`);
+      // Clear validation state on success
+      setWeightError('');
+      setWeightTouched(false);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       if (err instanceof SubscriptionLimitError) {
@@ -346,21 +382,34 @@ const WeightLog: React.FC = () => {
           <div className="flex flex-col lg:flex-row lg:items-end gap-6">
             {/* Weight Input */}
             <div className="flex-1">
-              <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3 block">Log Weight</label>
+              <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3 block">
+                Log Weight ({weightUnit}) <span className="text-rose-400">*</span>
+              </label>
               <div className="flex items-center gap-4">
-                <button type="button" onClick={() => setNewValue((v) => (parseFloat(v) - 0.5).toFixed(1))}
+                <button type="button" onClick={() => {
+                  const newVal = (parseFloat(newValue) - 0.5).toFixed(1);
+                  handleWeightChange(newVal);
+                }}
                   className="w-12 h-12 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-lg transition-all">-</button>
                 <div className="flex-1 text-center">
                   <input
                     type="number"
                     step="0.1"
                     value={newValue}
-                    onChange={(e) => setNewValue(e.target.value)}
-                    className="w-full bg-transparent text-5xl font-black text-white text-center outline-none"
+                    onChange={(e) => handleWeightChange(e.target.value)}
+                    onBlur={handleWeightBlur}
+                    className={`w-full bg-transparent text-5xl font-black text-center outline-none transition-colors ${
+                      weightError && weightTouched ? 'text-rose-400' : 'text-white'
+                    }`}
                   />
-                  <p className="text-white/30 text-xs mt-1">kilograms</p>
+                  <p className={`text-xs mt-1 ${weightError && weightTouched ? 'text-rose-400' : 'text-white/30'}`}>
+                    {weightError && weightTouched ? weightError : weightUnit}
+                  </p>
                 </div>
-                <button type="button" onClick={() => setNewValue((v) => (parseFloat(v) + 0.5).toFixed(1))}
+                <button type="button" onClick={() => {
+                  const newVal = (parseFloat(newValue) + 0.5).toFixed(1);
+                  handleWeightChange(newVal);
+                }}
                   className="w-12 h-12 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-lg transition-all">+</button>
               </div>
             </div>
@@ -391,8 +440,10 @@ const WeightLog: React.FC = () => {
             {/* Submit */}
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="lg:w-40 py-4 rounded-xl font-bold bg-pink-500 hover:bg-pink-600 text-white disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+              disabled={isSubmitting || (weightError !== '' && weightTouched)}
+              className={`lg:w-40 py-4 rounded-xl font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2 transition-all ${
+                weightError && weightTouched ? 'bg-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-600'
+              }`}
             >
               {isSubmitting ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

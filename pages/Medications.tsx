@@ -59,6 +59,97 @@ const Medications: React.FC = () => {
     times: ['08:00'],
   });
 
+  // Validation state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+  // Validate medication name
+  const validateName = (value: string): string => {
+    if (!value || value.trim() === '') {
+      return 'Medication name is required';
+    }
+    if (value.trim().length < 2) {
+      return 'Must be at least 2 characters';
+    }
+    if (value.trim().length > 100) {
+      return 'Cannot exceed 100 characters';
+    }
+    return '';
+  };
+
+  // Validate dose
+  const validateDose = (value: string): string => {
+    if (!value || value.trim() === '') {
+      return 'Dose/strength is required';
+    }
+    if (value.trim().length > 50) {
+      return 'Cannot exceed 50 characters';
+    }
+    return '';
+  };
+
+  // Validate times
+  const validateTimes = (times: string[]): string => {
+    const validTimes = times.filter(t => t && t.trim() !== '');
+    if (validTimes.length === 0) {
+      return 'At least one time is required';
+    }
+    return '';
+  };
+
+  // Validate instructions
+  const validateInstructions = (value: string): string => {
+    if (value && value.length > 500) {
+      return 'Cannot exceed 500 characters';
+    }
+    return '';
+  };
+
+  // Handle field change with validation
+  const handleFieldChange = (field: string, value: string) => {
+    setNewMed(prev => ({ ...prev, [field]: value }));
+    if (touchedFields[field]) {
+      let error = '';
+      switch (field) {
+        case 'name': error = validateName(value); break;
+        case 'dose': error = validateDose(value); break;
+        case 'instructions': error = validateInstructions(value); break;
+      }
+      setFieldErrors(prev => ({ ...prev, [field]: error }));
+    }
+  };
+
+  // Handle field blur
+  const handleFieldBlur = (field: string) => {
+    setTouchedFields(prev => ({ ...prev, [field]: true }));
+    let error = '';
+    switch (field) {
+      case 'name': error = validateName(newMed.name); break;
+      case 'dose': error = validateDose(newMed.dose); break;
+      case 'instructions': error = validateInstructions(newMed.instructions); break;
+      case 'times': error = validateTimes(newMed.times); break;
+    }
+    setFieldErrors(prev => ({ ...prev, [field]: error }));
+  };
+
+  // Check if form has errors
+  const hasFormErrors = Object.values(fieldErrors).some(error => error !== '');
+
+  // Reset form and validation
+  const resetForm = () => {
+    setNewMed({
+      name: '',
+      dose: '',
+      route: MedicationRoute.ORAL,
+      instructions: '',
+      scheduleType: ScheduleType.DAILY,
+      times: ['08:00'],
+    });
+    setFieldErrors({});
+    setTouchedFields({});
+    setFormError(null);
+  };
+
   // Fetch data
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -116,21 +207,29 @@ const Medications: React.FC = () => {
     e.preventDefault();
     setFormError(null);
 
-    if (!newMed.name || newMed.name.trim().length < 2) {
-      setFormError('Medication name must be at least 2 characters');
-      return;
-    }
+    // Mark all fields as touched
+    setTouchedFields({ name: true, dose: true, times: true, instructions: true });
 
-    if (!newMed.dose || newMed.dose.trim() === '') {
-      setFormError('Dose/strength is required');
+    // Validate all fields
+    const nameError = validateName(newMed.name);
+    const doseError = validateDose(newMed.dose);
+    const timesError = validateTimes(newMed.times);
+    const instructionsError = validateInstructions(newMed.instructions);
+
+    const newErrors = {
+      name: nameError,
+      dose: doseError,
+      times: timesError,
+      instructions: instructionsError,
+    };
+    setFieldErrors(newErrors);
+
+    // Check if there are any errors
+    if (nameError || doseError || timesError || instructionsError) {
       return;
     }
 
     const validTimes = newMed.times.filter(t => t && t.trim() !== '');
-    if (validTimes.length === 0) {
-      setFormError('At least one schedule time is required');
-      return;
-    }
 
     setIsSubmitting(true);
     try {
@@ -146,15 +245,7 @@ const Medications: React.FC = () => {
         times: validTimes,
       });
 
-      setNewMed({
-        name: '',
-        dose: '',
-        route: MedicationRoute.ORAL,
-        instructions: '',
-        scheduleType: ScheduleType.DAILY,
-        times: ['08:00'],
-      });
-      setFormError(null);
+      resetForm();
       setIsModalOpen(false);
       fetchData();
     } catch (err) {
@@ -219,17 +310,29 @@ const Medications: React.FC = () => {
   };
 
   const removeTimeSlot = (index: number) => {
+    const newTimes = newMed.times.filter((_, i) => i !== index);
     setNewMed(prev => ({
       ...prev,
-      times: prev.times.filter((_, i) => i !== index),
+      times: newTimes,
     }));
+    // Validate times after removal
+    if (touchedFields.times) {
+      const error = validateTimes(newTimes);
+      setFieldErrors(prev => ({ ...prev, times: error }));
+    }
   };
 
   const updateTimeSlot = (index: number, value: string) => {
+    const newTimes = newMed.times.map((t, i) => (i === index ? value : t));
     setNewMed(prev => ({
       ...prev,
-      times: prev.times.map((t, i) => (i === index ? value : t)),
+      times: newTimes,
     }));
+    // Validate times after update
+    if (touchedFields.times) {
+      const error = validateTimes(newTimes);
+      setFieldErrors(prev => ({ ...prev, times: error }));
+    }
   };
 
   const formatTime = (isoString: string) => {
@@ -638,7 +741,7 @@ const Medications: React.FC = () => {
                 <p className="text-sm text-slate-400 mt-1">Set up your medication schedule</p>
               </div>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => { resetForm(); setIsModalOpen(false); }}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
               >
                 <ICONS.X className="w-5 h-5" />
@@ -656,28 +759,44 @@ const Medications: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                    Medication Name
+                    Medication Name <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={newMed.name}
-                    onChange={(e) => setNewMed({ ...newMed, name: e.target.value })}
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
+                    onBlur={() => handleFieldBlur('name')}
                     placeholder="e.g. Phosphate Binder"
-                    className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500"
+                    className={`w-full rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none transition-all ${
+                      fieldErrors.name && touchedFields.name
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500'
+                    }`}
                   />
+                  {fieldErrors.name && touchedFields.name && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.name}</p>
+                  )}
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                    Dose
+                    Dose <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={newMed.dose}
-                    onChange={(e) => setNewMed({ ...newMed, dose: e.target.value })}
+                    onChange={(e) => handleFieldChange('dose', e.target.value)}
+                    onBlur={() => handleFieldBlur('dose')}
                     placeholder="e.g. 800mg"
-                    className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500"
+                    className={`w-full rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none transition-all ${
+                      fieldErrors.dose && touchedFields.dose
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500'
+                    }`}
                   />
+                  {fieldErrors.dose && touchedFields.dose && (
+                    <p className="text-xs text-rose-500 mt-1">{fieldErrors.dose}</p>
+                  )}
                 </div>
 
                 <div>
@@ -716,7 +835,7 @@ const Medications: React.FC = () => {
 
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                  Times
+                  Times <span className="text-rose-500">*</span>
                 </label>
                 <div className="space-y-2">
                   {newMed.times.map((time, index) => (
@@ -725,7 +844,12 @@ const Medications: React.FC = () => {
                         type="time"
                         value={time}
                         onChange={(e) => updateTimeSlot(index, e.target.value)}
-                        className="flex-1 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none"
+                        onBlur={() => handleFieldBlur('times')}
+                        className={`flex-1 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none transition-all ${
+                          fieldErrors.times && touchedFields.times
+                            ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                            : 'bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500'
+                        }`}
                       />
                       {newMed.times.length > 1 && (
                         <button
@@ -739,6 +863,9 @@ const Medications: React.FC = () => {
                     </div>
                   ))}
                 </div>
+                {fieldErrors.times && touchedFields.times && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.times}</p>
+                )}
                 <button
                   type="button"
                   onClick={addTimeSlot}
@@ -754,24 +881,32 @@ const Medications: React.FC = () => {
                 </label>
                 <textarea
                   value={newMed.instructions}
-                  onChange={(e) => setNewMed({ ...newMed, instructions: e.target.value })}
+                  onChange={(e) => handleFieldChange('instructions', e.target.value)}
+                  onBlur={() => handleFieldBlur('instructions')}
                   placeholder="e.g. Take with food"
                   rows={2}
-                  className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none resize-none"
+                  className={`w-full rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none resize-none transition-all ${
+                    fieldErrors.instructions && touchedFields.instructions
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : 'bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500'
+                  }`}
                 />
+                {fieldErrors.instructions && touchedFields.instructions && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.instructions}</p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => { resetForm(); setIsModalOpen(false); }}
                   className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !newMed.name || !newMed.dose}
+                  disabled={isSubmitting || hasFormErrors}
                   className="flex-1 py-3 bg-pink-500 text-white font-bold rounded-xl hover:bg-pink-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
@@ -920,103 +1055,14 @@ const Medications: React.FC = () => {
 
               {interactionResults && !isCheckingInteractions && (
                 <div className="space-y-6">
-                  {/* Summary */}
+                  {/* AI Response */}
                   <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-500/10 dark:to-indigo-500/10 rounded-2xl p-5">
-                    <h3 className="font-bold text-slate-900 dark:text-white mb-3">Summary</h3>
-                    <p className="text-slate-600 dark:text-slate-300">{interactionResults.summary}</p>
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <div className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
+                        {interactionResults.response}
+                      </div>
+                    </div>
                   </div>
-
-                  {/* Interactions */}
-                  {interactionResults.interactions && interactionResults.interactions.length > 0 && (
-                    <div>
-                      <h3 className="font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-                        <span className="text-amber-500">⚠️</span> Drug Interactions
-                      </h3>
-                      <div className="space-y-3">
-                        {interactionResults.interactions.map((interaction, idx) => (
-                          <div
-                            key={idx}
-                            className={`p-4 rounded-xl border ${
-                              interaction.severity === 'major' ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20' :
-                              interaction.severity === 'moderate' ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20' :
-                              'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1">
-                                <p className="font-bold text-slate-900 dark:text-white text-sm">
-                                  {interaction.drug1} + {interaction.drug2}
-                                </p>
-                                <p className="text-slate-600 dark:text-slate-300 text-sm mt-1">{interaction.description}</p>
-                              </div>
-                              <span className={`px-2 py-1 rounded-lg text-xs font-bold uppercase ${
-                                interaction.severity === 'major' ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400' :
-                                interaction.severity === 'moderate' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' :
-                                'bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-300'
-                              }`}>
-                                {interaction.severity}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Dialysis Considerations */}
-                  {interactionResults.dialysisConsiderations && interactionResults.dialysisConsiderations.length > 0 && (
-                    <div>
-                      <h3 className="font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-                        <ICONS.Clock className="w-5 h-5 text-sky-500" /> Dialysis Timing
-                      </h3>
-                      <div className="space-y-2">
-                        {interactionResults.dialysisConsiderations.map((item, idx) => (
-                          <div key={idx} className="flex items-start gap-3 p-3 bg-sky-50 dark:bg-sky-500/10 rounded-xl">
-                            <div className="w-6 h-6 bg-sky-100 dark:bg-sky-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <span className="text-sky-500 text-xs font-bold">{idx + 1}</span>
-                            </div>
-                            <p className="text-slate-600 dark:text-slate-300 text-sm">{item}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Dietary Interactions */}
-                  {interactionResults.dietaryInteractions && interactionResults.dietaryInteractions.length > 0 && (
-                    <div>
-                      <h3 className="font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-                        <span className="text-emerald-500">🥗</span> Food & Dietary Interactions
-                      </h3>
-                      <div className="space-y-2">
-                        {interactionResults.dietaryInteractions.map((item, idx) => (
-                          <div key={idx} className="flex items-start gap-3 p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl">
-                            <ICONS.Check className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
-                            <p className="text-slate-600 dark:text-slate-300 text-sm">{item}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Recommendations */}
-                  {interactionResults.recommendations && interactionResults.recommendations.length > 0 && (
-                    <div>
-                      <h3 className="font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-                        <ICONS.Lightbulb className="w-5 h-5 text-purple-500" /> Recommendations
-                      </h3>
-                      <div className="space-y-2">
-                        {interactionResults.recommendations.map((rec, idx) => (
-                          <div key={idx} className="flex items-start gap-3 p-3 bg-purple-50 dark:bg-purple-500/10 rounded-xl">
-                            <div className="w-6 h-6 bg-purple-100 dark:bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <span className="text-purple-500 text-xs font-bold">{idx + 1}</span>
-                            </div>
-                            <p className="text-slate-600 dark:text-slate-300 text-sm">{rec}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Disclaimer */}
                   <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-100 dark:border-slate-600">

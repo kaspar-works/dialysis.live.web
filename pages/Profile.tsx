@@ -30,6 +30,67 @@ const Profile: React.FC = () => {
   const [displayFluidLimit, setDisplayFluidLimit] = useState('');
   const [displayWeightGoal, setDisplayWeightGoal] = useState('');
 
+  // Validation state
+  const [fluidLimitError, setFluidLimitError] = useState('');
+  const [weightGoalError, setWeightGoalError] = useState('');
+  const [fluidLimitTouched, setFluidLimitTouched] = useState(false);
+  const [weightGoalTouched, setWeightGoalTouched] = useState(false);
+
+  // Validate fluid limit
+  const validateFluidLimit = (value: string): string => {
+    if (!value || value.trim() === '') {
+      return ''; // Optional field
+    }
+    const inputValue = parseFloat(value);
+    if (isNaN(inputValue)) {
+      return 'Enter a valid number';
+    }
+    const fluidMl = convertFluidToMl(inputValue);
+    if (fluidMl < 500 || fluidMl > 5000) {
+      const minDisplay = Math.round(convertFluidFromMl(500));
+      const maxDisplay = Math.round(convertFluidFromMl(5000));
+      return `Must be ${minDisplay}-${maxDisplay} ${fluidUnit}`;
+    }
+    return '';
+  };
+
+  // Validate dry weight goal
+  const validateWeightGoal = (value: string): string => {
+    if (!value || value.trim() === '') {
+      return ''; // Optional field
+    }
+    const inputValue = parseFloat(value);
+    if (isNaN(inputValue)) {
+      return 'Enter a valid number';
+    }
+    const weightKg = convertWeightToKg(inputValue);
+    if (weightKg < 20 || weightKg > 300) {
+      const minDisplay = convertWeightFromKg(20);
+      const maxDisplay = convertWeightFromKg(300);
+      return `Must be ${minDisplay.toFixed(0)}-${maxDisplay.toFixed(0)} ${weightUnit}`;
+    }
+    return '';
+  };
+
+  // Handle fluid limit change
+  const handleFluidLimitChange = (value: string) => {
+    setDisplayFluidLimit(value);
+    if (fluidLimitTouched) {
+      setFluidLimitError(validateFluidLimit(value));
+    }
+  };
+
+  // Handle weight goal change
+  const handleWeightGoalChange = (value: string) => {
+    setDisplayWeightGoal(value);
+    if (weightGoalTouched) {
+      setWeightGoalError(validateWeightGoal(value));
+    }
+  };
+
+  // Check if clinical form has errors
+  const hasClinicalErrors = (fluidLimitError !== '' && fluidLimitTouched) || (weightGoalError !== '' && weightGoalTouched);
+
   useEffect(() => {
     if (formData.dailyFluidLimit) {
       const converted = convertFluidFromMl(formData.dailyFluidLimit);
@@ -78,6 +139,23 @@ const Profile: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Mark fields as touched and validate (only for clinical tab)
+    if (activeTab === 'clinical') {
+      setFluidLimitTouched(true);
+      setWeightGoalTouched(true);
+
+      const fluidError = validateFluidLimit(displayFluidLimit);
+      const weightError = validateWeightGoal(displayWeightGoal);
+
+      setFluidLimitError(fluidError);
+      setWeightGoalError(weightError);
+
+      if (fluidError || weightError) {
+        return;
+      }
+    }
+
     setIsSaving(true);
 
     try {
@@ -101,6 +179,11 @@ const Profile: React.FC = () => {
       setProfile(updatedFormData);
       setFormData(updatedFormData);
       setIsSaved(true);
+      // Clear validation state on success
+      setFluidLimitError('');
+      setWeightGoalError('');
+      setFluidLimitTouched(false);
+      setWeightGoalTouched(false);
       setNotification({ message: 'Profile saved successfully', type: 'success' });
       setTimeout(() => {
         setIsSaved(false);
@@ -398,13 +481,25 @@ const Profile: React.FC = () => {
                   <input
                     type="number"
                     value={displayFluidLimit}
-                    onChange={(e) => setDisplayFluidLimit(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3.5 font-semibold text-slate-900 dark:text-white outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-500/10 transition-all"
+                    onChange={(e) => handleFluidLimitChange(e.target.value)}
+                    onBlur={() => {
+                      setFluidLimitTouched(true);
+                      setFluidLimitError(validateFluidLimit(displayFluidLimit));
+                    }}
+                    className={`w-full rounded-xl px-4 py-3.5 font-semibold text-slate-900 dark:text-white outline-none transition-all ${
+                      fluidLimitError && fluidLimitTouched
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 focus:border-sky-400 focus:ring-4 focus:ring-sky-500/10'
+                    }`}
                     placeholder={fluidUnit === 'oz' ? 'e.g. 50' : 'e.g. 1500'}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">{fluidUnit}/day</span>
                 </div>
-                <p className="text-xs text-slate-400 mt-1.5">Maximum daily fluid intake recommended by your care team</p>
+                {fluidLimitError && fluidLimitTouched ? (
+                  <p className="text-xs text-rose-500 mt-1.5">{fluidLimitError}</p>
+                ) : (
+                  <p className="text-xs text-slate-400 mt-1.5">Maximum daily fluid intake recommended by your care team</p>
+                )}
               </div>
 
               <div>
@@ -416,13 +511,25 @@ const Profile: React.FC = () => {
                     type="number"
                     step="0.1"
                     value={displayWeightGoal}
-                    onChange={(e) => setDisplayWeightGoal(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl px-4 py-3.5 font-semibold text-slate-900 dark:text-white outline-none focus:border-purple-400 focus:ring-4 focus:ring-purple-500/10 transition-all"
+                    onChange={(e) => handleWeightGoalChange(e.target.value)}
+                    onBlur={() => {
+                      setWeightGoalTouched(true);
+                      setWeightGoalError(validateWeightGoal(displayWeightGoal));
+                    }}
+                    className={`w-full rounded-xl px-4 py-3.5 font-semibold text-slate-900 dark:text-white outline-none transition-all ${
+                      weightGoalError && weightGoalTouched
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 focus:border-purple-400 focus:ring-4 focus:ring-purple-500/10'
+                    }`}
                     placeholder={weightUnit === 'lb' ? 'e.g. 165' : 'e.g. 75'}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">target</span>
                 </div>
-                <p className="text-xs text-slate-400 mt-1.5">Your target weight after dialysis sessions</p>
+                {weightGoalError && weightGoalTouched ? (
+                  <p className="text-xs text-rose-500 mt-1.5">{weightGoalError}</p>
+                ) : (
+                  <p className="text-xs text-slate-400 mt-1.5">Your target weight after dialysis sessions</p>
+                )}
               </div>
             </div>
 
@@ -569,11 +676,13 @@ const Profile: React.FC = () => {
           <div className="pt-6">
             <button
               type="submit"
-              disabled={isSaving}
+              disabled={isSaving || (activeTab === 'clinical' && hasClinicalErrors)}
               className={`w-full py-4 rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-3 ${
                 isSaved
                   ? 'bg-emerald-500 text-white'
-                  : 'bg-gradient-to-r from-purple-500 to-violet-500 text-white hover:from-purple-600 hover:to-violet-600 shadow-lg shadow-purple-500/20'
+                  : activeTab === 'clinical' && hasClinicalErrors
+                    ? 'bg-slate-400 text-white cursor-not-allowed'
+                    : 'bg-gradient-to-r from-purple-500 to-violet-500 text-white hover:from-purple-600 hover:to-violet-600 shadow-lg shadow-purple-500/20'
               } disabled:opacity-50`}
             >
               {isSaving ? (

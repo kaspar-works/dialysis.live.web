@@ -57,6 +57,111 @@ const LabReports: React.FC = () => {
     results: [] as Array<{ testCode: string; testName: string; value: string }>,
   });
 
+  // Validation state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+  // Validate report date
+  const validateReportDate = (value: string): string => {
+    if (!value) {
+      return 'Report date is required';
+    }
+    const selectedDate = new Date(value);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (selectedDate > today) {
+      return 'Date cannot be in the future';
+    }
+    // Check if date is not too old (e.g., more than 2 years)
+    const twoYearsAgo = new Date();
+    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+    if (selectedDate < twoYearsAgo) {
+      return 'Date cannot be more than 2 years ago';
+    }
+    return '';
+  };
+
+  // Validate lab name
+  const validateLabName = (value: string): string => {
+    if (value && value.length > 100) {
+      return 'Lab name cannot exceed 100 characters';
+    }
+    return '';
+  };
+
+  // Validate test value
+  const validateTestValue = (testCode: string, value: string): string => {
+    if (!value || value.trim() === '') {
+      return 'Value is required';
+    }
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) {
+      return 'Enter a valid number';
+    }
+    if (numValue < 0) {
+      return 'Value cannot be negative';
+    }
+    // Get config for this test to check reasonable bounds
+    const config = LAB_TEST_CONFIG[testCode];
+    if (config) {
+      // Allow values up to 10x the high reference range as a reasonable max
+      const maxAllowed = config.dialysisRange.high * 10;
+      if (numValue > maxAllowed) {
+        return `Value seems too high (max ${maxAllowed})`;
+      }
+    }
+    return '';
+  };
+
+  // Handle field change with validation
+  const handleFieldChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (touchedFields[field]) {
+      let error = '';
+      switch (field) {
+        case 'reportDate': error = validateReportDate(value); break;
+        case 'labName': error = validateLabName(value); break;
+      }
+      setFieldErrors(prev => ({ ...prev, [field]: error }));
+    }
+  };
+
+  // Handle field blur
+  const handleFieldBlur = (field: string) => {
+    setTouchedFields(prev => ({ ...prev, [field]: true }));
+    let error = '';
+    switch (field) {
+      case 'reportDate': error = validateReportDate(formData.reportDate); break;
+      case 'labName': error = validateLabName(formData.labName); break;
+    }
+    setFieldErrors(prev => ({ ...prev, [field]: error }));
+  };
+
+  // Handle test value change with validation
+  const handleTestValueChange = (testCode: string, value: string) => {
+    updateTestValue(testCode, value);
+    if (touchedFields[`test_${testCode}`]) {
+      const error = validateTestValue(testCode, value);
+      setFieldErrors(prev => ({ ...prev, [`test_${testCode}`]: error }));
+    }
+  };
+
+  // Handle test value blur
+  const handleTestValueBlur = (testCode: string, value: string) => {
+    setTouchedFields(prev => ({ ...prev, [`test_${testCode}`]: true }));
+    const error = validateTestValue(testCode, value);
+    setFieldErrors(prev => ({ ...prev, [`test_${testCode}`]: error }));
+  };
+
+  // Check if form has errors
+  const hasFormErrors = Object.values(fieldErrors).some(error => error !== '');
+
+  // Reset form validation
+  const resetFormValidation = () => {
+    setFieldErrors({});
+    setTouchedFields({});
+  };
+
   // Fetch data on mount
   useEffect(() => {
     if (hasFetched.current) return;
@@ -136,13 +241,48 @@ const LabReports: React.FC = () => {
   // Handle form submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.results.length === 0 || formData.results.some(r => !r.value)) {
-      setError('Please add at least one test result with a value');
+    setError(null);
+
+    // Mark all fields as touched
+    const newTouchedFields: Record<string, boolean> = {
+      reportDate: true,
+      labName: true,
+    };
+    formData.results.forEach(r => {
+      newTouchedFields[`test_${r.testCode}`] = true;
+    });
+    setTouchedFields(newTouchedFields);
+
+    // Validate all fields
+    const dateError = validateReportDate(formData.reportDate);
+    const labNameError = validateLabName(formData.labName);
+
+    const newErrors: Record<string, string> = {
+      reportDate: dateError,
+      labName: labNameError,
+    };
+
+    // Validate each test value
+    formData.results.forEach(r => {
+      const testError = validateTestValue(r.testCode, r.value);
+      newErrors[`test_${r.testCode}`] = testError;
+    });
+
+    setFieldErrors(newErrors);
+
+    // Check for validation errors
+    const hasErrors = Object.values(newErrors).some(error => error !== '');
+    if (hasErrors) {
+      return;
+    }
+
+    // Check if at least one test is added
+    if (formData.results.length === 0) {
+      setError('Please add at least one test result');
       return;
     }
 
     setIsSubmitting(true);
-    setError(null);
 
     try {
       const newReport = await createLabReport({
@@ -162,6 +302,7 @@ const LabReports: React.FC = () => {
         labName: '',
         results: [],
       });
+      resetFormValidation();
       setNotification({ message: 'Lab report saved', type: 'success' });
       setTimeout(() => setNotification(null), 3000);
 
@@ -266,7 +407,13 @@ const LabReports: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              // Reset validation when closing form
+              resetFormValidation();
+            }
+            setShowForm(!showForm);
+          }}
           className={`flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${
             showForm
               ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
@@ -330,14 +477,22 @@ const LabReports: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                  Report Date
+                  Report Date <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="date"
                   value={formData.reportDate}
-                  onChange={e => setFormData(prev => ({ ...prev, reportDate: e.target.value }))}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  onChange={e => handleFieldChange('reportDate', e.target.value)}
+                  onBlur={() => handleFieldBlur('reportDate')}
+                  className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white transition-all ${
+                    fieldErrors.reportDate && touchedFields.reportDate
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                  }`}
                 />
+                {fieldErrors.reportDate && touchedFields.reportDate && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.reportDate}</p>
+                )}
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
@@ -346,10 +501,18 @@ const LabReports: React.FC = () => {
                 <input
                   type="text"
                   value={formData.labName}
-                  onChange={e => setFormData(prev => ({ ...prev, labName: e.target.value }))}
+                  onChange={e => handleFieldChange('labName', e.target.value)}
+                  onBlur={() => handleFieldBlur('labName')}
                   placeholder="e.g., Quest Diagnostics"
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className={`w-full px-4 py-3 rounded-xl text-slate-900 dark:text-white transition-all ${
+                    fieldErrors.labName && touchedFields.labName
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                      : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                  }`}
                 />
+                {fieldErrors.labName && touchedFields.labName && (
+                  <p className="text-xs text-rose-500 mt-1">{fieldErrors.labName}</p>
+                )}
               </div>
             </div>
 
@@ -402,40 +565,69 @@ const LabReports: React.FC = () => {
             {formData.results.length > 0 && (
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
-                  Enter Values ({formData.results.length} tests)
+                  Enter Values ({formData.results.length} tests) <span className="text-rose-500">*</span>
                 </label>
                 <div className="space-y-3">
                   {formData.results.map(result => {
                     const config = LAB_TEST_CONFIG[result.testCode];
+                    const testFieldKey = `test_${result.testCode}`;
+                    const hasError = fieldErrors[testFieldKey] && touchedFields[testFieldKey];
                     return (
                       <div
                         key={result.testCode}
-                        className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900 rounded-xl p-3"
+                        className={`rounded-xl p-3 transition-all ${
+                          hasError
+                            ? 'bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30'
+                            : 'bg-slate-50 dark:bg-slate-900'
+                        }`}
                       >
-                        <div className="flex-1">
-                          <p className="font-bold text-slate-900 dark:text-white text-sm">{result.testName}</p>
-                          <p className="text-[10px] text-slate-400">
-                            Reference: {config?.dialysisRange.low} - {config?.dialysisRange.high} {config?.unit}
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <p className="font-bold text-slate-900 dark:text-white text-sm">{result.testName}</p>
+                            <p className="text-[10px] text-slate-400">
+                              Reference: {config?.dialysisRange.low} - {config?.dialysisRange.high} {config?.unit}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              step="any"
+                              value={result.value}
+                              onChange={e => handleTestValueChange(result.testCode, e.target.value)}
+                              onBlur={e => handleTestValueBlur(result.testCode, e.target.value)}
+                              placeholder="Value"
+                              className={`w-24 px-3 py-2 rounded-lg text-right font-bold text-slate-900 dark:text-white transition-all ${
+                                hasError
+                                  ? 'bg-white dark:bg-slate-800 border-2 border-rose-400 dark:border-rose-500'
+                                  : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                              }`}
+                            />
+                            <span className="text-xs text-slate-400 w-16">{config?.unit}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                removeTestFromForm(result.testCode);
+                                // Clear validation for this test
+                                setFieldErrors(prev => {
+                                  const newErrors = { ...prev };
+                                  delete newErrors[testFieldKey];
+                                  return newErrors;
+                                });
+                                setTouchedFields(prev => {
+                                  const newTouched = { ...prev };
+                                  delete newTouched[testFieldKey];
+                                  return newTouched;
+                                });
+                              }}
+                              className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+                            >
+                              <ICONS.X className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            step="any"
-                            value={result.value}
-                            onChange={e => updateTestValue(result.testCode, e.target.value)}
-                            placeholder="Value"
-                            className="w-24 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-right font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                          />
-                          <span className="text-xs text-slate-400 w-16">{config?.unit}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeTestFromForm(result.testCode)}
-                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
-                          >
-                            <ICONS.X className="w-4 h-4" />
-                          </button>
-                        </div>
+                        {hasError && (
+                          <p className="text-xs text-rose-500 mt-2">{fieldErrors[testFieldKey]}</p>
+                        )}
                       </div>
                     );
                   })}
@@ -446,7 +638,7 @@ const LabReports: React.FC = () => {
             {/* Submit */}
             <button
               type="submit"
-              disabled={isSubmitting || formData.results.length === 0}
+              disabled={isSubmitting || formData.results.length === 0 || hasFormErrors}
               className="w-full py-4 rounded-2xl font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg"
             >
               {isSubmitting ? (

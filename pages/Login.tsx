@@ -36,6 +36,53 @@ const Login: React.FC = () => {
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const [googleError, setGoogleError] = useState(false);
 
+  // Validation state
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
+  // Validation functions
+  const validateEmail = (value: string): string => {
+    if (!value || value.trim() === '') return 'Email is required';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) return 'Enter a valid email address';
+    return '';
+  };
+
+  const validatePassword = (value: string): string => {
+    if (!value || value.trim() === '') return 'Password is required';
+    if (value.length < 8) return 'Password must be at least 8 characters';
+    return '';
+  };
+
+  // Handle field change with validation
+  const handleFieldChange = (field: string, value: string) => {
+    if (field === 'email') setEmail(value);
+    else if (field === 'password') setPassword(value);
+
+    if (touchedFields[field]) {
+      let error = '';
+      switch (field) {
+        case 'email': error = validateEmail(value); break;
+        case 'password': error = validatePassword(value); break;
+      }
+      setFieldErrors(prev => ({ ...prev, [field]: error }));
+    }
+  };
+
+  // Handle field blur
+  const handleFieldBlur = (field: string) => {
+    setTouchedFields(prev => ({ ...prev, [field]: true }));
+    let error = '';
+    switch (field) {
+      case 'email': error = validateEmail(email); break;
+      case 'password': error = validatePassword(password); break;
+    }
+    setFieldErrors(prev => ({ ...prev, [field]: error }));
+  };
+
+  // Check if form has errors
+  const hasFormErrors = Object.values(fieldErrors).some(error => error !== '');
+
   const { login: authLogin, loginWithGoogle } = useAuth();
   const { setProfile, profile } = useStore();
   const navigate = useNavigate();
@@ -119,6 +166,22 @@ const Login: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Mark all fields as touched
+    setTouchedFields({ email: true, password: true });
+
+    // Validate all fields
+    const newErrors: Record<string, string> = {
+      email: validateEmail(email),
+      password: validatePassword(password),
+    };
+    setFieldErrors(newErrors);
+
+    // Check for validation errors
+    if (Object.values(newErrors).some(error => error !== '')) {
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -261,39 +324,57 @@ const Login: React.FC = () => {
 
               <form onSubmit={handleLogin} className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">Email Address</label>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">
+                    Email Address <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="email"
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all outline-none"
+                    onChange={e => handleFieldChange('email', e.target.value)}
+                    onBlur={() => handleFieldBlur('email')}
+                    className={`w-full rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white transition-all outline-none ${
+                      fieldErrors.email && touchedFields.email
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500'
+                    }`}
                     placeholder="you@example.com"
                     autoComplete="email"
-                    required
                     disabled={isLoading || isGoogleLoading}
                   />
+                  {fieldErrors.email && touchedFields.email && (
+                    <p className="text-xs text-rose-500 ml-1">{fieldErrors.email}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">Password</label>
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">
+                        Password <span className="text-rose-500">*</span>
+                      </label>
                       <Link to="/forgot-password" className="text-xs font-bold text-sky-500 hover:text-sky-600 transition-colors">Forgot?</Link>
                   </div>
                   <input
                     type="password"
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 transition-all outline-none"
+                    onChange={e => handleFieldChange('password', e.target.value)}
+                    onBlur={() => handleFieldBlur('password')}
+                    className={`w-full rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white transition-all outline-none ${
+                      fieldErrors.password && touchedFields.password
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
+                        : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500'
+                    }`}
                     placeholder="Min. 8 characters"
                     autoComplete="current-password"
-                    required
                     disabled={isLoading || isGoogleLoading}
                   />
+                  {fieldErrors.password && touchedFields.password && (
+                    <p className="text-xs text-rose-500 ml-1">{fieldErrors.password}</p>
+                  )}
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading || isGoogleLoading || hasFormErrors}
                   className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold hover:bg-slate-800 dark:hover:bg-slate-100 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isLoading ? (

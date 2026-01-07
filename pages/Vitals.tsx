@@ -41,6 +41,10 @@ const Vitals: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Validation state for inline errors
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+
   const vitalConfig = {
     [VitalType.BLOOD_PRESSURE]: {
       label: 'Blood Pressure',
@@ -143,7 +147,113 @@ const Vitals: React.FC = () => {
     }
   };
 
-  // Validation helper for vitals
+  // Inline validation functions for each vital field
+  const validateSystolic = (value: string): string => {
+    if (!value || value.trim() === '') return 'Systolic is required';
+    const v = parseFloat(value);
+    if (isNaN(v)) return 'Enter a valid number';
+    if (v < 50 || v > 300) return 'Must be 50-300 mmHg';
+    return '';
+  };
+
+  const validateDiastolic = (value: string, systolicValue: string): string => {
+    if (!value || value.trim() === '') return 'Diastolic is required';
+    const v = parseFloat(value);
+    const systolic = parseFloat(systolicValue);
+    if (isNaN(v)) return 'Enter a valid number';
+    if (v < 30 || v > 200) return 'Must be 30-200 mmHg';
+    if (!isNaN(systolic) && systolic <= v) return 'Must be less than systolic';
+    return '';
+  };
+
+  const validateHeartRate = (value: string): string => {
+    if (!value || value.trim() === '') return 'Heart rate is required';
+    const v = parseFloat(value);
+    if (isNaN(v)) return 'Enter a valid number';
+    if (v < 20 || v > 300) return 'Must be 20-300 bpm';
+    return '';
+  };
+
+  const validateTemperature = (value: string): string => {
+    if (!value || value.trim() === '') return 'Temperature is required';
+    const v = parseFloat(value);
+    if (isNaN(v)) return 'Enter a valid number';
+    const isMetric = profile.settings.units === 'metric';
+    if (isMetric) {
+      if (v < 30 || v > 45) return 'Must be 30-45°C';
+    } else {
+      if (v < 86 || v > 113) return 'Must be 86-113°F';
+    }
+    return '';
+  };
+
+  const validateSpO2 = (value: string): string => {
+    if (!value || value.trim() === '') return 'SpO2 is required';
+    const v = parseFloat(value);
+    if (isNaN(v)) return 'Enter a valid number';
+    if (v < 0 || v > 100) return 'Must be 0-100%';
+    return '';
+  };
+
+  // Handle val1 change with validation
+  const handleVal1Change = (value: string) => {
+    setVal1(value);
+    if (touchedFields.val1) {
+      let error = '';
+      switch (selectedType) {
+        case VitalType.BLOOD_PRESSURE: error = validateSystolic(value); break;
+        case VitalType.HEART_RATE: error = validateHeartRate(value); break;
+        case VitalType.TEMPERATURE: error = validateTemperature(value); break;
+        case VitalType.SPO2: error = validateSpO2(value); break;
+      }
+      setFieldErrors(prev => ({ ...prev, val1: error }));
+      // Also re-validate diastolic if BP and val2 is touched
+      if (selectedType === VitalType.BLOOD_PRESSURE && touchedFields.val2) {
+        const diastolicError = validateDiastolic(val2, value);
+        setFieldErrors(prev => ({ ...prev, val2: diastolicError }));
+      }
+    }
+  };
+
+  // Handle val1 blur
+  const handleVal1Blur = () => {
+    setTouchedFields(prev => ({ ...prev, val1: true }));
+    let error = '';
+    switch (selectedType) {
+      case VitalType.BLOOD_PRESSURE: error = validateSystolic(val1); break;
+      case VitalType.HEART_RATE: error = validateHeartRate(val1); break;
+      case VitalType.TEMPERATURE: error = validateTemperature(val1); break;
+      case VitalType.SPO2: error = validateSpO2(val1); break;
+    }
+    setFieldErrors(prev => ({ ...prev, val1: error }));
+  };
+
+  // Handle val2 change with validation (for Blood Pressure)
+  const handleVal2Change = (value: string) => {
+    setVal2(value);
+    if (touchedFields.val2) {
+      const error = validateDiastolic(value, val1);
+      setFieldErrors(prev => ({ ...prev, val2: error }));
+    }
+  };
+
+  // Handle val2 blur
+  const handleVal2Blur = () => {
+    setTouchedFields(prev => ({ ...prev, val2: true }));
+    const error = validateDiastolic(val2, val1);
+    setFieldErrors(prev => ({ ...prev, val2: error }));
+  };
+
+  // Check if form has errors
+  const hasVitalFormErrors = Object.values(fieldErrors).some(error => error !== '');
+
+  // Reset form validation
+  const resetVitalFormValidation = () => {
+    setFieldErrors({});
+    setTouchedFields({});
+  };
+
+  // Validation helper for vitals (used on submit)
   const validateVitalInput = (): string | null => {
     const v1 = parseFloat(val1);
     const v2 = parseFloat(val2);
@@ -190,7 +300,34 @@ const Vitals: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    // Validate input before submitting
+    // Mark all fields as touched for inline validation
+    setTouchedFields({ val1: true, val2: true });
+
+    // Validate inline
+    let newErrors: Record<string, string> = {};
+    switch (selectedType) {
+      case VitalType.BLOOD_PRESSURE:
+        newErrors.val1 = validateSystolic(val1);
+        newErrors.val2 = validateDiastolic(val2, val1);
+        break;
+      case VitalType.HEART_RATE:
+        newErrors.val1 = validateHeartRate(val1);
+        break;
+      case VitalType.TEMPERATURE:
+        newErrors.val1 = validateTemperature(val1);
+        break;
+      case VitalType.SPO2:
+        newErrors.val1 = validateSpO2(val1);
+        break;
+    }
+    setFieldErrors(newErrors);
+
+    // Check for errors
+    if (Object.values(newErrors).some(error => error !== '')) {
+      return;
+    }
+
+    // Also run legacy validation (for additional checks like systolic > diastolic)
     const validationError = validateVitalInput();
     if (validationError) {
       setError(validationError);
@@ -230,6 +367,7 @@ const Vitals: React.FC = () => {
       setRecords(prev => [newRecord, ...prev]);
       setShowForm(false);
       setLimitError(null);
+      resetVitalFormValidation();
 
       // Reset to defaults for next entry
       const config = vitalConfig[selectedType];
@@ -519,7 +657,12 @@ const Vitals: React.FC = () => {
           </div>
           {/* Log Vital Button */}
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => {
+              if (showForm) {
+                resetVitalFormValidation();
+              }
+              setShowForm(!showForm);
+            }}
             className={`flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all shadow-lg ${
               showForm
                 ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
@@ -637,14 +780,18 @@ const Vitals: React.FC = () => {
                 /* Blood Pressure: Two Values */
                 <div className="grid grid-cols-2 gap-4">
                   {/* Systolic */}
-                  <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-4">
+                  <div className={`rounded-2xl p-4 transition-all ${
+                    fieldErrors.val1 && touchedFields.val1
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30'
+                      : 'bg-slate-50 dark:bg-slate-900'
+                  }`}>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3 text-center">
-                      Systolic (Top)
+                      Systolic (Top) <span className="text-rose-500">*</span>
                     </label>
                     <div className="flex items-center justify-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setVal1(String(Math.max(60, parseInt(val1) - 5)))}
+                        onClick={() => handleVal1Change(String(Math.max(60, parseInt(val1) - 5)))}
                         className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-500 transition-all active:scale-95"
                       >
                         <span className="text-2xl font-bold">−</span>
@@ -652,32 +799,45 @@ const Vitals: React.FC = () => {
                       <input
                         type="number"
                         value={val1}
-                        onChange={e => setVal1(e.target.value)}
-                        className="w-24 h-16 bg-white dark:bg-slate-800 text-4xl font-black text-slate-900 dark:text-white text-center outline-none rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-rose-500 transition-colors"
+                        onChange={e => handleVal1Change(e.target.value)}
+                        onBlur={handleVal1Blur}
+                        className={`w-24 h-16 text-4xl font-black text-slate-900 dark:text-white text-center outline-none rounded-xl border-2 transition-colors ${
+                          fieldErrors.val1 && touchedFields.val1
+                            ? 'bg-white dark:bg-slate-800 border-rose-400 dark:border-rose-500'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-rose-500'
+                        }`}
                         min="60"
                         max="250"
                         autoFocus
                       />
                       <button
                         type="button"
-                        onClick={() => setVal1(String(Math.min(250, parseInt(val1) + 5)))}
+                        onClick={() => handleVal1Change(String(Math.min(250, parseInt(val1) + 5)))}
                         className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-500 transition-all active:scale-95"
                       >
                         <span className="text-2xl font-bold">+</span>
                       </button>
                     </div>
-                    <p className="text-center text-xs text-slate-400 mt-2">Normal: 90-120</p>
+                    {fieldErrors.val1 && touchedFields.val1 ? (
+                      <p className="text-center text-xs text-rose-500 mt-2 font-medium">{fieldErrors.val1}</p>
+                    ) : (
+                      <p className="text-center text-xs text-slate-400 mt-2">Normal: 90-120</p>
+                    )}
                   </div>
 
                   {/* Diastolic */}
-                  <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-4">
+                  <div className={`rounded-2xl p-4 transition-all ${
+                    fieldErrors.val2 && touchedFields.val2
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30'
+                      : 'bg-slate-50 dark:bg-slate-900'
+                  }`}>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3 text-center">
-                      Diastolic (Bottom)
+                      Diastolic (Bottom) <span className="text-rose-500">*</span>
                     </label>
                     <div className="flex items-center justify-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setVal2(String(Math.max(40, parseInt(val2) - 5)))}
+                        onClick={() => handleVal2Change(String(Math.max(40, parseInt(val2) - 5)))}
                         className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-pink-500 hover:border-pink-500 transition-all active:scale-95"
                       >
                         <span className="text-2xl font-bold">−</span>
@@ -685,27 +845,40 @@ const Vitals: React.FC = () => {
                       <input
                         type="number"
                         value={val2}
-                        onChange={e => setVal2(e.target.value)}
-                        className="w-24 h-16 bg-white dark:bg-slate-800 text-4xl font-black text-slate-900 dark:text-white text-center outline-none rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-pink-500 transition-colors"
+                        onChange={e => handleVal2Change(e.target.value)}
+                        onBlur={handleVal2Blur}
+                        className={`w-24 h-16 text-4xl font-black text-slate-900 dark:text-white text-center outline-none rounded-xl border-2 transition-colors ${
+                          fieldErrors.val2 && touchedFields.val2
+                            ? 'bg-white dark:bg-slate-800 border-rose-400 dark:border-rose-500'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-pink-500'
+                        }`}
                         min="40"
                         max="150"
                       />
                       <button
                         type="button"
-                        onClick={() => setVal2(String(Math.min(150, parseInt(val2) + 5)))}
+                        onClick={() => handleVal2Change(String(Math.min(150, parseInt(val2) + 5)))}
                         className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-pink-500 hover:border-pink-500 transition-all active:scale-95"
                       >
                         <span className="text-2xl font-bold">+</span>
                       </button>
                     </div>
-                    <p className="text-center text-xs text-slate-400 mt-2">Normal: 60-80</p>
+                    {fieldErrors.val2 && touchedFields.val2 ? (
+                      <p className="text-center text-xs text-rose-500 mt-2 font-medium">{fieldErrors.val2}</p>
+                    ) : (
+                      <p className="text-center text-xs text-slate-400 mt-2">Normal: 60-80</p>
+                    )}
                   </div>
                 </div>
               ) : (
                 /* Single Value Vitals */
-                <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-6">
+                <div className={`rounded-2xl p-6 transition-all ${
+                  fieldErrors.val1 && touchedFields.val1
+                    ? 'bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30'
+                    : 'bg-slate-50 dark:bg-slate-900'
+                }`}>
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-4 text-center">
-                    {vitalConfig[selectedType].label}
+                    {vitalConfig[selectedType].label} <span className="text-rose-500">*</span>
                   </label>
                   <div className="flex items-center justify-center gap-3">
                     <button
@@ -713,7 +886,7 @@ const Vitals: React.FC = () => {
                       onClick={() => {
                         const step = selectedType === VitalType.TEMPERATURE ? 0.1 : 1;
                         const min = selectedType === VitalType.TEMPERATURE ? 35 : selectedType === VitalType.HEART_RATE ? 40 : 80;
-                        setVal1(String(Math.max(min, parseFloat(val1) - step).toFixed(selectedType === VitalType.TEMPERATURE ? 1 : 0)));
+                        handleVal1Change(String(Math.max(min, parseFloat(val1) - step).toFixed(selectedType === VitalType.TEMPERATURE ? 1 : 0)));
                       }}
                       className={`w-14 h-14 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:${vitalConfig[selectedType].textColor} hover:border-current transition-all active:scale-95`}
                     >
@@ -723,8 +896,13 @@ const Vitals: React.FC = () => {
                       <input
                         type="number"
                         value={val1}
-                        onChange={e => setVal1(e.target.value)}
-                        className={`w-32 h-20 bg-white dark:bg-slate-800 text-5xl font-black text-slate-900 dark:text-white text-center outline-none rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-current transition-colors ${vitalConfig[selectedType].textColor.replace('text-', 'focus:border-')}`}
+                        onChange={e => handleVal1Change(e.target.value)}
+                        onBlur={handleVal1Blur}
+                        className={`w-32 h-20 text-5xl font-black text-slate-900 dark:text-white text-center outline-none rounded-xl border-2 transition-colors ${
+                          fieldErrors.val1 && touchedFields.val1
+                            ? 'bg-white dark:bg-slate-800 border-rose-400 dark:border-rose-500'
+                            : `bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 ${vitalConfig[selectedType].textColor.replace('text-', 'focus:border-')}`
+                        }`}
                         step={selectedType === VitalType.TEMPERATURE ? 0.1 : 1}
                         autoFocus
                       />
@@ -735,16 +913,20 @@ const Vitals: React.FC = () => {
                       onClick={() => {
                         const step = selectedType === VitalType.TEMPERATURE ? 0.1 : 1;
                         const max = selectedType === VitalType.TEMPERATURE ? 42 : selectedType === VitalType.HEART_RATE ? 200 : 100;
-                        setVal1(String(Math.min(max, parseFloat(val1) + step).toFixed(selectedType === VitalType.TEMPERATURE ? 1 : 0)));
+                        handleVal1Change(String(Math.min(max, parseFloat(val1) + step).toFixed(selectedType === VitalType.TEMPERATURE ? 1 : 0)));
                       }}
                       className={`w-14 h-14 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:${vitalConfig[selectedType].textColor} hover:border-current transition-all active:scale-95`}
                     >
                       <span className="text-3xl font-bold">+</span>
                     </button>
                   </div>
-                  <p className="text-center text-xs text-slate-400 mt-3">
-                    Normal: {vitalConfig[selectedType].normalRange.min}-{vitalConfig[selectedType].normalRange.max} {vitalConfig[selectedType].unit}
-                  </p>
+                  {fieldErrors.val1 && touchedFields.val1 ? (
+                    <p className="text-center text-xs text-rose-500 mt-3 font-medium">{fieldErrors.val1}</p>
+                  ) : (
+                    <p className="text-center text-xs text-slate-400 mt-3">
+                      Normal: {vitalConfig[selectedType].normalRange.min}-{vitalConfig[selectedType].normalRange.max} {vitalConfig[selectedType].unit}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -871,7 +1053,7 @@ const Vitals: React.FC = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLogging || !val1 || (selectedType === VitalType.BLOOD_PRESSURE && !val2)}
+              disabled={isLogging || !val1 || (selectedType === VitalType.BLOOD_PRESSURE && !val2) || hasVitalFormErrors}
               className={`w-full py-4 rounded-2xl font-bold text-white transition-all bg-gradient-to-r ${vitalConfig[selectedType].gradient} hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-${vitalConfig[selectedType].color}-500/20`}
             >
               {isLogging ? (

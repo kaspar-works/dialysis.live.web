@@ -35,12 +35,41 @@ const Symptoms: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedSymptom, setSelectedSymptom] = useState<SymptomType | null>(null);
-  const [severity, setSeverity] = useState(3);
+  const [severity, setSeverity] = useState<number | null>(null);
   const [isLogging, setIsLogging] = useState(false);
   const [showAllSymptoms, setShowAllSymptoms] = useState(false);
   const [recentlyAdded, setRecentlyAdded] = useState<string | null>(null);
   const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
   const hasFetched = useRef(false);
+
+  // Validation state
+  const [severityError, setSeverityError] = useState<string>('');
+  const [severityTouched, setSeverityTouched] = useState(false);
+
+  // Validate severity
+  const validateSeverity = (value: number | null): string => {
+    if (value === null) {
+      return 'Please select a severity level';
+    }
+    if (value < 1 || value > 5) {
+      return 'Severity must be between 1 and 5';
+    }
+    return '';
+  };
+
+  // Handle severity selection
+  const handleSeveritySelect = (level: number) => {
+    setSeverity(level);
+    setSeverityTouched(true);
+    setSeverityError('');
+  };
+
+  // Reset form validation
+  const resetFormValidation = () => {
+    setSeverity(null);
+    setSeverityError('');
+    setSeverityTouched(false);
+  };
 
   useEffect(() => {
     if (hasFetched.current) return;
@@ -79,12 +108,20 @@ const Symptoms: React.FC = () => {
     return config;
   }, [symptomTypes]);
 
-  const handleQuickLog = async (type: SymptomType, sev: number) => {
+  const handleQuickLog = async (type: SymptomType) => {
+    // Validate severity
+    setSeverityTouched(true);
+    const validationError = validateSeverity(severity);
+    if (validationError) {
+      setSeverityError(validationError);
+      return;
+    }
+
     setIsLogging(true);
     try {
       const newSymptom = await createSymptomLog({
         symptomType: type,
-        severity: sev,
+        severity: severity!,
         loggedAt: new Date().toISOString(),
       });
       setSymptoms(prev => [newSymptom, ...prev]);
@@ -96,11 +133,12 @@ const Symptoms: React.FC = () => {
       setTimeout(() => setSuccessMessage(null), 3000);
 
       setSelectedSymptom(null);
-      setSeverity(3);
+      resetFormValidation();
     } catch (err) {
       if (err instanceof SubscriptionLimitError) {
         setLimitError({ message: err.message, limit: err.limit });
         setSelectedSymptom(null);
+        resetFormValidation();
       } else {
         console.error('Failed to log symptom:', err);
         setError('Failed to log symptom');
@@ -389,17 +427,28 @@ const Symptoms: React.FC = () => {
                 {symptomConfig[selectedSymptom].label}
               </h3>
 
-              <p className="text-slate-400">How severe is it?</p>
+              <p className="text-slate-400">How severe is it? <span className="text-rose-500">*</span></p>
 
               {/* Severity Display */}
               <div className="py-4">
-                <div className="text-6xl mb-2">{severityEmojis[severity]}</div>
-                <div
-                  className="text-lg font-black"
-                  style={{ color: symptomConfig[selectedSymptom].color }}
-                >
-                  {severityLabels[severity]}
-                </div>
+                {severity !== null ? (
+                  <>
+                    <div className="text-6xl mb-2">{severityEmojis[severity]}</div>
+                    <div
+                      className="text-lg font-black"
+                      style={{ color: symptomConfig[selectedSymptom].color }}
+                    >
+                      {severityLabels[severity]}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-6xl mb-2 opacity-30">🤔</div>
+                    <div className="text-lg font-black text-slate-300 dark:text-slate-600">
+                      Select below
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Severity Slider */}
@@ -408,10 +457,12 @@ const Symptoms: React.FC = () => {
                   {[1, 2, 3, 4, 5].map(level => (
                     <button
                       key={level}
-                      onClick={() => setSeverity(level)}
+                      onClick={() => handleSeveritySelect(level)}
                       className={`flex-1 h-16 rounded-xl font-black text-xl transition-all ${
                         severity === level
                           ? 'scale-110 shadow-xl text-white'
+                          : severityError && severityTouched
+                          ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-400 border-2 border-rose-300 dark:border-rose-500/50 hover:bg-rose-100 dark:hover:bg-rose-500/20'
                           : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
                       }`}
                       style={{
@@ -424,29 +475,41 @@ const Symptoms: React.FC = () => {
                 </div>
 
                 {/* Severity bar */}
-                <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div className={`h-2 rounded-full overflow-hidden ${
+                  severityError && severityTouched
+                    ? 'bg-rose-100 dark:bg-rose-500/20'
+                    : 'bg-slate-100 dark:bg-slate-700'
+                }`}>
                   <div
                     className="h-full rounded-full transition-all duration-300"
                     style={{
-                      width: `${severity * 20}%`,
+                      width: severity !== null ? `${severity * 20}%` : '0%',
                       backgroundColor: symptomConfig[selectedSymptom].color,
                     }}
                   />
                 </div>
+
+                {/* Error message */}
+                {severityError && severityTouched && (
+                  <p className="text-sm text-rose-500 font-medium">{severityError}</p>
+                )}
               </div>
 
               {/* Actions */}
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={() => setSelectedSymptom(null)}
+                  onClick={() => {
+                    setSelectedSymptom(null);
+                    resetFormValidation();
+                  }}
                   className="flex-1 py-4 bg-slate-100 dark:bg-slate-700 rounded-2xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => handleQuickLog(selectedSymptom, severity)}
-                  disabled={isLogging}
-                  className={`flex-1 py-4 rounded-2xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg bg-gradient-to-r ${symptomConfig[selectedSymptom].gradient}`}
+                  onClick={() => handleQuickLog(selectedSymptom)}
+                  disabled={isLogging || (severityError !== '' && severityTouched)}
+                  className={`flex-1 py-4 rounded-2xl font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg bg-gradient-to-r ${symptomConfig[selectedSymptom].gradient}`}
                 >
                   {isLogging ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
