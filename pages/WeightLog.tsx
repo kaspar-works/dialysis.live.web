@@ -28,7 +28,7 @@ const ITEMS_PER_PAGE = 10;
 
 const WeightLog: React.FC = () => {
   const { profile } = useStore();
-  const { weightUnit, displayWeight, formatWeight, convertWeightFromKg, convertWeightToKg } = useSettings();
+  const { weightUnit, displayWeight, formatWeight, convertWeightFromKg, convertWeightToKg, displayShortDate, displayWeekdayDate, displayTime } = useSettings();
   const [weights, setWeights] = useState<WeightLogApi[]>([]);
   const [newValue, setNewValue] = useState(() => {
     const goalKg = profile.weightGoal || 75.0;
@@ -260,7 +260,7 @@ const WeightLog: React.FC = () => {
       .filter(w => w && new Date(w.loggedAt) >= cutoff)
       .reverse()
       .map(w => ({
-        date: new Date(w.loggedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        date: displayShortDate(w.loggedAt),
         weight: convertWeightFromKg(w.weightKg),
         context: apiToType[w.context],
       }));
@@ -678,7 +678,7 @@ const WeightLog: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-xs text-slate-400">
-                        {cfg?.label} • {new Date(w.loggedAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} {new Date(w.loggedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        {cfg?.label} • {displayWeekdayDate(w.loggedAt)} {displayTime(w.loggedAt)}
                       </p>
                     </div>
                     <button

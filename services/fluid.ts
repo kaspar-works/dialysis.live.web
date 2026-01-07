@@ -52,8 +52,9 @@ export async function createFluidLog(data: CreateFluidLogData): Promise<FluidLog
 }
 
 // Get today's fluid intake
-export async function getTodayFluidIntake(): Promise<TodayFluidResponse> {
-  const result = await authFetch('/fluids/today');
+export async function getTodayFluidIntake(timezone?: string): Promise<TodayFluidResponse> {
+  const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const result = await authFetch(`/fluids/today?timezone=${encodeURIComponent(tz)}`);
   return result.data;
 }
 

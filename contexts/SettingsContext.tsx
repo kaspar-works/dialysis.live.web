@@ -1,6 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getSettings, UserSettings, defaultSettings } from '../services/settings';
 import { useAuth } from './AuthContext';
+import {
+  formatShortDate,
+  formatFullDate,
+  formatWeekday,
+  formatFullWeekday,
+  formatTime,
+  formatDateTime,
+  formatRelativeDate,
+  formatWeekdayDate,
+  formatISODate,
+  getTodayDateString,
+  isDateToday,
+  DateInput,
+} from '../utils/date';
 
 // Unit conversion constants
 const KG_TO_LB = 2.20462;
@@ -24,6 +38,20 @@ interface SettingsContextValue {
   formatFluid: (ml: number | undefined | null, showUnit?: boolean) => string;
   convertFluidToMl: (value: number) => number;
   convertFluidFromMl: (ml: number) => number;
+
+  // Date/timezone utilities
+  timezone: string;
+  displayShortDate: (date: DateInput) => string;
+  displayFullDate: (date: DateInput) => string;
+  displayWeekday: (date: DateInput) => string;
+  displayFullWeekday: (date: DateInput) => string;
+  displayTime: (date: DateInput) => string;
+  displayDateTime: (date: DateInput) => string;
+  displayRelativeDate: (date: DateInput) => string;
+  displayWeekdayDate: (date: DateInput) => string;
+  getTodayString: () => string;
+  isToday: (date: DateInput) => boolean;
+  getDateString: (date: DateInput) => string;
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -130,6 +158,54 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     return showUnit ? `${Math.round(converted)} ml` : String(Math.round(converted));
   }, [convertFluidFromMl, fluidUnit]);
 
+  // Date/timezone utilities
+  const timezone = settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  const displayShortDate = useCallback((date: DateInput): string => {
+    return formatShortDate(date, timezone);
+  }, [timezone]);
+
+  const displayFullDate = useCallback((date: DateInput): string => {
+    return formatFullDate(date, timezone);
+  }, [timezone]);
+
+  const displayWeekday = useCallback((date: DateInput): string => {
+    return formatWeekday(date, timezone);
+  }, [timezone]);
+
+  const displayFullWeekday = useCallback((date: DateInput): string => {
+    return formatFullWeekday(date, timezone);
+  }, [timezone]);
+
+  const displayTime = useCallback((date: DateInput): string => {
+    return formatTime(date, timezone);
+  }, [timezone]);
+
+  const displayDateTime = useCallback((date: DateInput): string => {
+    return formatDateTime(date, timezone);
+  }, [timezone]);
+
+  const displayRelativeDate = useCallback((date: DateInput): string => {
+    return formatRelativeDate(date, timezone);
+  }, [timezone]);
+
+  const displayWeekdayDate = useCallback((date: DateInput): string => {
+    return formatWeekdayDate(date, timezone);
+  }, [timezone]);
+
+  const getTodayString = useCallback((): string => {
+    return getTodayDateString(timezone);
+  }, [timezone]);
+
+  const isToday = useCallback((date: DateInput): boolean => {
+    const dateStr = typeof date === 'string' ? date : date instanceof Date ? date.toISOString() : new Date(date).toISOString();
+    return isDateToday(dateStr, timezone);
+  }, [timezone]);
+
+  const getDateString = useCallback((date: DateInput): string => {
+    return formatISODate(date, timezone);
+  }, [timezone]);
+
   const value: SettingsContextValue = {
     settings,
     isLoading,
@@ -144,6 +220,18 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     formatFluid,
     convertFluidToMl,
     convertFluidFromMl,
+    timezone,
+    displayShortDate,
+    displayFullDate,
+    displayWeekday,
+    displayFullWeekday,
+    displayTime,
+    displayDateTime,
+    displayRelativeDate,
+    displayWeekdayDate,
+    getTodayString,
+    isToday,
+    getDateString,
   };
 
   return (

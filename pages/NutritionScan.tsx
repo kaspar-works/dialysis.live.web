@@ -18,6 +18,7 @@ import {
   CachedFood,
 } from '../services/nutrition';
 import { authFetch, SubscriptionLimitError, FeatureRestrictedError } from '../services/auth';
+import { useSettings } from '../contexts/SettingsContext';
 
 const COMMON_FOODS = [
   { name: 'Apple', sodium: 1, potassium: 107, phosphorus: 11, protein: 0.3 },
@@ -33,6 +34,7 @@ const COMMON_FOODS = [
 const LIMITS = { sodium: DAILY_LIMITS.sodium, potassium: DAILY_LIMITS.potassium, phosphorus: DAILY_LIMITS.phosphorus, protein: DAILY_LIMITS.protein };
 
 const NutritionScan: React.FC = () => {
+  const { displayTime, displayWeekdayDate } = useSettings();
   const [image, setImage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<NutriAuditResult | null>(null);
@@ -963,7 +965,7 @@ const NutritionScan: React.FC = () => {
                     <div>
                       <p className="font-bold text-slate-900 dark:text-white">{meal.name}</p>
                       <p className="text-xs text-slate-400">
-                        {new Date(meal.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {displayTime(meal.loggedAt)}
                         {meal.aiAnalyzed && <span className="ml-2 text-emerald-500">AI</span>}
                         <span className="ml-2 capitalize text-slate-300">{meal.mealType}</span>
                       </p>
@@ -1059,7 +1061,7 @@ const NutritionScan: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-slate-900 dark:text-white truncate">{meal.name}</p>
                       <p className="text-xs text-slate-400 mt-1">
-                        {new Date(meal.loggedAt).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} at {new Date(meal.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {displayWeekdayDate(meal.loggedAt)} at {displayTime(meal.loggedAt)}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
                         {meal.aiAnalyzed && (

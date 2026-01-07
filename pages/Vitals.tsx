@@ -9,6 +9,7 @@ import {
 import { createVitalRecord, getVitalRecords, deleteVitalRecord, VitalRecord, analyzeVitals, VitalsAnalysis } from '../services/vitals';
 import { SubscriptionLimitError } from '../services/auth';
 import { Link } from 'react-router';
+import { useSettings } from '../contexts/SettingsContext';
 
 type AnalysisDays = 10 | 30;
 
@@ -16,6 +17,7 @@ type ViewTab = 'overview' | 'blood_pressure' | 'heart_rate' | 'temperature' | 's
 
 const Vitals: React.FC = () => {
   const { profile } = useStore();
+  const { displayShortDate, displayDateTime, displayWeekdayDate, displayTime } = useSettings();
   const [selectedType, setSelectedType] = useState<VitalType>(VitalType.BLOOD_PRESSURE);
   const [activeTab, setActiveTab] = useState<ViewTab>('overview');
   const [val1, setVal1] = useState<string>('120');
@@ -518,7 +520,7 @@ const Vitals: React.FC = () => {
         .slice(0, 14)
         .reverse()
         .map(r => ({
-          date: new Date(r.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          date: displayShortDate(r.loggedAt),
           systolic: r.bloodPressure!.systolic,
           diastolic: r.bloodPressure!.diastolic,
         })),
@@ -526,25 +528,25 @@ const Vitals: React.FC = () => {
         .slice(0, 14)
         .reverse()
         .map(r => ({
-          date: new Date(r.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          date: displayShortDate(r.loggedAt),
           bpm: r.heartRate!,
         })),
       temperature: recordsByType.temperature
         .slice(0, 14)
         .reverse()
         .map(r => ({
-          date: new Date(r.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          date: displayShortDate(r.loggedAt),
           temp: r.temperature!.value,
         })),
       spo2: recordsByType.spo2
         .slice(0, 14)
         .reverse()
         .map(r => ({
-          date: new Date(r.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          date: displayShortDate(r.loggedAt),
           spo2: r.spo2!,
         })),
     };
-  }, [recordsByType]);
+  }, [recordsByType, displayShortDate]);
 
   // Calculate trends
   const trends = useMemo(() => {
@@ -1167,7 +1169,7 @@ const Vitals: React.FC = () => {
                       )}
                       {vital && (
                         <p className="text-[10px] text-slate-400 mt-2">
-                          {new Date(vital.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {displayDateTime(vital.loggedAt)}
                         </p>
                       )}
                     </div>
@@ -1519,13 +1521,7 @@ const Vitals: React.FC = () => {
                           </span>
                         </div>
                         <p className="text-xs text-slate-400 mt-0.5">
-                          {new Date(record.loggedAt).toLocaleDateString([], {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                          {displayWeekdayDate(record.loggedAt)} {displayTime(record.loggedAt)}
                         </p>
                       </div>
 

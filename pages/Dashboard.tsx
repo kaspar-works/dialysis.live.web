@@ -38,7 +38,7 @@ import { createFluidLog, getTodayFluidIntake, FluidLog } from '../services/fluid
 
 const Dashboard: React.FC = () => {
   const { profile, addFluid } = useStore();
-  const { weightUnit, fluidUnit, displayWeight, displayFluid, formatWeight, formatFluid, convertWeightFromKg, convertFluidFromMl } = useSettings();
+  const { weightUnit, fluidUnit, displayWeight, displayFluid, formatWeight, formatFluid, convertWeightFromKg, convertFluidFromMl, displayWeekday, displayTime, timezone } = useSettings();
   const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
   const [healthOverview, setHealthOverview] = useState<HealthOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,7 +83,7 @@ const Dashboard: React.FC = () => {
           getUpcomingReminders(24).catch(() => []),
           getUpcomingAppointments(7).catch(() => []),
           getTodayMeals().catch(() => null),
-          getTodayFluidIntake().catch(() => null),
+          getTodayFluidIntake(timezone).catch(() => null),
         ]);
 
         setDashboardData(dashData);
@@ -224,7 +224,7 @@ const Dashboard: React.FC = () => {
   const weightData = useMemo(() => {
     if (dashboardData?.weight?.history && dashboardData.weight.history.length > 0) {
       return dashboardData.weight.history.slice(0, 7).reverse().map(w => ({
-        date: new Date(w.date).toLocaleDateString(undefined, { weekday: 'short' }),
+        date: displayWeekday(w.date),
         weight: w.weight,
         goal: dryWeight ?? 0
       }));
@@ -377,7 +377,7 @@ const Dashboard: React.FC = () => {
       // Refresh dashboard data and fluid logs to get updated totals
       const [data, fluidData] = await Promise.all([
         getDashboard(),
-        getTodayFluidIntake(),
+        getTodayFluidIntake(timezone),
       ]);
       setDashboardData(data);
       if (fluidData?.logs) {
@@ -1023,7 +1023,7 @@ const Dashboard: React.FC = () => {
                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {recentFluidLogs.slice(0, 8).map((log) => {
                     const logTime = new Date(log.loggedAt);
-                    const timeStr = logTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                    const timeStr = displayTime(logTime);
                     const sourceIcons: Record<string, string> = {
                       water: '💧',
                       tea: '🍵',

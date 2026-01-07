@@ -48,7 +48,7 @@ type ViewMode = 'list' | 'create' | 'active' | 'end' | 'detail';
 const Sessions: React.FC = () => {
   const { profile } = useStore();
   const { isAuthenticated } = useAuth();
-  const { weightUnit, fluidUnit, displayWeight, displayFluid, formatWeight, formatFluid, convertWeightToKg, convertWeightFromKg, convertFluidToMl, convertFluidFromMl } = useSettings();
+  const { weightUnit, fluidUnit, displayWeight, displayFluid, formatWeight, formatFluid, convertWeightToKg, convertWeightFromKg, convertFluidToMl, convertFluidFromMl, displayShortDate, displayFullDate, displayTime } = useSettings();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [sessions, setSessions] = useState<DialysisSession[]>([]);
   const [activeSession, setActiveSession] = useState<DialysisSession | null>(null);
@@ -1009,7 +1009,7 @@ const Sessions: React.FC = () => {
       .reverse()
       .slice(-10) // Last 10 sessions
       .map((session, index) => ({
-        name: new Date(session.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        name: displayShortDate(session.startedAt),
         preWeight: session.preWeightKg ? convertWeightFromKg(session.preWeightKg) : null,
         postWeight: session.postWeightKg ? convertWeightFromKg(session.postWeightKg) : null,
         ufRemoved: session.actualUfMl ? convertFluidFromMl(session.actualUfMl) : 0,
@@ -1018,7 +1018,7 @@ const Sessions: React.FC = () => {
           ? parseFloat(convertWeightFromKg(session.preWeightKg - session.postWeightKg).toFixed(1))
           : 0,
       }));
-  }, [completedSessions, convertWeightFromKg, convertFluidFromMl]);
+  }, [completedSessions, convertWeightFromKg, convertFluidFromMl, displayShortDate]);
 
   // Get dry weight from profile if available
   const dryWeight = profile?.dryWeightKg;
@@ -1320,7 +1320,7 @@ const Sessions: React.FC = () => {
                             {session.type.toUpperCase()} - {session.mode}
                           </p>
                           <p className="text-sm text-slate-400">
-                            {new Date(session.startedAt).toLocaleDateString()} at {new Date(session.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {displayFullDate(session.startedAt)} at {displayTime(session.startedAt)}
                           </p>
                         </div>
                       </div>
@@ -2182,7 +2182,7 @@ const Sessions: React.FC = () => {
                       )}
                     </div>
                     <p className="text-xs text-slate-400">
-                      {new Date(vital.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {displayTime(vital.loggedAt)}
                     </p>
                   </div>
                 ))}
@@ -2350,7 +2350,7 @@ const Sessions: React.FC = () => {
             <div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Session Details</h2>
               <p className="text-slate-400 text-sm">
-                {new Date(selectedSession.startedAt).toLocaleDateString()} at {new Date(selectedSession.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {displayFullDate(selectedSession.startedAt)} at {displayTime(selectedSession.startedAt)}
               </p>
             </div>
             <button onClick={() => { setViewMode('list'); setSelectedSession(null); setSelectedSessionVitals([]); }} className="text-slate-400 hover:text-slate-600">
@@ -2458,7 +2458,7 @@ const Sessions: React.FC = () => {
                             Reading #{index + 1}
                           </span>
                           <span className="text-xs text-slate-400">
-                            {new Date(vital.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {displayTime(vital.loggedAt)}
                           </span>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -2567,7 +2567,7 @@ const Sessions: React.FC = () => {
             <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl mb-6">
               <p className="text-sm text-slate-600 dark:text-slate-300">
                 Are you sure you want to delete the <strong>{sessionToDelete.type.toUpperCase()}</strong> session from{' '}
-                <strong>{new Date(sessionToDelete.startedAt).toLocaleDateString()}</strong>?
+                <strong>{displayFullDate(sessionToDelete.startedAt)}</strong>?
               </p>
               {sessionToDelete.actualDurationMin && (
                 <p className="text-xs text-slate-400 mt-2">

@@ -19,7 +19,7 @@ const quickAmountsOz = [4, 5, 6, 8, 10, 16];
 
 const FluidLog: React.FC = () => {
   const { profile } = useStore();
-  const { fluidUnit, displayFluid, formatFluid, convertFluidFromMl, convertFluidToMl } = useSettings();
+  const { fluidUnit, displayFluid, formatFluid, convertFluidFromMl, convertFluidToMl, displayWeekday, displayShortDate, displayTime, displayDateTime, timezone, getTodayString, getDateString, isToday } = useSettings();
   const quickAmounts = fluidUnit === 'oz' ? quickAmountsOz : quickAmountsMl;
   const [selectedBeverage, setSelectedBeverage] = useState(beverages[0]);
   const [customAmount, setCustomAmount] = useState('');
@@ -92,7 +92,7 @@ const FluidLog: React.FC = () => {
     setIsLoading(true);
     try {
       const [todayData, logsData] = await Promise.all([
-        getTodayFluidIntake(),
+        getTodayFluidIntake(timezone),
         getFluidLogs({ limit: LOGS_PER_PAGE })
       ]);
       setTotalToday(todayData.totalMl);
@@ -135,40 +135,40 @@ const FluidLog: React.FC = () => {
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      const dayLogs = logs.filter(l => l.loggedAt.startsWith(dateStr));
+      const dateStr = getDateString(date);
+      const dayLogs = logs.filter(l => getDateString(l.loggedAt) === dateStr);
       const total = dayLogs.reduce((sum, l) => sum + l.amountMl, 0);
       days.push({
         date: dateStr,
-        label: i === 0 ? 'Today' : i === 1 ? 'Yday' : date.toLocaleDateString('en', { weekday: 'short' }),
-        shortLabel: date.toLocaleDateString('en', { weekday: 'short' }).charAt(0),
+        label: i === 0 ? 'Today' : i === 1 ? 'Yday' : displayWeekday(date),
+        shortLabel: displayWeekday(date).charAt(0),
         total
       });
     }
     return days;
-  }, [logs]);
+  }, [logs, getDateString, displayWeekday]);
 
   // Hourly breakdown for today
   const hourlyData = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayLogs = logs.filter(l => l.loggedAt.startsWith(today));
+    const todayStr = getTodayString();
+    const todayLogs = logs.filter(l => getDateString(l.loggedAt) === todayStr);
     const hours: number[] = Array(24).fill(0);
     todayLogs.forEach(log => {
       const hour = new Date(log.loggedAt).getHours();
       hours[hour] += log.amountMl;
     });
     return hours;
-  }, [logs]);
+  }, [logs, getTodayString, getDateString]);
 
   // Beverage breakdown for today
   const beverageBreakdown = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayLogs = logs.filter(l => l.loggedAt.startsWith(today));
+    const todayStr = getTodayString();
+    const todayLogs = logs.filter(l => getDateString(l.loggedAt) === todayStr);
     return beverages.map(bev => ({
       ...bev,
       total: todayLogs.filter(l => l.source === bev.source).reduce((sum, l) => sum + l.amountMl, 0),
     }));
-  }, [logs]);
+  }, [logs, getTodayString, getDateString]);
 
   const maxHourly = Math.max(...hourlyData, 100);
   const maxWeekly = Math.max(...weeklyData.map(d => d.total), profile.dailyFluidLimit);
@@ -176,8 +176,8 @@ const FluidLog: React.FC = () => {
   const isOverLimit = totalToday > profile.dailyFluidLimit;
   const remaining = profile.dailyFluidLimit - totalToday;
 
-  const today = new Date().toISOString().split('T')[0];
-  const todayLogs = logs.filter(l => l.loggedAt.startsWith(today));
+  const today = getTodayString();
+  const todayLogs = logs.filter(l => getDateString(l.loggedAt) === today);
 
   const handleAdd = async (amount: number, isCustom: boolean = false) => {
     if (isAdding) return;
@@ -703,9 +703,9 @@ const FluidLog: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-900 dark:text-white">{bev.name}</p>
                     <p className="text-sm text-slate-400">
-                      {log.loggedAt.startsWith(today)
-                        ? new Date(log.loggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        : new Date(log.loggedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      {isToday(log.loggedAt)
+                        ? displayTime(log.loggedAt)
+                        : displayDateTime(log.loggedAt)
                       }
                     </p>
                   </div>

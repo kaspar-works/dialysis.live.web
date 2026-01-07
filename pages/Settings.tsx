@@ -733,10 +733,32 @@ const Settings: React.FC = () => {
                 onChange={e => updateField('timezone', e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-violet-500/20"
               >
-                {Intl.supportedValuesOf('timeZone').slice(0, 50).map(tz => (
-                  <option key={tz} value={tz}>{tz}</option>
-                ))}
+                <optgroup label="Common Timezones">
+                  <option value="America/New_York">Eastern Time (ET)</option>
+                  <option value="America/Chicago">Central Time (CT)</option>
+                  <option value="America/Denver">Mountain Time (MT)</option>
+                  <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                  <option value="America/Anchorage">Alaska Time (AKT)</option>
+                  <option value="Pacific/Honolulu">Hawaii Time (HT)</option>
+                  <option value="Europe/London">London (GMT/BST)</option>
+                  <option value="Europe/Paris">Paris (CET)</option>
+                  <option value="Europe/Berlin">Berlin (CET)</option>
+                  <option value="Asia/Dubai">Dubai (GST)</option>
+                  <option value="Asia/Kolkata">India (IST)</option>
+                  <option value="Asia/Singapore">Singapore (SGT)</option>
+                  <option value="Asia/Tokyo">Tokyo (JST)</option>
+                  <option value="Australia/Sydney">Sydney (AEST)</option>
+                  <option value="Pacific/Auckland">Auckland (NZST)</option>
+                </optgroup>
+                <optgroup label="All Timezones">
+                  {Intl.supportedValuesOf('timeZone').map(tz => (
+                    <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>
+                  ))}
+                </optgroup>
               </select>
+              <p className="text-xs text-slate-400">
+                Current: {settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}
+              </p>
             </div>
 
             <div className="space-y-3">

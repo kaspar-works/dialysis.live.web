@@ -4,6 +4,7 @@ import { ICONS } from '../constants';
 import { SymptomType } from '../types';
 import { createSymptomLog, getSymptomLogs, getSymptomTypes, SymptomLog, SymptomTypeConfig } from '../services/symptoms';
 import { SubscriptionLimitError } from '../services/auth';
+import { useSettings } from '../contexts/SettingsContext';
 
 // Color to gradient mapping
 const colorToGradient: Record<string, string> = {
@@ -29,6 +30,7 @@ const severityLabels = ['', 'Mild', 'Light', 'Moderate', 'Strong', 'Severe'];
 const severityEmojis = ['', '😊', '😐', '😕', '😣', '😫'];
 
 const Symptoms: React.FC = () => {
+  const { displayShortDate, displayTime } = useSettings();
   const [symptoms, setSymptoms] = useState<SymptomLog[]>([]);
   const [symptomTypes, setSymptomTypes] = useState<SymptomTypeConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -673,11 +675,7 @@ const Symptoms: React.FC = () => {
               const isToday = date === new Date().toDateString();
               const dateLabel = isToday
                 ? 'Today'
-                : new Date(date).toLocaleDateString(undefined, {
-                    weekday: 'long',
-                    month: 'short',
-                    day: 'numeric',
-                  });
+                : displayShortDate(date);
 
               return (
                 <div key={date} className="p-4">
@@ -707,10 +705,7 @@ const Symptoms: React.FC = () => {
                               {config?.label}
                             </p>
                             <p className="text-xs text-slate-400">
-                              {new Date(symptom.loggedAt).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
+                              {displayTime(symptom.loggedAt)}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">

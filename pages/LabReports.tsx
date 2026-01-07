@@ -26,10 +26,12 @@ import {
   groupResultsByCategory,
 } from '../services/labReports';
 import { SubscriptionLimitError } from '../services/auth';
+import { useSettings } from '../contexts/SettingsContext';
 
 type ViewTab = 'overview' | 'trends' | 'history';
 
 const LabReports: React.FC = () => {
+  const { displayShortDate, displayFullDate, displayFullWeekday, timezone } = useSettings();
   const [activeTab, setActiveTab] = useState<ViewTab>('overview');
   const [reports, setReports] = useState<LabReport[]>([]);
   const [latestResults, setLatestResults] = useState<LatestResult[]>([]);
@@ -385,11 +387,11 @@ const LabReports: React.FC = () => {
   const chartData = useMemo(() => {
     if (!trendData?.data) return [];
     return trendData.data.map(d => ({
-      date: new Date(d.date).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+      date: displayShortDate(d.date),
       value: d.value,
       isAbnormal: d.isAbnormal,
     }));
-  }, [trendData]);
+  }, [trendData, displayShortDate]);
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500 pb-24 px-4">
@@ -910,14 +912,10 @@ const LabReports: React.FC = () => {
                               <td className="px-4 py-4">
                                 <div>
                                   <p className="font-bold text-slate-900 dark:text-white text-sm">
-                                    {new Date(report.reportDate).toLocaleDateString([], {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                    })}
+                                    {displayFullDate(report.reportDate)}
                                   </p>
                                   <p className="text-[10px] text-slate-400">
-                                    {new Date(report.reportDate).toLocaleDateString([], { weekday: 'long' })}
+                                    {displayFullWeekday(report.reportDate)}
                                   </p>
                                 </div>
                               </td>
@@ -1020,7 +1018,7 @@ const LabReports: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                    Lab Report - {new Date(selectedReport.reportDate).toLocaleDateString()}
+                    Lab Report - {displayFullDate(selectedReport.reportDate)}
                   </h3>
                   {selectedReport.labName && (
                     <p className="text-slate-400 text-sm">{selectedReport.labName}</p>
@@ -1096,7 +1094,7 @@ const LabReports: React.FC = () => {
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white">AI Analysis</h4>
                     {selectedReport.aiAnalyzedAt && (
                       <span className="text-[10px] text-slate-400">
-                        {new Date(selectedReport.aiAnalyzedAt).toLocaleDateString()}
+                        {displayFullDate(selectedReport.aiAnalyzedAt)}
                       </span>
                     )}
                   </div>
