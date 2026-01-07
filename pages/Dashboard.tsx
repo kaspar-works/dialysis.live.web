@@ -34,7 +34,7 @@ import {
   TodayMealsResponse,
   DAILY_LIMITS,
 } from '../services/nutrition';
-import { createFluidLog } from '../services/fluid';
+import { createFluidLog, getTodayFluidIntake, FluidLog } from '../services/fluid';
 
 const Dashboard: React.FC = () => {
   const { profile, addFluid } = useStore();
@@ -51,6 +51,7 @@ const Dashboard: React.FC = () => {
   const [upcomingReminders, setUpcomingReminders] = useState<Reminder[]>([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
   const [nutritionData, setNutritionData] = useState<TodayMealsResponse | null>(null);
+  const [recentFluidLogs, setRecentFluidLogs] = useState<FluidLog[]>([]);
   const hasFetched = useRef(false);
 
   // Function to fetch/refresh alerts - can be called anytime
@@ -75,13 +76,14 @@ const Dashboard: React.FC = () => {
 
     const fetchDashboard = async () => {
       try {
-        const [dashData, alertsData, healthData, remindersData, appointmentsData, nutriData] = await Promise.all([
+        const [dashData, alertsData, healthData, remindersData, appointmentsData, nutriData, fluidData] = await Promise.all([
           getDashboard(30),
           getDashboardAlerts().catch(() => null),
           getHealthOverview().catch(() => null),
           getUpcomingReminders(24).catch(() => []),
           getUpcomingAppointments(7).catch(() => []),
           getTodayMeals().catch(() => null),
+          getTodayFluidIntake().catch(() => null),
         ]);
 
         setDashboardData(dashData);
@@ -107,6 +109,10 @@ const Dashboard: React.FC = () => {
 
         if (nutriData) {
           setNutritionData(nutriData);
+        }
+
+        if (fluidData?.logs) {
+          setRecentFluidLogs(fluidData.logs);
         }
       } catch (err: unknown) {
         const error = err as { message?: string };
@@ -368,9 +374,15 @@ const Dashboard: React.FC = () => {
         beverage: 'Water'
       });
 
-      // Refresh dashboard data to get updated totals
-      const data = await getDashboard();
+      // Refresh dashboard data and fluid logs to get updated totals
+      const [data, fluidData] = await Promise.all([
+        getDashboard(),
+        getTodayFluidIntake(),
+      ]);
       setDashboardData(data);
+      if (fluidData?.logs) {
+        setRecentFluidLogs(fluidData.logs);
+      }
     } catch (err) {
       console.error('Failed to add fluid:', err);
     } finally {
@@ -1000,6 +1012,45 @@ const Dashboard: React.FC = () => {
                 </button>
               ))}
             </div>
+
+            {/* Recent Fluid Logs */}
+            {recentFluidLogs.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-white/60 text-xs font-bold uppercase tracking-wider">Recent Intake</p>
+                  <Link to="/fluid" className="text-white/80 text-xs font-bold hover:text-white">View All</Link>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {recentFluidLogs.slice(0, 8).map((log) => {
+                    const logTime = new Date(log.loggedAt);
+                    const timeStr = logTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                    const sourceIcons: Record<string, string> = {
+                      water: '💧',
+                      tea: '🍵',
+                      coffee: '☕',
+                      juice: '🧃',
+                      soup: '🍲',
+                      other: '🥤',
+                    };
+                    return (
+                      <div
+                        key={log._id}
+                        className="flex items-center justify-between bg-white/10 backdrop-blur rounded-lg px-3 py-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{sourceIcons[log.source] || '💧'}</span>
+                          <div>
+                            <p className="text-white font-semibold text-sm capitalize">{log.source}</p>
+                            <p className="text-white/50 text-xs">{timeStr}</p>
+                          </div>
+                        </div>
+                        <p className="text-white font-bold text-sm">+{log.amountMl} ml</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
