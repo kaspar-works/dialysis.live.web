@@ -141,6 +141,25 @@ export async function acknowledgeAlert(id: string): Promise<Alert> {
 }
 
 /**
+ * Mark an alert as read (alias for acknowledge)
+ * POST /api/v1/alerts/:id/acknowledge
+ */
+export async function markAsRead(id: string): Promise<Alert> {
+  return acknowledgeAlert(id);
+}
+
+/**
+ * Mark all alerts as read
+ * POST /api/v1/alerts/acknowledge-all (bulk)
+ */
+export async function markAllAsRead(): Promise<{ acknowledgedCount: number }> {
+  const result = await authFetch('/alerts/acknowledge-all', {
+    method: 'POST',
+  });
+  return result.data;
+}
+
+/**
  * Dismiss an alert
  * POST /api/v1/alerts/:id/dismiss
  */

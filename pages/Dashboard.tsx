@@ -477,6 +477,20 @@ const Dashboard: React.FC = () => {
           </h1>
         </div>
         <div className="flex items-center gap-3">
+          {/* Alert Bell Icon */}
+          <Link
+            to="/alerts"
+            className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center hover:scale-105 transition-transform"
+          >
+            <ICONS.Bell className="w-6 h-6 text-slate-600 dark:text-slate-300" />
+            {alertCounts && (alertCounts.critical + alertCounts.high + alertCounts.medium + alertCounts.low) > 0 && (
+              <span className={`absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold text-white flex items-center justify-center ${
+                hasUrgentAlerts ? 'bg-rose-500 animate-pulse' : 'bg-sky-500'
+              }`}>
+                {alertCounts.critical + alertCounts.high + alertCounts.medium + alertCounts.low}
+              </span>
+            )}
+          </Link>
           <Link
             to="/profile"
             className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center hover:scale-105 transition-transform"
@@ -836,24 +850,15 @@ const Dashboard: React.FC = () => {
         {/* Hydration Card */}
         <div className="col-span-12 lg:col-span-5 bg-gradient-to-br from-sky-500 via-cyan-500 to-teal-500 rounded-[2rem] p-6 relative overflow-hidden">
           {/* Background Wave Effect */}
-          <div className="absolute bottom-0 left-0 right-0 h-24 overflow-hidden opacity-30">
+          <div className="absolute bottom-0 left-0 right-0 h-16 overflow-hidden opacity-30">
             <svg className="absolute bottom-0 w-[200%] animate-wave" viewBox="0 0 1200 120" preserveAspectRatio="none">
               <path d="M0,60 C150,120 350,0 600,60 C850,120 1050,0 1200,60 L1200,120 L0,120 Z" fill="rgba(255,255,255,0.2)" />
             </svg>
           </div>
 
-          {/* Vertical Progress Bar */}
-          {dailyFluidLimit > 0 && (
-            <div className="absolute right-4 top-6 bottom-6 w-2 bg-white/20 rounded-full overflow-hidden">
-              <div
-                className="absolute bottom-0 left-0 right-0 bg-white/60 rounded-full transition-all duration-1000"
-                style={{ height: `${Math.min(fluidPercentage, 100)}%` }}
-              />
-            </div>
-          )}
-
-          <div className="relative z-10 pr-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="relative z-10">
+            {/* Header row with stats */}
+            <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-white/60 text-xs font-bold uppercase tracking-wider">Today's Hydration</p>
                 <div className="flex items-baseline gap-2 mt-1">
@@ -877,9 +882,10 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Water Glass Animation */}
-            <div className="flex justify-center mb-6">
-              <div className="relative w-36 h-44">
+            {/* Glass and Progress Bar Container */}
+            <div className="flex items-center justify-center gap-6 mb-4">
+              {/* Water Glass Animation */}
+              <div className="relative w-28 h-36 flex-shrink-0">
                 {/* Glass Container */}
                 <svg className="w-full h-full" viewBox="0 0 100 130">
                   {/* Glass outline */}
@@ -959,25 +965,24 @@ const Dashboard: React.FC = () => {
 
                 {/* Percentage label in center */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <span className="text-3xl font-black text-white drop-shadow-lg">
-                      {dailyFluidLimit > 0 ? `${fluidPercentage}%` : '💧'}
-                    </span>
-                  </div>
+                  <span className="text-2xl font-black text-white drop-shadow-lg">
+                    {dailyFluidLimit > 0 ? `${fluidPercentage}%` : '💧'}
+                  </span>
                 </div>
               </div>
-            </div>
 
-            {/* Hourly Mini Chart */}
-            <div className="flex items-end justify-between gap-1 h-12 mb-6 px-2">
-              {fluidHourlyData.map((h, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              {/* Vertical Progress Bar */}
+              {dailyFluidLimit > 0 && (
+                <div className="w-3 h-36 bg-white/20 rounded-full overflow-hidden flex-shrink-0">
                   <div
-                    className="w-full bg-white/30 rounded-t transition-all hover:bg-white/50"
-                    style={{ height: h.amount > 0 ? `${Math.max(4, (h.amount / 500) * 40)}px` : '0px' }}
+                    className="w-full bg-white/70 rounded-full transition-all duration-1000"
+                    style={{
+                      height: `${Math.min(fluidPercentage, 100)}%`,
+                      marginTop: `${100 - Math.min(fluidPercentage, 100)}%`
+                    }}
                   />
                 </div>
-              ))}
+              )}
             </div>
 
             {/* Quick Add Buttons */}
