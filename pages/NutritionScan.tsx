@@ -364,7 +364,7 @@ const NutritionScan: React.FC = () => {
           <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600">/{limit}{unit}</span>
         </div>
         <div className="flex items-baseline gap-1 mb-3">
-          <span className={`text-3xl font-black tabular-nums ${isHigh ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>{value}</span>
+          <span className={`text-3xl font-black tabular-nums ${isHigh ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>{unit === 'g' ? value.toFixed(1) : Math.round(value)}</span>
           <span className="text-sm text-slate-400">{unit}</span>
         </div>
         <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">

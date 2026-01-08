@@ -24,6 +24,9 @@ import {
 } from '../services/subscription';
 import PaymentModal from '../components/PaymentModal';
 
+// Payment features are temporarily disabled
+const PAYMENT_DISABLED = true;
+
 const Subscription: React.FC = () => {
   const [isYearly, setIsYearly] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionType | null>(null);
@@ -106,6 +109,10 @@ const Subscription: React.FC = () => {
   };
 
   const handleUpgrade = async (plan: PlanType) => {
+    if (PAYMENT_DISABLED) {
+      setError('Payment features are currently under construction. Only the free version is available for now.');
+      return;
+    }
     if (!subscription || subscription.plan === plan) return;
 
     if (subscription.plan === 'free' && plan !== 'free') {
@@ -195,6 +202,24 @@ const Subscription: React.FC = () => {
         <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Billing</h1>
         <p className="text-slate-500 dark:text-slate-400 mt-2">Manage your subscription and payments</p>
       </div>
+
+      {/* Payment Disabled Banner */}
+      {PAYMENT_DISABLED && (
+        <div className="mb-8 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">🔧</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-amber-700 dark:text-amber-400 mb-1">Payment Feature Under Construction</h3>
+              <p className="text-amber-600 dark:text-amber-500 text-sm">
+                The payment feature is currently being developed. Only the free version is available for now.
+                All premium features will be unlocked once payments are enabled. Thank you for your patience!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && (

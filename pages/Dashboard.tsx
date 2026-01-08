@@ -35,6 +35,15 @@ import {
   DAILY_LIMITS,
 } from '../services/nutrition';
 import { createFluidLog, getTodayFluidIntake, FluidLog } from '../services/fluid';
+import { authFetch } from '../services/auth';
+
+interface SystemAnnouncement {
+  id: string;
+  type: 'info' | 'warning' | 'success' | 'error';
+  title: string;
+  message: string;
+  dismissible: boolean;
+}
 
 const Dashboard: React.FC = () => {
   const { profile, addFluid } = useStore();
@@ -52,6 +61,11 @@ const Dashboard: React.FC = () => {
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
   const [nutritionData, setNutritionData] = useState<TodayMealsResponse | null>(null);
   const [recentFluidLogs, setRecentFluidLogs] = useState<FluidLog[]>([]);
+  const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>([]);
+  const [dismissedAnnouncements, setDismissedAnnouncements] = useState<string[]>(() => {
+    const saved = localStorage.getItem('dismissedAnnouncements');
+    return saved ? JSON.parse(saved) : [];
+  });
   const hasFetched = useRef(false);
 
   // Function to fetch/refresh alerts - can be called anytime
@@ -126,6 +140,32 @@ const Dashboard: React.FC = () => {
 
     fetchDashboard();
   }, []);
+
+  // Fetch system announcements
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'}/announcements?page=dashboard`);
+        const data = await response.json();
+        if (data.success && data.data?.announcements) {
+          setAnnouncements(data.data.announcements);
+        }
+      } catch (err) {
+        console.error('Failed to fetch announcements:', err);
+      }
+    };
+    fetchAnnouncements();
+  }, []);
+
+  // Handle announcement dismissal
+  const handleDismissAnnouncement = (announcementId: string) => {
+    const newDismissed = [...dismissedAnnouncements, announcementId];
+    setDismissedAnnouncements(newDismissed);
+    localStorage.setItem('dismissedAnnouncements', JSON.stringify(newDismissed));
+  };
+
+  // Filter out dismissed announcements
+  const visibleAnnouncements = announcements.filter(a => !dismissedAnnouncements.includes(a.id));
 
   // Refresh alerts when page becomes visible (user returns to tab/page)
   useEffect(() => {
@@ -446,6 +486,84 @@ const Dashboard: React.FC = () => {
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-24 px-4 animate-in fade-in duration-700">
       <OnboardingModal />
+
+      {/* System Announcements */}
+      {visibleAnnouncements.map((announcement) => (
+        <div
+          key={announcement.id}
+          className={`relative overflow-hidden rounded-2xl p-4 ${
+            announcement.type === 'info'
+              ? 'bg-gradient-to-r from-sky-500/10 to-cyan-500/10 border border-sky-500/20'
+              : announcement.type === 'warning'
+              ? 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20'
+              : announcement.type === 'error'
+              ? 'bg-gradient-to-r from-rose-500/10 to-red-500/10 border border-rose-500/20'
+              : 'bg-gradient-to-r from-emerald-500/10 to-green-500/10 border border-emerald-500/20'
+          }`}
+        >
+          <div className="flex items-start gap-4">
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                announcement.type === 'info'
+                  ? 'bg-sky-500/20'
+                  : announcement.type === 'warning'
+                  ? 'bg-amber-500/20'
+                  : announcement.type === 'error'
+                  ? 'bg-rose-500/20'
+                  : 'bg-emerald-500/20'
+              }`}
+            >
+              <span className="text-xl">
+                {announcement.type === 'info' ? '🔧' : announcement.type === 'warning' ? '⚠️' : announcement.type === 'error' ? '❌' : '✅'}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3
+                className={`font-bold text-sm ${
+                  announcement.type === 'info'
+                    ? 'text-sky-700 dark:text-sky-400'
+                    : announcement.type === 'warning'
+                    ? 'text-amber-700 dark:text-amber-400'
+                    : announcement.type === 'error'
+                    ? 'text-rose-700 dark:text-rose-400'
+                    : 'text-emerald-700 dark:text-emerald-400'
+                }`}
+              >
+                {announcement.title}
+              </h3>
+              <p
+                className={`text-sm mt-1 ${
+                  announcement.type === 'info'
+                    ? 'text-sky-600 dark:text-sky-500'
+                    : announcement.type === 'warning'
+                    ? 'text-amber-600 dark:text-amber-500'
+                    : announcement.type === 'error'
+                    ? 'text-rose-600 dark:text-rose-500'
+                    : 'text-emerald-600 dark:text-emerald-500'
+                }`}
+              >
+                {announcement.message}
+              </p>
+            </div>
+            {announcement.dismissible && (
+              <button
+                onClick={() => handleDismissAnnouncement(announcement.id)}
+                className={`p-1.5 rounded-lg transition-all hover:scale-110 ${
+                  announcement.type === 'info'
+                    ? 'text-sky-500 hover:bg-sky-500/10'
+                    : announcement.type === 'warning'
+                    ? 'text-amber-500 hover:bg-amber-500/10'
+                    : announcement.type === 'error'
+                    ? 'text-rose-500 hover:bg-rose-500/10'
+                    : 'text-emerald-500 hover:bg-emerald-500/10'
+                }`}
+              >
+                <ICONS.X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
 
       {/* CSS Animations */}
       <style>{`
