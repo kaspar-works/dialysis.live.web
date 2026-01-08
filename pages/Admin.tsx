@@ -60,9 +60,10 @@ const Admin: React.FC = () => {
     title: '',
     message: '',
     dismissible: true,
-    active: true,
-    priority: 1,
-    targetPages: ['dashboard'],
+    isActive: true,
+    priority: 0,
+    linkUrl: '',
+    linkText: '',
   });
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -190,8 +191,8 @@ const Admin: React.FC = () => {
 
     try {
       if (editingAnnouncement) {
-        const result = await updateAnnouncement(editingAnnouncement.id, announcementForm);
-        setAnnouncements(prev => prev.map(a => a.id === editingAnnouncement.id ? result.announcement : a));
+        const result = await updateAnnouncement(editingAnnouncement._id, announcementForm);
+        setAnnouncements(prev => prev.map(a => a._id === editingAnnouncement._id ? result.announcement : a));
       } else {
         const result = await createAnnouncement(announcementForm);
         setAnnouncements(prev => [...prev, result.announcement]);
@@ -204,9 +205,10 @@ const Admin: React.FC = () => {
         title: '',
         message: '',
         dismissible: true,
-        active: true,
-        priority: 1,
-        targetPages: ['dashboard'],
+        isActive: true,
+        priority: 0,
+        linkUrl: '',
+        linkText: '',
       });
     } catch (err: any) {
       setFormError(err.message || 'Failed to save announcement');
@@ -221,7 +223,7 @@ const Admin: React.FC = () => {
 
     try {
       await deleteAnnouncement(id);
-      setAnnouncements(prev => prev.filter(a => a.id !== id));
+      setAnnouncements(prev => prev.filter(a => a._id !== id));
     } catch (err) {
       console.error('Failed to delete announcement:', err);
     }
@@ -235,9 +237,10 @@ const Admin: React.FC = () => {
       title: announcement.title,
       message: announcement.message,
       dismissible: announcement.dismissible,
-      active: announcement.active,
+      isActive: announcement.isActive,
       priority: announcement.priority,
-      targetPages: announcement.targetPages,
+      linkUrl: announcement.linkUrl || '',
+      linkText: announcement.linkText || '',
     });
     setShowAnnouncementForm(true);
   };
@@ -245,8 +248,8 @@ const Admin: React.FC = () => {
   // Toggle announcement active status
   const handleToggleActive = async (announcement: SystemAnnouncement) => {
     try {
-      const result = await updateAnnouncement(announcement.id, { active: !announcement.active });
-      setAnnouncements(prev => prev.map(a => a.id === announcement.id ? result.announcement : a));
+      const result = await updateAnnouncement(announcement._id, { isActive: !announcement.isActive });
+      setAnnouncements(prev => prev.map(a => a._id === announcement._id ? result.announcement : a));
     } catch (err) {
       console.error('Failed to toggle announcement:', err);
     }
@@ -712,9 +715,10 @@ const Admin: React.FC = () => {
                 title: '',
                 message: '',
                 dismissible: true,
-                active: true,
-                priority: 1,
-                targetPages: ['dashboard'],
+                isActive: true,
+                priority: 0,
+                linkUrl: '',
+                linkText: '',
               });
               setShowAnnouncementForm(true);
             }}
@@ -775,33 +779,6 @@ const Admin: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Target Pages</label>
-                    <div className="flex flex-wrap gap-2">
-                      {['dashboard', 'pricing', 'subscription', 'settings', 'all'].map(page => (
-                        <button
-                          key={page}
-                          type="button"
-                          onClick={() => {
-                            setAnnouncementForm(prev => ({
-                              ...prev,
-                              targetPages: prev.targetPages.includes(page)
-                                ? prev.targetPages.filter(p => p !== page)
-                                : [...prev.targetPages, page]
-                            }));
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            announcementForm.targetPages.includes(page)
-                              ? 'bg-violet-500 text-white'
-                              : 'bg-slate-700 text-slate-300'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   <div className="flex items-center gap-4">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -816,8 +793,8 @@ const Admin: React.FC = () => {
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={announcementForm.active}
-                        onChange={(e) => setAnnouncementForm(prev => ({ ...prev, active: e.target.checked }))}
+                        checked={announcementForm.isActive}
+                        onChange={(e) => setAnnouncementForm(prev => ({ ...prev, isActive: e.target.checked }))}
                         className="w-5 h-5 rounded border-slate-600 bg-slate-700 text-violet-500 focus:ring-violet-500"
                       />
                       <span className="text-sm text-slate-300">Active</span>
@@ -825,14 +802,36 @@ const Admin: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Priority (1-100)</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Priority (0-100, higher = first)</label>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
                       max="100"
                       value={announcementForm.priority}
-                      onChange={(e) => setAnnouncementForm(prev => ({ ...prev, priority: parseInt(e.target.value) || 1 }))}
+                      onChange={(e) => setAnnouncementForm(prev => ({ ...prev, priority: parseInt(e.target.value) || 0 }))}
                       className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Link URL (optional)</label>
+                    <input
+                      type="url"
+                      value={announcementForm.linkUrl}
+                      onChange={(e) => setAnnouncementForm(prev => ({ ...prev, linkUrl: e.target.value }))}
+                      className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      placeholder="https://example.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Link Text (optional)</label>
+                    <input
+                      type="text"
+                      value={announcementForm.linkText}
+                      onChange={(e) => setAnnouncementForm(prev => ({ ...prev, linkText: e.target.value }))}
+                      className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      placeholder="Learn more"
                     />
                   </div>
                 </div>
@@ -843,6 +842,16 @@ const Admin: React.FC = () => {
                       setShowAnnouncementForm(false);
                       setEditingAnnouncement(null);
                       setFormError('');
+                      setAnnouncementForm({
+                        type: 'info',
+                        title: '',
+                        message: '',
+                        dismissible: true,
+                        isActive: true,
+                        priority: 0,
+                        linkUrl: '',
+                        linkText: '',
+                      });
                     }}
                     className="flex-1 py-3 bg-slate-700 text-slate-300 rounded-xl font-bold hover:bg-slate-600 transition-colors"
                   >
@@ -874,37 +883,43 @@ const Admin: React.FC = () => {
                     error: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
                   };
                   return (
-                    <div key={announcement.id} className={`p-4 hover:bg-slate-800/50 ${!announcement.active ? 'opacity-50' : ''}`}>
+                    <div key={announcement._id} className={`p-4 hover:bg-slate-800/50 ${!announcement.isActive ? 'opacity-50' : ''}`}>
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className={`px-2 py-0.5 rounded text-xs font-bold border ${typeColors[announcement.type]}`}>
                               {announcement.type}
                             </span>
                             <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                              announcement.active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-500'
+                              announcement.isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-500'
                             }`}>
-                              {announcement.active ? 'Active' : 'Inactive'}
+                              {announcement.isActive ? 'Active' : 'Inactive'}
                             </span>
                             <span className="text-xs text-slate-500">Priority: {announcement.priority}</span>
                           </div>
                           <p className="font-medium text-white">{announcement.title}</p>
                           <p className="text-sm text-slate-400 mt-1">{announcement.message}</p>
+                          {announcement.linkUrl && (
+                            <p className="text-xs text-violet-400 mt-1">
+                              Link: {announcement.linkText || announcement.linkUrl}
+                            </p>
+                          )}
                           <p className="text-xs text-slate-500 mt-2">
-                            Pages: {announcement.targetPages.join(', ')} - Updated {new Date(announcement.updatedAt).toLocaleString()}
+                            Updated {new Date(announcement.updatedAt).toLocaleString()}
+                            {announcement.createdBy?.email && ` by ${announcement.createdBy.email}`}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleToggleActive(announcement)}
                             className={`p-2 rounded-lg transition-colors ${
-                              announcement.active
+                              announcement.isActive
                                 ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
                                 : 'bg-slate-700 text-slate-500 hover:bg-slate-600'
                             }`}
-                            title={announcement.active ? 'Deactivate' : 'Activate'}
+                            title={announcement.isActive ? 'Deactivate' : 'Activate'}
                           >
-                            {announcement.active ? <ICONS.Check className="w-4 h-4" /> : <ICONS.X className="w-4 h-4" />}
+                            {announcement.isActive ? <ICONS.Check className="w-4 h-4" /> : <ICONS.X className="w-4 h-4" />}
                           </button>
                           <button
                             onClick={() => handleEditAnnouncement(announcement)}
@@ -914,7 +929,7 @@ const Admin: React.FC = () => {
                             <ICONS.Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeleteAnnouncement(announcement.id)}
+                            onClick={() => handleDeleteAnnouncement(announcement._id)}
                             className="p-2 bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition-colors"
                             title="Delete"
                           >
