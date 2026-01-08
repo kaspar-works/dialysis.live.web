@@ -17,6 +17,9 @@ import PaymentModal from '../components/PaymentModal';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+// Payment features are temporarily disabled
+const PAYMENT_DISABLED = true;
+
 const Settings: React.FC = () => {
   const { profile } = useStore();
   const navigate = useNavigate();
@@ -66,6 +69,10 @@ const Settings: React.FC = () => {
 
   const handlePlanChange = (plan: PlanType) => {
     if (!subscription || subscription.plan === plan) return;
+    if (PAYMENT_DISABLED && plan !== 'free') {
+      setUpgradeError('Payment features are currently under construction. Only the free version is available for now.');
+      return;
+    }
     if (subscription.plan === 'free' && plan !== 'free') {
       setSelectedPlan(plan);
       setShowPaymentModal(true);
@@ -276,6 +283,18 @@ const Settings: React.FC = () => {
             </Link>
           </div>
 
+          {/* Payment Disabled Banner */}
+          {PAYMENT_DISABLED && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🔧</span>
+                <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
+                  Payment features are under construction. Only the free plan is available.
+                </p>
+              </div>
+            </div>
+          )}
+
           {upgradeError && (
             <div className="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-xl mb-4">
               <p className="text-sm text-rose-600 dark:text-rose-400">{upgradeError}</p>
@@ -286,20 +305,26 @@ const Settings: React.FC = () => {
             {(['free', 'basic', 'premium'] as PlanType[]).map((plan) => {
               const config = PLAN_CONFIGS[plan];
               const isCurrent = subscription.plan === plan;
+              const isDisabled = isCurrent || isUpgrading || (PAYMENT_DISABLED && plan !== 'free');
               return (
                 <button
                   key={plan}
                   onClick={() => handlePlanChange(plan)}
-                  disabled={isCurrent || isUpgrading}
+                  disabled={isDisabled}
                   className={`relative p-4 rounded-2xl border-2 text-left transition-all ${
                     isCurrent
                       ? 'border-sky-500 bg-sky-50 dark:bg-sky-500/10'
                       : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                  } ${isUpgrading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${isDisabled && !isCurrent ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {isCurrent && (
                     <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-sky-500 text-white text-xs font-bold rounded-full">
                       Current
+                    </span>
+                  )}
+                  {PAYMENT_DISABLED && plan !== 'free' && !isCurrent && (
+                    <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full">
+                      Coming Soon
                     </span>
                   )}
                   <div className="flex items-center gap-2 mb-1">
