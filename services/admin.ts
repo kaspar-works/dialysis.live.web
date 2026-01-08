@@ -36,16 +36,18 @@ export interface SystemAlert {
 }
 
 export interface SystemAnnouncement {
-  id: string;
+  _id: string;
   type: 'info' | 'warning' | 'success' | 'error';
   title: string;
   message: string;
   dismissible: boolean;
-  active: boolean;
+  isActive: boolean;
   priority: number;
   startDate: string | null;
   endDate: string | null;
-  targetPages: string[];
+  linkUrl?: string;
+  linkText?: string;
+  createdBy?: { email: string };
   createdAt: string;
   updatedAt: string;
 }
@@ -163,9 +165,19 @@ export async function getActivityLogs(params?: {
   return response.data;
 }
 
-// Get all announcements
-export async function getAnnouncements(): Promise<{ announcements: SystemAnnouncement[] }> {
-  const response = await authFetch('/admin/announcements');
+// Get all announcements (admin)
+export async function getAnnouncements(params?: {
+  isActive?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<{ announcements: SystemAnnouncement[]; pagination: { total: number; limit: number; offset: number } }> {
+  const searchParams = new URLSearchParams();
+  if (params?.isActive !== undefined) searchParams.set('isActive', String(params.isActive));
+  if (params?.limit) searchParams.set('limit', String(params.limit));
+  if (params?.offset) searchParams.set('offset', String(params.offset));
+
+  const queryString = searchParams.toString();
+  const response = await authFetch(`/admin/announcements${queryString ? `?${queryString}` : ''}`);
   if (!response.success) {
     throw new Error(response.error?.message || 'Failed to get announcements');
   }
@@ -174,13 +186,16 @@ export async function getAnnouncements(): Promise<{ announcements: SystemAnnounc
 
 // Create announcement
 export async function createAnnouncement(data: {
-  type: 'info' | 'warning' | 'success' | 'error';
+  type?: 'info' | 'warning' | 'success' | 'error';
   title: string;
   message: string;
   dismissible?: boolean;
-  active?: boolean;
+  isActive?: boolean;
   priority?: number;
-  targetPages?: string[];
+  startDate?: string | null;
+  endDate?: string | null;
+  linkUrl?: string;
+  linkText?: string;
 }): Promise<{ announcement: SystemAnnouncement }> {
   const response = await authFetch('/admin/announcements', {
     method: 'POST',
@@ -198,9 +213,12 @@ export async function updateAnnouncement(id: string, data: Partial<{
   title: string;
   message: string;
   dismissible: boolean;
-  active: boolean;
+  isActive: boolean;
   priority: number;
-  targetPages: string[];
+  startDate: string | null;
+  endDate: string | null;
+  linkUrl: string;
+  linkText: string;
 }>): Promise<{ announcement: SystemAnnouncement }> {
   const response = await authFetch(`/admin/announcements/${id}`, {
     method: 'PUT',
@@ -220,6 +238,26 @@ export async function deleteAnnouncement(id: string): Promise<void> {
   if (!response.success) {
     throw new Error(response.error?.message || 'Failed to delete announcement');
   }
+}
+
+// Public announcement interface (for dashboard)
+export interface PublicAnnouncement {
+  id: string;
+  type: 'info' | 'warning' | 'success' | 'error';
+  title: string;
+  message: string;
+  dismissible: boolean;
+  linkUrl?: string;
+  linkText?: string;
+}
+
+// Get active announcements (public - for dashboard)
+export async function getActiveAnnouncements(): Promise<{ announcements: PublicAnnouncement[] }> {
+  const response = await apiFetch('/announcements');
+  if (!response.success) {
+    throw new Error(response.error?.message || 'Failed to get announcements');
+  }
+  return response.data;
 }
 
 // Get error logs
