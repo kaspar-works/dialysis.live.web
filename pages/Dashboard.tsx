@@ -35,15 +35,7 @@ import {
   DAILY_LIMITS,
 } from '../services/nutrition';
 import { createFluidLog, getTodayFluidIntake, FluidLog } from '../services/fluid';
-import { authFetch } from '../services/auth';
-
-interface SystemAnnouncement {
-  id: string;
-  type: 'info' | 'warning' | 'success' | 'error';
-  title: string;
-  message: string;
-  dismissible: boolean;
-}
+import { getActiveAnnouncements, PublicAnnouncement } from '../services/admin';
 
 const Dashboard: React.FC = () => {
   const { profile, addFluid } = useStore();
@@ -61,7 +53,7 @@ const Dashboard: React.FC = () => {
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
   const [nutritionData, setNutritionData] = useState<TodayMealsResponse | null>(null);
   const [recentFluidLogs, setRecentFluidLogs] = useState<FluidLog[]>([]);
-  const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>([]);
+  const [announcements, setAnnouncements] = useState<PublicAnnouncement[]>([]);
   const [dismissedAnnouncements, setDismissedAnnouncements] = useState<string[]>(() => {
     const saved = localStorage.getItem('dismissedAnnouncements');
     return saved ? JSON.parse(saved) : [];
@@ -145,10 +137,9 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'}/announcements?page=dashboard`);
-        const data = await response.json();
-        if (data.success && data.data?.announcements) {
-          setAnnouncements(data.data.announcements);
+        const data = await getActiveAnnouncements();
+        if (data?.announcements) {
+          setAnnouncements(data.announcements);
         }
       } catch (err) {
         console.error('Failed to fetch announcements:', err);
@@ -544,6 +535,24 @@ const Dashboard: React.FC = () => {
               >
                 {announcement.message}
               </p>
+              {announcement.linkUrl && (
+                <a
+                  href={announcement.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex items-center gap-1 text-sm font-medium mt-2 hover:underline ${
+                    announcement.type === 'info'
+                      ? 'text-sky-700 dark:text-sky-400'
+                      : announcement.type === 'warning'
+                      ? 'text-amber-700 dark:text-amber-400'
+                      : announcement.type === 'error'
+                      ? 'text-rose-700 dark:text-rose-400'
+                      : 'text-emerald-700 dark:text-emerald-400'
+                  }`}
+                >
+                  {announcement.linkText || 'Learn more'} →
+                </a>
+              )}
             </div>
             {announcement.dismissible && (
               <button
