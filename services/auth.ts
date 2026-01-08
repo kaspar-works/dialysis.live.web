@@ -3,6 +3,18 @@ const API_BASE_URL = import.meta.env.DEV
   ? '/api/v1'
   : `${import.meta.env.VITE_API_URL || 'https://api.dialysis.live'}/api/v1`;
 
+// Public API fetch (no authentication required)
+export async function apiFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+  return response.json();
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
