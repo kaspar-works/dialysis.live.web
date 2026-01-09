@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router';
 import { ICONS } from '../constants';
 import Logo from '../components/Logo';
@@ -93,6 +93,44 @@ const Features: React.FC = () => {
     { name: "PDF Export", desc: "Provider-ready report generation", icon: "PDF" },
     { name: "JSON Export", desc: "Full data portability", icon: "API" }
   ];
+
+  // Inject Breadcrumb structured data
+  useEffect(() => {
+    const breadcrumbSchema = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://dialysis.live"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Features",
+          "item": "https://dialysis.live/features"
+        }
+      ]
+    };
+
+    const breadcrumbScript = document.createElement('script');
+    breadcrumbScript.type = 'application/ld+json';
+    breadcrumbScript.id = 'breadcrumb-schema';
+    breadcrumbScript.textContent = JSON.stringify(breadcrumbSchema);
+
+    // Remove existing script if any (for hot reload)
+    const existing = document.getElementById('breadcrumb-schema');
+    if (existing) existing.remove();
+
+    document.head.appendChild(breadcrumbScript);
+
+    return () => {
+      const el = document.getElementById('breadcrumb-schema');
+      if (el) el.remove();
+    };
+  }, []);
 
   return (
     <div className="bg-[#020617] min-h-screen selection:bg-sky-500/30 selection:text-white overflow-x-hidden text-white w-full">

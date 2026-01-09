@@ -173,6 +173,72 @@ const Pricing: React.FC = () => {
     }
   ];
 
+  // Inject FAQ and Breadcrumb structured data
+  useEffect(() => {
+    // FAQ Schema
+    const faqSchema = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": faqs.map(faq => ({
+        "@type": "Question",
+        "name": faq.q,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": faq.a
+        }
+      }))
+    };
+
+    // Breadcrumb Schema
+    const breadcrumbSchema = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://dialysis.live"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Pricing",
+          "item": "https://dialysis.live/pricing"
+        }
+      ]
+    };
+
+    // Create and append FAQ schema script
+    const faqScript = document.createElement('script');
+    faqScript.type = 'application/ld+json';
+    faqScript.id = 'faq-schema';
+    faqScript.textContent = JSON.stringify(faqSchema);
+
+    // Create and append Breadcrumb schema script
+    const breadcrumbScript = document.createElement('script');
+    breadcrumbScript.type = 'application/ld+json';
+    breadcrumbScript.id = 'breadcrumb-schema';
+    breadcrumbScript.textContent = JSON.stringify(breadcrumbSchema);
+
+    // Remove existing scripts if any (for hot reload)
+    const existingFaq = document.getElementById('faq-schema');
+    const existingBreadcrumb = document.getElementById('breadcrumb-schema');
+    if (existingFaq) existingFaq.remove();
+    if (existingBreadcrumb) existingBreadcrumb.remove();
+
+    document.head.appendChild(faqScript);
+    document.head.appendChild(breadcrumbScript);
+
+    // Cleanup on unmount
+    return () => {
+      const faqEl = document.getElementById('faq-schema');
+      const breadcrumbEl = document.getElementById('breadcrumb-schema');
+      if (faqEl) faqEl.remove();
+      if (breadcrumbEl) breadcrumbEl.remove();
+    };
+  }, []);
+
   return (
     <div className="bg-slate-950 min-h-screen text-white overflow-x-hidden">
       <SEO
