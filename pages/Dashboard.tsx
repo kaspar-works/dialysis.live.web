@@ -608,22 +608,22 @@ const Dashboard: React.FC = () => {
       `}</style>
 
       {/* Header */}
-      <header className="flex items-center justify-between pt-4">
-        <div>
-          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">{getGreeting()}</p>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+      <header className="flex items-center justify-between pt-2 sm:pt-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium">{getGreeting()}</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">
             {profile.name || 'Welcome back'}
           </h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 ml-3">
           {/* Alert Bell Icon */}
           <Link
             to="/alerts"
-            className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center hover:scale-105 transition-transform"
+            className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
           >
-            <ICONS.Bell className="w-6 h-6 text-slate-600 dark:text-slate-300" />
+            <ICONS.Bell className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600 dark:text-slate-300" />
             {alertCounts && (alertCounts.critical + alertCounts.high + alertCounts.medium + alertCounts.low) > 0 && (
-              <span className={`absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold text-white flex items-center justify-center ${
+              <span className={`absolute -top-1 -right-1 min-w-[18px] sm:min-w-[20px] h-[18px] sm:h-5 px-1 sm:px-1.5 rounded-full text-[9px] sm:text-[10px] font-bold text-white flex items-center justify-center ${
                 hasUrgentAlerts ? 'bg-rose-500 animate-pulse' : 'bg-sky-500'
               }`}>
                 {alertCounts.critical + alertCounts.high + alertCounts.medium + alertCounts.low}
@@ -632,25 +632,25 @@ const Dashboard: React.FC = () => {
           </Link>
           <Link
             to="/profile"
-            className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center hover:scale-105 transition-transform"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
           >
-            <span className="text-xl">👤</span>
+            <span className="text-lg sm:text-xl">👤</span>
           </Link>
         </div>
       </header>
 
       {/* Health Status Hero */}
-      <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[2.5rem] p-8 overflow-hidden">
+      <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] p-5 sm:p-6 md:p-8 overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className={`absolute top-0 right-0 w-96 h-96 rounded-full blur-[100px] opacity-30 bg-${healthStatus.color}-500`} />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-sky-500/20 rounded-full blur-[80px]" />
+          <div className={`absolute top-0 right-0 w-48 sm:w-64 md:w-96 h-48 sm:h-64 md:h-96 rounded-full blur-[60px] sm:blur-[80px] md:blur-[100px] opacity-30 bg-${healthStatus.color}-500`} />
+          <div className="absolute bottom-0 left-0 w-32 sm:w-48 md:w-64 h-32 sm:h-48 md:h-64 bg-sky-500/20 rounded-full blur-[40px] sm:blur-[60px] md:blur-[80px]" />
         </div>
 
-        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-8">
+        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-5 sm:gap-6 md:gap-8">
           {/* Health Score Ring */}
           <div className="relative">
-            <div className="w-52 h-52 relative animate-glow rounded-full">
+            <div className="w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52 relative animate-glow rounded-full">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 200 200">
                 {/* Background ring */}
                 <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="12" />
@@ -676,51 +676,51 @@ const Dashboard: React.FC = () => {
               {/* Center Content */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                 <div className="animate-float">
-                  <span className="text-6xl font-black tabular-nums">{healthScore ?? '--'}</span>
+                  <span className="text-4xl sm:text-5xl md:text-6xl font-black tabular-nums">{healthScore ?? '--'}</span>
                 </div>
-                <span className={`text-sm font-bold text-${healthStatus.color}-400 mt-1`}>{healthStatus.label}</span>
+                <span className={`text-xs sm:text-sm font-bold text-${healthStatus.color}-400 mt-1`}>{healthStatus.label}</span>
               </div>
             </div>
           </div>
 
           {/* Status Info */}
           <div className="flex-1 text-center lg:text-left">
-            <h2 className="text-2xl md:text-3xl font-black text-white mb-3">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white mb-2 sm:mb-3">
               Health Overview
             </h2>
-            <p className="text-white/60 text-lg mb-6 max-w-md">
+            <p className="text-white/60 text-sm sm:text-base md:text-lg mb-4 sm:mb-6 max-w-md mx-auto lg:mx-0">
               {healthStatus.message}
             </p>
 
             {/* Quick Stats Pills */}
-            <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
-              <div className="glass rounded-2xl px-4 py-3 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center">
-                  <span className="text-xl">💧</span>
+            <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
+              <div className="glass rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-sky-500/20 flex items-center justify-center">
+                  <span className="text-base sm:text-xl">💧</span>
                 </div>
                 <div>
-                  <p className="text-white/50 text-xs font-medium">Hydration</p>
-                  <p className="text-white font-bold">
+                  <p className="text-white/50 text-[10px] sm:text-xs font-medium">Hydration</p>
+                  <p className="text-white font-bold text-sm sm:text-base">
                     {dailyFluidLimit > 0 ? `${fluidPercentage}%` : todayFluid > 0 ? displayFluid(todayFluid) : '--'}
                   </p>
                 </div>
               </div>
-              <div className="glass rounded-2xl px-4 py-3 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                  <span className="text-xl">⚖️</span>
+              <div className="glass rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <span className="text-base sm:text-xl">⚖️</span>
                 </div>
                 <div>
-                  <p className="text-white/50 text-xs font-medium">Weight</p>
-                  <p className="text-white font-bold">{currentWeight !== null ? displayWeight(currentWeight) : '--'}</p>
+                  <p className="text-white/50 text-[10px] sm:text-xs font-medium">Weight</p>
+                  <p className="text-white font-bold text-sm sm:text-base">{currentWeight !== null ? displayWeight(currentWeight) : '--'}</p>
                 </div>
               </div>
-              <div className="glass rounded-2xl px-4 py-3 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center">
-                  <span className="text-xl">❤️</span>
+              <div className="glass rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-rose-500/20 flex items-center justify-center">
+                  <span className="text-base sm:text-xl">❤️</span>
                 </div>
                 <div>
-                  <p className="text-white/50 text-xs font-medium">Sessions</p>
-                  <p className="text-white font-bold">{sessionStats?.thisWeek || 0}/wk</p>
+                  <p className="text-white/50 text-[10px] sm:text-xs font-medium">Sessions</p>
+                  <p className="text-white font-bold text-sm sm:text-base">{sessionStats?.thisWeek || 0}/wk</p>
                 </div>
               </div>
             </div>
@@ -890,14 +890,14 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* Vitals Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Blood Pressure */}
-        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[1.5rem] p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-rose-500/20">
-              <ICONS.Activity className="w-6 h-6 text-white" />
+        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-xl sm:rounded-[1.5rem] p-4 sm:p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-rose-500/20">
+              <ICONS.Activity className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
-            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
+            <span className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-bold uppercase ${
               latestBP && (latestBP.systolic <= 120 && latestBP.diastolic <= 80)
                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                 : latestBP && (latestBP.systolic <= 140 && latestBP.diastolic <= 90)
@@ -907,26 +907,26 @@ const Dashboard: React.FC = () => {
               {latestBP ? (latestBP.systolic <= 120 ? 'Normal' : 'Elevated') : 'No data'}
             </span>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Blood Pressure</p>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+          <p className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Blood Pressure</p>
+          <div className="flex items-baseline gap-0.5 sm:gap-1">
+            <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
               {latestBP?.systolic || '--'}
             </span>
-            <span className="text-slate-400 text-lg">/</span>
-            <span className="text-xl font-bold text-slate-600 dark:text-slate-300 tabular-nums">
+            <span className="text-slate-400 text-base sm:text-lg">/</span>
+            <span className="text-lg sm:text-xl font-bold text-slate-600 dark:text-slate-300 tabular-nums">
               {latestBP?.diastolic || '--'}
             </span>
           </div>
-          <p className="text-slate-400 text-xs mt-1">mmHg</p>
+          <p className="text-slate-400 text-[10px] sm:text-xs mt-1">mmHg</p>
         </div>
 
         {/* Heart Rate */}
-        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[1.5rem] p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 flex items-center justify-center group-hover:scale-110 group-hover:animate-pulse transition-transform shadow-lg shadow-sky-500/20">
-              <span className="text-xl">💓</span>
+        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-xl sm:rounded-[1.5rem] p-4 sm:p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 flex items-center justify-center group-hover:scale-110 group-hover:animate-pulse transition-transform shadow-lg shadow-sky-500/20">
+              <span className="text-base sm:text-xl">💓</span>
             </div>
-            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
+            <span className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-bold uppercase ${
               latestHR && latestHR >= 60 && latestHR <= 100
                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                 : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
@@ -934,20 +934,20 @@ const Dashboard: React.FC = () => {
               {latestHR ? 'Normal' : 'No data'}
             </span>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Heart Rate</p>
-          <p className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+          <p className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Heart Rate</p>
+          <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
             {latestHR || '--'}
           </p>
-          <p className="text-slate-400 text-xs mt-1">bpm</p>
+          <p className="text-slate-400 text-[10px] sm:text-xs mt-1">bpm</p>
         </div>
 
         {/* Temperature */}
-        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[1.5rem] p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-amber-500/20">
-              <span className="text-xl">🌡️</span>
+        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-xl sm:rounded-[1.5rem] p-4 sm:p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-amber-500/20">
+              <span className="text-base sm:text-xl">🌡️</span>
             </div>
-            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
+            <span className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-bold uppercase ${
               latestTemp !== null
                 ? (latestTemp >= 36.1 && latestTemp <= 37.2 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600')
                 : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
@@ -955,20 +955,20 @@ const Dashboard: React.FC = () => {
               {latestTemp !== null ? (latestTemp >= 36.1 && latestTemp <= 37.2 ? 'Normal' : 'Abnormal') : 'No data'}
             </span>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Temperature</p>
-          <p className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+          <p className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Temperature</p>
+          <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
             {latestTemp ?? '--'}
           </p>
-          <p className="text-slate-400 text-xs mt-1">°C</p>
+          <p className="text-slate-400 text-[10px] sm:text-xs mt-1">°C</p>
         </div>
 
         {/* Oxygen */}
-        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[1.5rem] p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-violet-500/20">
-              <span className="text-xl">🫁</span>
+        <div className="bg-white dark:bg-slate-800/50 glass-light rounded-xl sm:rounded-[1.5rem] p-4 sm:p-5 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 group">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-violet-500/20">
+              <span className="text-base sm:text-xl">🫁</span>
             </div>
-            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${
+            <span className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-bold uppercase ${
               latestO2 !== null
                 ? (latestO2 >= 95 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600')
                 : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
@@ -976,18 +976,18 @@ const Dashboard: React.FC = () => {
               {latestO2 !== null ? (latestO2 >= 95 ? 'Normal' : 'Low') : 'No data'}
             </span>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Oxygen</p>
-          <p className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
+          <p className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Oxygen</p>
+          <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">
             {latestO2 ?? '--'}
           </p>
-          <p className="text-slate-400 text-xs mt-1">% SpO2</p>
+          <p className="text-slate-400 text-[10px] sm:text-xs mt-1">% SpO2</p>
         </div>
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-4 sm:gap-6">
         {/* Hydration Card */}
-        <div className="col-span-12 lg:col-span-5 bg-gradient-to-br from-sky-500 via-cyan-500 to-teal-500 rounded-[2rem] p-6 relative overflow-hidden">
+        <div className="col-span-12 lg:col-span-5 bg-gradient-to-br from-sky-500 via-cyan-500 to-teal-500 rounded-2xl sm:rounded-[2rem] p-4 sm:p-6 relative overflow-hidden">
           {/* Background Wave Effect */}
           <div className="absolute bottom-0 left-0 right-0 h-16 overflow-hidden opacity-30">
             <svg className="absolute bottom-0 w-[200%] animate-wave" viewBox="0 0 1200 120" preserveAspectRatio="none">
@@ -1125,13 +1125,13 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Quick Add Buttons */}
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
               {[100, 150, 200, 250, 500].map(v => (
                 <button
                   key={v}
                   onClick={() => handleQuickFluid(v)}
                   disabled={activeQuickAdd !== null}
-                  className={`py-3 bg-white/20 backdrop-blur rounded-xl text-white font-bold text-sm hover:bg-white/30 active:scale-95 transition-all ${
+                  className={`py-2.5 sm:py-3 bg-white/20 backdrop-blur rounded-lg sm:rounded-xl text-white font-bold text-xs sm:text-sm hover:bg-white/30 active:scale-95 transition-all ${
                     activeQuickAdd === v ? 'bg-white/40 scale-95' : ''
                   }`}
                 >
@@ -1364,7 +1364,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="col-span-12 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="col-span-12 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           {[
             { to: '/fluid', icon: '💧', label: 'Fluid Log', desc: 'Track hydration', gradient: 'from-sky-500 to-cyan-500' },
             { to: '/weight', icon: '⚖️', label: 'Weight', desc: 'Log weight', gradient: 'from-purple-500 to-violet-500' },
@@ -1374,11 +1374,11 @@ const Dashboard: React.FC = () => {
             <Link
               key={i}
               to={item.to}
-              className={`bg-gradient-to-br ${item.gradient} text-white rounded-2xl p-6 hover:shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 group`}
+              className={`bg-gradient-to-br ${item.gradient} text-white rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 group`}
             >
-              <span className="text-4xl block mb-3 group-hover:scale-110 transition-transform">{item.icon}</span>
-              <p className="font-bold text-lg">{item.label}</p>
-              <p className="text-white/70 text-sm">{item.desc}</p>
+              <span className="text-2xl sm:text-4xl block mb-2 sm:mb-3 group-hover:scale-110 transition-transform">{item.icon}</span>
+              <p className="font-bold text-sm sm:text-lg">{item.label}</p>
+              <p className="text-white/70 text-xs sm:text-sm hidden sm:block">{item.desc}</p>
             </Link>
           ))}
         </div>

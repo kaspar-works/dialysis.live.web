@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCCREZGPSF"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-FCCREZGPSF');
+    </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
@@ -103,51 +113,141 @@
             --sab: env(safe-area-inset-bottom);
             --sal: env(safe-area-inset-left);
         }
+
+        /* Reset transition for smoother mobile experience */
         * {
-            transition: background-color 0.4s ease-in-out, border-color 0.4s ease-in-out, color 0.3s ease-in-out, box-shadow 0.4s ease-in-out;
+            -webkit-tap-highlight-color: transparent;
         }
+
+        /* Theme transition - only apply to specific properties */
+        body, .theme-transition {
+            transition: background-color 0.4s ease-in-out, border-color 0.4s ease-in-out, color 0.3s ease-in-out;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background-color: #ffffff;
             color: #0f172a;
-            -webkit-tap-highlight-color: transparent;
             overscroll-behavior-y: none;
             overflow-x: hidden;
             width: 100%;
+            min-height: 100vh;
+            min-height: 100dvh;
         }
+
         .dark body {
             background-color: #020617;
             color: #f8fafc;
         }
+
+        /* Glass panel effects */
         .glass-panel {
-            background: rgba(255, 255, 255, 0.7);
+            background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
         }
         .dark .glass-panel {
-            background: rgba(2, 6, 23, 0.7);
+            background: rgba(2, 6, 23, 0.85);
         }
-        .safe-pb { padding-bottom: var(--sab); }
+
+        /* Safe area insets for mobile devices */
+        .safe-pb { padding-bottom: max(16px, var(--sab)); }
         .safe-pt { padding-top: var(--sat); }
-        
+        .safe-pl { padding-left: var(--sal); }
+        .safe-pr { padding-right: var(--sar); }
+
+        /* Custom scrollbar */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
         .dark ::-webkit-scrollbar-thumb { background: #1e293b; }
 
+        /* Animations */
         @keyframes float {
             0% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
             100% { transform: translateY(0px); }
         }
         .animate-float { animation: float 6s ease-in-out infinite; }
-        
+
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slide-in-from-left {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+
+        @keyframes slide-in-from-bottom {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .animate-in { animation-fill-mode: both; }
+        .fade-in { animation-name: fade-in; }
+        .slide-in-from-left { animation-name: slide-in-from-left; }
+        .slide-in-from-bottom { animation-name: slide-in-from-bottom; }
+        .duration-200 { animation-duration: 200ms; }
+        .duration-300 { animation-duration: 300ms; }
+        .duration-500 { animation-duration: 500ms; }
+        .duration-700 { animation-duration: 700ms; }
+
+        /* Input placeholder styling */
         input::placeholder { color: #94a3b8; }
         .dark input::placeholder { color: #475569; }
-        
+
         /* Fix for Recharts responsiveness */
         .recharts-responsive-container {
             width: 100% !important;
+        }
+
+        /* Mobile-specific improvements */
+        @media (max-width: 640px) {
+            /* Larger touch targets on mobile */
+            button, a, [role="button"] {
+                min-height: 44px;
+            }
+
+            /* Better text sizing for readability */
+            html {
+                font-size: 16px;
+                -webkit-text-size-adjust: 100%;
+            }
+
+            /* Prevent content overflow */
+            .overflow-x-auto {
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+
+        /* Card improvements for mobile */
+        .card-mobile {
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        @media (min-width: 640px) {
+            .card-mobile {
+                border-radius: 20px;
+                padding: 24px;
+            }
+        }
+
+        /* Extra small breakpoint for very small phones */
+        @media (min-width: 375px) {
+            .xs\:block { display: block; }
+            .xs\:hidden { display: none; }
+            .xs\:flex { display: flex; }
+        }
+
+        /* Improve contrast for dark mode */
+        .dark .text-slate-400 {
+            color: #94a3b8;
+        }
+        .dark .text-slate-500 {
+            color: #64748b;
         }
     </style>
 <script type="importmap">
