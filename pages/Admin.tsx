@@ -72,6 +72,7 @@ const Admin: React.FC = () => {
 
   // Search states
   const [userSearch, setUserSearch] = useState('');
+  const [planFilter, setPlanFilter] = useState<'all' | 'paid' | 'free' | 'basic' | 'premium'>('all');
 
   // Subscription management states
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
@@ -447,15 +448,65 @@ const Admin: React.FC = () => {
             </button>
           </div>
 
+          {/* Plan Filter */}
+          <div className="flex gap-2 flex-wrap">
+            {([
+              { id: 'all', label: 'All Users', color: 'slate' },
+              { id: 'paid', label: 'Paid Users', color: 'emerald' },
+              { id: 'premium', label: 'Premium', color: 'emerald' },
+              { id: 'basic', label: 'Basic', color: 'sky' },
+              { id: 'free', label: 'Free', color: 'slate' },
+            ] as const).map(filter => (
+              <button
+                key={filter.id}
+                onClick={() => setPlanFilter(filter.id)}
+                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+                  planFilter === filter.id
+                    ? filter.color === 'emerald'
+                      ? 'bg-emerald-500 text-white'
+                      : filter.color === 'sky'
+                      ? 'bg-sky-500 text-white'
+                      : 'bg-violet-500 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
           {/* Users List */}
           <div className="bg-slate-900/50 rounded-2xl border border-slate-700/50 overflow-hidden">
             <div className="p-4 border-b border-slate-700">
-              <p className="text-sm text-slate-400">
-                Showing {users.length} of {usersPagination.total} users
-              </p>
+              {(() => {
+                const filteredUsers = users.filter(user => {
+                  const plan = user.subscription?.plan || 'free';
+                  if (planFilter === 'all') return true;
+                  if (planFilter === 'paid') return plan === 'basic' || plan === 'premium';
+                  return plan === planFilter;
+                });
+                const paidCount = users.filter(u => u.subscription?.plan === 'basic' || u.subscription?.plan === 'premium').length;
+                return (
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-slate-400">
+                      Showing {filteredUsers.length} of {usersPagination.total} users
+                      {planFilter !== 'all' && ` (filtered by ${planFilter})`}
+                    </p>
+                    <p className="text-sm">
+                      <span className="text-emerald-400 font-bold">{paidCount}</span>
+                      <span className="text-slate-500"> paid users</span>
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
             <div className="divide-y divide-slate-700 max-h-[600px] overflow-y-auto">
-              {users.map(user => (
+              {users.filter(user => {
+                const plan = user.subscription?.plan || 'free';
+                if (planFilter === 'all') return true;
+                if (planFilter === 'paid') return plan === 'basic' || plan === 'premium';
+                return plan === planFilter;
+              }).map(user => (
                 <div key={user._id} className="p-4 flex items-center justify-between hover:bg-slate-800/50">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-white font-bold">
