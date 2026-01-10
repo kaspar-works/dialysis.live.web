@@ -140,17 +140,17 @@ const Login: React.FC = () => {
 
       await loginWithGoogle(idToken);
 
-      // Update local profile in store
+      // Update local profile in store using functional update to avoid stale closure
       const storageData = localStorage.getItem('renalcare_data');
       if (storageData) {
         const data = JSON.parse(storageData);
         if (data.profile) {
-          setProfile({
-            ...profile,
-            name: data.profile.name || profile.name,
-            email: data.profile.email || '',
-            isOnboarded: data.profile.isOnboarded || profile.isOnboarded,
-          });
+          setProfile(prev => ({
+            ...prev,
+            name: data.profile.name || prev.name,
+            email: data.profile.email || prev.email || '',
+            isOnboarded: data.profile.isOnboarded || prev.isOnboarded,
+          }));
         }
       }
 
