@@ -335,6 +335,241 @@ export async function deleteAccount(): Promise<void> {
   }
 }
 
+// =====================
+// Change Password
+// =====================
+
+export interface ChangePasswordData {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export async function changePassword(data: ChangePasswordData): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to change password');
+  }
+}
+
+// =====================
+// Email Verification
+// =====================
+
+export interface EmailVerificationStatus {
+  emailVerified: boolean;
+  emailVerifiedAt?: string;
+}
+
+export async function sendVerificationEmail(): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/send-verification-email`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to send verification email');
+  }
+}
+
+export async function verifyEmail(token: string): Promise<{ emailVerified: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ token })
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to verify email');
+  }
+
+  return result.data;
+}
+
+export async function getEmailVerificationStatus(): Promise<EmailVerificationStatus> {
+  const response = await fetch(`${API_BASE_URL}/auth/email-verification-status`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to get verification status');
+  }
+
+  return result.data;
+}
+
+// =====================
+// Two-Factor Authentication
+// =====================
+
+export interface TwoFactorSetupResponse {
+  secret: string;
+  qrCodeUrl: string;
+  backupCodes: string[];
+}
+
+export interface TwoFactorStatus {
+  isEnabled: boolean;
+  backupCodesRemaining: number;
+}
+
+export async function setupTwoFactor(): Promise<TwoFactorSetupResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/2fa/setup`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to setup 2FA');
+  }
+
+  return result.data;
+}
+
+export async function verifyAndEnableTwoFactor(token: string): Promise<{ enabled: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/auth/2fa/verify`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ token })
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to verify 2FA code');
+  }
+
+  return result.data;
+}
+
+export async function getTwoFactorStatus(): Promise<TwoFactorStatus> {
+  const response = await fetch(`${API_BASE_URL}/auth/2fa/status`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to get 2FA status');
+  }
+
+  return result.data;
+}
+
+export async function disableTwoFactor(token: string): Promise<{ enabled: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/auth/2fa/disable`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ token })
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to disable 2FA');
+  }
+
+  return result.data;
+}
+
+export async function regenerateBackupCodes(token: string): Promise<{ backupCodes: string[] }> {
+  const response = await fetch(`${API_BASE_URL}/auth/2fa/backup-codes`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ token })
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to regenerate backup codes');
+  }
+
+  return result.data;
+}
+
+// =====================
+// Forgot Password
+// =====================
+
+export async function forgotPassword(email: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ email })
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to send reset email');
+  }
+}
+
+export async function resetPassword(token: string, password: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ token, password })
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error?.message || result.message || 'Failed to reset password');
+  }
+}
+
+// =====================
+// Utility Functions
+// =====================
+
 // Authenticated fetch with cookie credentials
 export async function authFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
   const headers: Record<string, string> = {

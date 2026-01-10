@@ -12,7 +12,20 @@ import {
   PLAN_CONFIGS,
   getPlanDisplayName,
 } from '../services/subscription';
-import { deleteAccount } from '../services/auth';
+import {
+  deleteAccount,
+  changePassword,
+  getTwoFactorStatus,
+  setupTwoFactor,
+  verifyAndEnableTwoFactor,
+  disableTwoFactor,
+  regenerateBackupCodes,
+  getEmailVerificationStatus,
+  sendVerificationEmail,
+  TwoFactorStatus,
+  TwoFactorSetupResponse,
+  EmailVerificationStatus,
+} from '../services/auth';
 import PaymentModal from '../components/PaymentModal';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -43,6 +56,32 @@ const Settings: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Security state - Change Password
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  // Security state - Two-Factor Authentication
+  const [twoFactorStatus, setTwoFactorStatus] = useState<TwoFactorStatus | null>(null);
+  const [twoFactorSetup, setTwoFactorSetup] = useState<TwoFactorSetupResponse | null>(null);
+  const [twoFactorToken, setTwoFactorToken] = useState('');
+  const [isSettingUp2FA, setIsSettingUp2FA] = useState(false);
+  const [isVerifying2FA, setIsVerifying2FA] = useState(false);
+  const [isDisabling2FA, setIsDisabling2FA] = useState(false);
+  const [twoFactorError, setTwoFactorError] = useState<string | null>(null);
+  const [showDisable2FAModal, setShowDisable2FAModal] = useState(false);
+  const [disable2FAToken, setDisable2FAToken] = useState('');
+  const [showBackupCodes, setShowBackupCodes] = useState<string[] | null>(null);
+  const [isRegeneratingCodes, setIsRegeneratingCodes] = useState(false);
+
+  // Security state - Email Verification
+  const [emailStatus, setEmailStatus] = useState<EmailVerificationStatus | null>(null);
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
@@ -52,12 +91,16 @@ const Settings: React.FC = () => {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const [settingsData, subData] = await Promise.all([
+      const [settingsData, subData, tfaStatus, emailVerifyStatus] = await Promise.all([
         getSettings(),
         getCurrentSubscription(),
+        getTwoFactorStatus().catch(() => null),
+        getEmailVerificationStatus().catch(() => null),
       ]);
       setSettings(settingsData);
       setSubscription(subData);
+      if (tfaStatus) setTwoFactorStatus(tfaStatus);
+      if (emailVerifyStatus) setEmailStatus(emailVerifyStatus);
     } catch (err: any) {
       if (!err?.message?.includes('Session expired')) {
         console.error('Failed to load settings:', err);
@@ -118,6 +161,122 @@ const Settings: React.FC = () => {
     }
   };
 
+  // Change Password Handler
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await changePassword({ currentPassword, newPassword });
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordSuccess(false), 3000);
+    } catch (err: any) {
+      setPasswordError(err.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // 2FA Setup Handler
+  const handleSetup2FA = async () => {
+    setIsSettingUp2FA(true);
+    setTwoFactorError(null);
+    try {
+      const setup = await setupTwoFactor();
+      setTwoFactorSetup(setup);
+      setShowBackupCodes(setup.backupCodes);
+    } catch (err: any) {
+      setTwoFactorError(err.message || 'Failed to setup 2FA');
+    } finally {
+      setIsSettingUp2FA(false);
+    }
+  };
+
+  // 2FA Verify and Enable Handler
+  const handleVerify2FA = async () => {
+    if (twoFactorToken.length !== 6) {
+      setTwoFactorError('Please enter a 6-digit code');
+      return;
+    }
+    setIsVerifying2FA(true);
+    setTwoFactorError(null);
+    try {
+      await verifyAndEnableTwoFactor(twoFactorToken);
+      setTwoFactorStatus({ isEnabled: true, backupCodesRemaining: 10 });
+      setTwoFactorSetup(null);
+      setTwoFactorToken('');
+    } catch (err: any) {
+      setTwoFactorError(err.message || 'Invalid code. Please try again.');
+    } finally {
+      setIsVerifying2FA(false);
+    }
+  };
+
+  // 2FA Disable Handler
+  const handleDisable2FA = async () => {
+    if (disable2FAToken.length !== 6) {
+      setTwoFactorError('Please enter a 6-digit code');
+      return;
+    }
+    setIsDisabling2FA(true);
+    setTwoFactorError(null);
+    try {
+      await disableTwoFactor(disable2FAToken);
+      setTwoFactorStatus({ isEnabled: false, backupCodesRemaining: 0 });
+      setShowDisable2FAModal(false);
+      setDisable2FAToken('');
+    } catch (err: any) {
+      setTwoFactorError(err.message || 'Invalid code. Please try again.');
+    } finally {
+      setIsDisabling2FA(false);
+    }
+  };
+
+  // Regenerate Backup Codes Handler
+  const handleRegenerateBackupCodes = async () => {
+    const token = prompt('Enter your current 2FA code to regenerate backup codes:');
+    if (!token || token.length !== 6) return;
+
+    setIsRegeneratingCodes(true);
+    try {
+      const result = await regenerateBackupCodes(token);
+      setShowBackupCodes(result.backupCodes);
+      setTwoFactorStatus(prev => prev ? { ...prev, backupCodesRemaining: 10 } : null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to regenerate backup codes');
+    } finally {
+      setIsRegeneratingCodes(false);
+    }
+  };
+
+  // Send Verification Email Handler
+  const handleSendVerificationEmail = async () => {
+    setIsSendingVerification(true);
+    try {
+      await sendVerificationEmail();
+      setVerificationSent(true);
+      setTimeout(() => setVerificationSent(false), 5000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to send verification email');
+    } finally {
+      setIsSendingVerification(false);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setSaveStatus('idle');
@@ -154,6 +313,7 @@ const Settings: React.FC = () => {
     { id: 'vitals', label: 'Vitals', icon: '❤️', color: 'from-red-500 to-rose-500' },
     { id: 'alerts', label: 'Alerts', icon: '🔔', color: 'from-amber-500 to-yellow-500' },
     { id: 'emergency', label: 'Emergency', icon: '🚨', color: 'from-orange-500 to-red-500' },
+    { id: 'security', label: 'Security', icon: '🔐', color: 'from-indigo-500 to-blue-500' },
     { id: 'preferences', label: 'Preferences', icon: '⚙️', color: 'from-violet-500 to-purple-500' },
   ];
 
@@ -702,6 +862,253 @@ const Settings: React.FC = () => {
           </div>
         )}
 
+        {/* Security Settings */}
+        {activeSection === 'security' && (
+          <div className="space-y-8">
+            {/* Email Verification Status */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email Verification</label>
+              <div className={`p-5 rounded-2xl border-2 ${
+                emailStatus?.emailVerified
+                  ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30'
+                  : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${
+                      emailStatus?.emailVerified
+                        ? 'bg-emerald-500/20'
+                        : 'bg-amber-500/20'
+                    }`}>
+                      {emailStatus?.emailVerified ? '✓' : '!'}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900 dark:text-white">
+                        {emailStatus?.emailVerified ? 'Email Verified' : 'Email Not Verified'}
+                      </p>
+                      {emailStatus?.emailVerified && emailStatus.emailVerifiedAt && (
+                        <p className="text-xs text-slate-400">
+                          Verified on {new Date(emailStatus.emailVerifiedAt).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {!emailStatus?.emailVerified && (
+                    <button
+                      onClick={handleSendVerificationEmail}
+                      disabled={isSendingVerification || verificationSent}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50"
+                    >
+                      {isSendingVerification ? 'Sending...' : verificationSent ? 'Sent!' : 'Send Verification'}
+                    </button>
+                  )}
+                </div>
+                {verificationSent && (
+                  <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
+                    Verification email sent! Please check your inbox.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Change Password */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Change Password</label>
+              <form onSubmit={handleChangePassword} className="p-5 bg-slate-50 dark:bg-slate-900 rounded-2xl space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500">Current Password</label>
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={e => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500">New Password</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    placeholder="Enter new password (min 8 characters)"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    minLength={8}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-medium text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    required
+                  />
+                </div>
+                {passwordError && (
+                  <p className="text-sm text-rose-600 dark:text-rose-400">{passwordError}</p>
+                )}
+                {passwordSuccess && (
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400">Password changed successfully!</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={isChangingPassword}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isChangingPassword ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Changing...
+                    </>
+                  ) : (
+                    'Change Password'
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* Two-Factor Authentication */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Two-Factor Authentication</label>
+              <div className="p-5 bg-slate-50 dark:bg-slate-900 rounded-2xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
+                      twoFactorStatus?.isEnabled
+                        ? 'bg-emerald-500/20'
+                        : 'bg-slate-200 dark:bg-slate-700'
+                    }`}>
+                      {twoFactorStatus?.isEnabled ? '🛡️' : '🔓'}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900 dark:text-white">
+                        {twoFactorStatus?.isEnabled ? '2FA Enabled' : '2FA Disabled'}
+                      </p>
+                      <p className="text-sm text-slate-400">
+                        {twoFactorStatus?.isEnabled
+                          ? `${twoFactorStatus.backupCodesRemaining} backup codes remaining`
+                          : 'Add an extra layer of security'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  {!twoFactorSetup && !twoFactorStatus?.isEnabled && (
+                    <button
+                      onClick={handleSetup2FA}
+                      disabled={isSettingUp2FA}
+                      className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-bold text-sm rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+                    >
+                      {isSettingUp2FA ? 'Setting up...' : 'Enable 2FA'}
+                    </button>
+                  )}
+                  {twoFactorStatus?.isEnabled && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleRegenerateBackupCodes}
+                        disabled={isRegeneratingCodes}
+                        className="px-3 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm rounded-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
+                      >
+                        {isRegeneratingCodes ? '...' : 'New Codes'}
+                      </button>
+                      <button
+                        onClick={() => setShowDisable2FAModal(true)}
+                        className="px-3 py-2 bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-sm rounded-xl hover:bg-rose-200 dark:hover:bg-rose-500/30 transition-colors"
+                      >
+                        Disable
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2FA Setup Flow */}
+                {twoFactorSetup && !twoFactorStatus?.isEnabled && (
+                  <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-4">
+                    <div className="text-center">
+                      <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">
+                        Scan this QR code with your authenticator app
+                      </p>
+                      <div className="inline-block p-3 bg-white rounded-xl shadow-lg">
+                        <img
+                          src={twoFactorSetup.qrCodeUrl}
+                          alt="2FA QR Code"
+                          className="w-48 h-48"
+                        />
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2">
+                        Or enter manually: <code className="bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">{twoFactorSetup.secret}</code>
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-500">Enter code from app</label>
+                      <input
+                        type="text"
+                        value={twoFactorToken}
+                        onChange={e => setTwoFactorToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="000000"
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-mono text-2xl text-center text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 tracking-widest"
+                        maxLength={6}
+                      />
+                    </div>
+                    {twoFactorError && (
+                      <p className="text-sm text-rose-600 dark:text-rose-400">{twoFactorError}</p>
+                    )}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setTwoFactorSetup(null);
+                          setTwoFactorToken('');
+                          setTwoFactorError(null);
+                        }}
+                        className="flex-1 px-4 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleVerify2FA}
+                        disabled={isVerifying2FA || twoFactorToken.length !== 6}
+                        className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        {isVerifying2FA ? 'Verifying...' : 'Verify & Enable'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Backup Codes Modal */}
+            {showBackupCodes && (
+              <div className="p-5 bg-amber-50 dark:bg-amber-500/10 border-2 border-amber-200 dark:border-amber-500/30 rounded-2xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">⚠️</span>
+                  <p className="font-bold text-amber-700 dark:text-amber-400">Save Your Backup Codes</p>
+                </div>
+                <p className="text-sm text-amber-600 dark:text-amber-300">
+                  Store these codes in a safe place. You can use them to access your account if you lose your authenticator.
+                </p>
+                <div className="grid grid-cols-2 gap-2 p-4 bg-white dark:bg-slate-900 rounded-xl font-mono text-sm">
+                  {showBackupCodes.map((code, i) => (
+                    <div key={i} className="px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded text-center text-slate-700 dark:text-slate-300">
+                      {code}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowBackupCodes(null)}
+                  className="w-full px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition-colors"
+                >
+                  I've Saved These Codes
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Preferences Settings */}
         {activeSection === 'preferences' && (
           <div className="space-y-8">
@@ -913,6 +1320,75 @@ const Settings: React.FC = () => {
                   </>
                 ) : (
                   'Delete Forever'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Disable 2FA Modal */}
+      {showDisable2FAModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center text-2xl">
+                🔐
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Disable 2FA</h3>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-slate-600 dark:text-slate-300">
+                Enter your current 2FA code to disable two-factor authentication.
+              </p>
+
+              <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  Warning: Disabling 2FA will make your account less secure.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-500">2FA Code</label>
+                <input
+                  type="text"
+                  value={disable2FAToken}
+                  onChange={(e) => setDisable2FAToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-mono text-2xl text-center text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 tracking-widest"
+                  maxLength={6}
+                  autoComplete="off"
+                />
+              </div>
+
+              {twoFactorError && <p className="text-sm text-rose-600 dark:text-rose-400">{twoFactorError}</p>}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowDisable2FAModal(false);
+                  setDisable2FAToken('');
+                  setTwoFactorError(null);
+                }}
+                disabled={isDisabling2FA}
+                className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDisable2FA}
+                disabled={disable2FAToken.length !== 6 || isDisabling2FA}
+                className="flex-1 px-4 py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isDisabling2FA ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Disabling...
+                  </>
+                ) : (
+                  'Disable 2FA'
                 )}
               </button>
             </div>
