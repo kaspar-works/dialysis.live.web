@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { ICONS } from '../constants';
 import { useStore } from '../store';
+import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
 
 interface LayoutProps {
@@ -13,8 +14,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { profile, setTheme } = useStore();
+  const { authProfile, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Use AuthContext profile (shared state) with fallback to local store
+  const displayName = authProfile?.fullName || profile.name || 'User';
+  const displayEmail = user?.email || profile.email || '';
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -71,7 +77,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     )},
   ];
 
-  const defaultAvatar = "https://ui-avatars.com/api/?name=" + encodeURIComponent(profile.name) + "&background=0ea5e9&color=fff&bold=true";
+  const defaultAvatar = "https://ui-avatars.com/api/?name=" + encodeURIComponent(displayName) + "&background=0ea5e9&color=fff&bold=true";
 
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-slate-950 transition-colors duration-500">
@@ -197,7 +203,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
              {/* Profile Avatar */}
              <Link to="/profile" aria-label="View your profile" className="flex items-center">
                 <div className="relative">
-                  <img src={profile.avatarUrl || defaultAvatar} className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl ring-2 ring-slate-100 dark:ring-white/10 shadow-md object-cover" alt={`${profile.name}'s profile picture`} />
+                  <img src={profile.avatarUrl || defaultAvatar} className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl ring-2 ring-slate-100 dark:ring-white/10 shadow-md object-cover" alt={`${displayName}'s profile picture`} />
                   <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-slate-950 rounded-full"></div>
                 </div>
              </Link>
@@ -328,11 +334,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <img
                 src={profile.avatarUrl || defaultAvatar}
                 className="w-12 h-12 rounded-xl ring-2 ring-white dark:ring-white/20 shadow-md object-cover"
-                alt={`${profile.name}'s profile`}
+                alt={`${displayName}'s profile`}
               />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{profile.name}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{profile.email}</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{displayName}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{displayEmail}</p>
               </div>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-400 dark:text-slate-500">
                 <polyline points="9 18 15 12 9 6"/>
