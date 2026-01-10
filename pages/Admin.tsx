@@ -15,12 +15,18 @@ import {
   deleteResolvedErrors,
   getPageSettings,
   togglePageSetting,
+  updateUserSubscription,
+  getAllAlerts,
+  getActivityLogs,
   SystemStats,
   AdminUser,
   SystemAnnouncement,
   ErrorLogEntry,
   ErrorLogStats,
   PageSetting,
+  PlanType,
+  SystemAlert,
+  ActivityLog,
 } from '../services/admin';
 
 const Admin: React.FC = () => {
@@ -35,6 +41,8 @@ const Admin: React.FC = () => {
     if (location.pathname === '/admin/errors') return 'logs';
     if (location.pathname === '/admin/announcements') return 'announcements';
     if (location.pathname === '/admin/pages') return 'pages';
+    if (location.pathname === '/admin/activity') return 'activity';
+    if (location.pathname === '/admin/alerts') return 'alerts';
     return 'overview';
   };
   const activeSection = getActiveSection();
@@ -51,6 +59,22 @@ const Admin: React.FC = () => {
   const [selectedError, setSelectedError] = useState<ErrorLogEntry | null>(null);
   const [pageSettings, setPageSettings] = useState<PageSetting[]>([]);
   const [togglingPage, setTogglingPage] = useState<string | null>(null);
+
+  // Activity logs states
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [activityPagination, setActivityPagination] = useState({ total: 0, limit: 50, offset: 0 });
+
+  // System alerts states
+  const [systemAlerts, setSystemAlerts] = useState<SystemAlert[]>([]);
+  const [alertsPagination, setAlertsPagination] = useState({ total: 0, limit: 50, offset: 0 });
+  const [alertFilter, setAlertFilter] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
+
+  // User details states
+  const [showUserDetails, setShowUserDetails] = useState(false);
+  const [selectedUserDetails, setSelectedUserDetails] = useState<AdminUser | null>(null);
+
+  // Refresh states
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Form states
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
@@ -70,6 +94,12 @@ const Admin: React.FC = () => {
 
   // Search states
   const [userSearch, setUserSearch] = useState('');
+  const [planFilter, setPlanFilter] = useState<'all' | 'paid' | 'free' | 'basic' | 'premium'>('all');
+
+  // Subscription management states
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [updatingSubscription, setUpdatingSubscription] = useState(false);
 
   const hasFetched = useRef(false);
 
@@ -84,12 +114,14 @@ const Admin: React.FC = () => {
         setIsAdmin(true);
 
         // Load initial data
-        const [statsData, usersData, errorsData, announcementsData, pageSettingsData] = await Promise.all([
+        const [statsData, usersData, errorsData, announcementsData, pageSettingsData, activityData, alertsData] = await Promise.all([
           getSystemStats(),
           getUsers({ limit: 50 }),
           getErrorLogs({ limit: 100 }),
           getAnnouncements(),
           getPageSettings(),
+          getActivityLogs({ limit: 50 }),
+          getAllAlerts({ limit: 50 }),
         ]);
 
         setStats(statsData);
@@ -100,6 +132,10 @@ const Admin: React.FC = () => {
         setErrorsPagination(errorsData.pagination);
         setAnnouncements(announcementsData.announcements);
         setPageSettings(pageSettingsData.pages);
+        setActivityLogs(activityData.logs);
+        setActivityPagination(activityData.pagination);
+        setSystemAlerts(alertsData.alerts);
+        setAlertsPagination(alertsData.pagination);
       } catch (err) {
         console.error('Admin access denied:', err);
         setIsAdmin(false);
@@ -120,6 +156,28 @@ const Admin: React.FC = () => {
       setUsersPagination(data.pagination);
     } catch (err) {
       console.error('Failed to search users:', err);
+    }
+  };
+
+  // Update user subscription
+  const handleUpdateSubscription = async (plan: PlanType) => {
+    if (!selectedUser) return;
+    setUpdatingSubscription(true);
+    try {
+      await updateUserSubscription(selectedUser._id, plan);
+      // Update local state
+      setUsers(prev => prev.map(u =>
+        u._id === selectedUser._id
+          ? { ...u, subscription: { plan, status: 'active' } }
+          : u
+      ));
+      setShowSubscriptionModal(false);
+      setSelectedUser(null);
+    } catch (err) {
+      console.error('Failed to update subscription:', err);
+      alert('Failed to update subscription');
+    } finally {
+      setUpdatingSubscription(false);
     }
   };
 
@@ -268,6 +326,139 @@ const Admin: React.FC = () => {
     }
   };
 
+  // Refresh all data
+  const handleRefreshData = async () => {
+    setIsRefreshing(true);
+    try {
+      const [statsData, usersData, errorsData, announcementsData, pageSettingsData, activityData, alertsData] = await Promise.all([
+        getSystemStats(),
+        getUsers({ limit: 50, search: userSearch || undefined }),
+        getErrorLogs({ limit: 100 }),
+        getAnnouncements(),
+        getPageSettings(),
+        getActivityLogs({ limit: 50 }),
+        getAllAlerts({ limit: 50 }),
+      ]);
+
+      setStats(statsData);
+      setUsers(usersData.users);
+      setUsersPagination(usersData.pagination);
+      setErrorLogs(errorsData.errors);
+      setErrorStats(errorsData.stats);
+      setErrorsPagination(errorsData.pagination);
+      setAnnouncements(announcementsData.announcements);
+      setPageSettings(pageSettingsData.pages);
+      setActivityLogs(activityData.logs);
+      setActivityPagination(activityData.pagination);
+      setSystemAlerts(alertsData.alerts);
+      setAlertsPagination(alertsData.pagination);
+    } catch (err) {
+      console.error('Failed to refresh data:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Filter alerts
+  const handleFilterAlerts = async (filter: typeof alertFilter) => {
+    setAlertFilter(filter);
+    try {
+      const params: { severity?: string; limit: number } = { limit: 50 };
+      if (filter !== 'all') params.severity = filter;
+      const data = await getAllAlerts(params);
+      setSystemAlerts(data.alerts);
+      setAlertsPagination(data.pagination);
+    } catch (err) {
+      console.error('Failed to filter alerts:', err);
+    }
+  };
+
+  // Load more activity logs
+  const handleLoadMoreActivity = async () => {
+    try {
+      const data = await getActivityLogs({
+        limit: 50,
+        offset: activityPagination.offset + 50
+      });
+      setActivityLogs(prev => [...prev, ...data.logs]);
+      setActivityPagination(data.pagination);
+    } catch (err) {
+      console.error('Failed to load more activity:', err);
+    }
+  };
+
+  // Export users to CSV
+  const handleExportUsers = () => {
+    const headers = ['Email', 'Status', 'Plan', 'Admin', 'Onboarding', 'Created'];
+    const csvContent = [
+      headers.join(','),
+      ...users.map(user => [
+        user.email,
+        user.status,
+        user.subscription?.plan || 'free',
+        user.isAdmin ? 'Yes' : 'No',
+        user.onboardingCompleted ? 'Yes' : 'No',
+        new Date(user.createdAt).toLocaleDateString(),
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  // Export error logs to CSV
+  const handleExportErrors = () => {
+    const headers = ['Level', 'Message', 'Endpoint', 'User', 'Resolved', 'Created'];
+    const csvContent = [
+      headers.join(','),
+      ...errorLogs.map(error => [
+        error.level,
+        `"${error.message.replace(/"/g, '""')}"`,
+        error.endpoint || '',
+        error.userEmail || '',
+        error.resolved ? 'Yes' : 'No',
+        new Date(error.createdAt).toLocaleDateString(),
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `errors_export_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  // Export activity logs to CSV
+  const handleExportActivity = () => {
+    const headers = ['Action', 'User', 'Details', 'Date'];
+    const csvContent = [
+      headers.join(','),
+      ...activityLogs.map(log => [
+        log.action,
+        log.userId?.email || 'System',
+        `"${(log.details || '').replace(/"/g, '""')}"`,
+        new Date(log.createdAt).toLocaleDateString(),
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `activity_export_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  // Calculate subscription statistics
+  const subscriptionStats = {
+    premium: users.filter(u => u.subscription?.plan === 'premium').length,
+    basic: users.filter(u => u.subscription?.plan === 'basic').length,
+    free: users.filter(u => !u.subscription?.plan || u.subscription?.plan === 'free').length,
+  };
+  const paidUsers = subscriptionStats.premium + subscriptionStats.basic;
+
   // Group pages by category
   const pagesByCategory = pageSettings.reduce((acc, page) => {
     if (!acc[page.category]) acc[page.category] = [];
@@ -327,6 +518,19 @@ const Admin: React.FC = () => {
       {/* Overview Section */}
       {activeSection === 'overview' && stats && (
         <div className="space-y-6">
+          {/* Header with Refresh */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-white">Dashboard Overview</h2>
+            <button
+              onClick={handleRefreshData}
+              disabled={isRefreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-medium hover:bg-slate-700 transition-colors disabled:opacity-50"
+            >
+              <ICONS.RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+
           {/* Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-slate-900/50 rounded-2xl p-5 border border-slate-700/50">
@@ -370,6 +574,94 @@ const Admin: React.FC = () => {
             </div>
           </div>
 
+          {/* Subscription Stats */}
+          <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700/50">
+            <h3 className="text-lg font-bold text-white mb-4">Subscription Distribution</h3>
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="text-center">
+                <p className="text-3xl font-black text-emerald-400">{subscriptionStats.premium}</p>
+                <p className="text-sm text-slate-400">Premium</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-black text-sky-400">{subscriptionStats.basic}</p>
+                <p className="text-sm text-slate-400">Basic</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-black text-slate-400">{subscriptionStats.free}</p>
+                <p className="text-sm text-slate-400">Free</p>
+              </div>
+            </div>
+            {/* Progress bar visualization */}
+            <div className="h-4 bg-slate-700 rounded-full overflow-hidden flex">
+              {subscriptionStats.premium > 0 && (
+                <div
+                  className="bg-gradient-to-r from-emerald-500 to-emerald-400 h-full"
+                  style={{ width: `${(subscriptionStats.premium / users.length) * 100}%` }}
+                />
+              )}
+              {subscriptionStats.basic > 0 && (
+                <div
+                  className="bg-gradient-to-r from-sky-500 to-sky-400 h-full"
+                  style={{ width: `${(subscriptionStats.basic / users.length) * 100}%` }}
+                />
+              )}
+              {subscriptionStats.free > 0 && (
+                <div
+                  className="bg-slate-600 h-full"
+                  style={{ width: `${(subscriptionStats.free / users.length) * 100}%` }}
+                />
+              )}
+            </div>
+            <div className="flex justify-between mt-2 text-xs">
+              <span className="text-emerald-400">{users.length > 0 ? ((subscriptionStats.premium / users.length) * 100).toFixed(1) : 0}% Premium</span>
+              <span className="text-sky-400">{users.length > 0 ? ((subscriptionStats.basic / users.length) * 100).toFixed(1) : 0}% Basic</span>
+              <span className="text-slate-400">{users.length > 0 ? ((subscriptionStats.free / users.length) * 100).toFixed(1) : 0}% Free</span>
+            </div>
+          </div>
+
+          {/* System Health */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-slate-900/50 rounded-2xl p-5 border border-slate-700/50">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center">
+                  <ICONS.Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-slate-400 text-sm font-medium">Paid Users</span>
+              </div>
+              <p className="text-3xl font-black text-emerald-400">{paidUsers}</p>
+            </div>
+
+            <div className="bg-slate-900/50 rounded-2xl p-5 border border-slate-700/50">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center">
+                  <ICONS.AlertCircle className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-slate-400 text-sm font-medium">Unresolved Errors</span>
+              </div>
+              <p className="text-3xl font-black text-rose-400">{errorStats?.unresolved || 0}</p>
+            </div>
+
+            <div className="bg-slate-900/50 rounded-2xl p-5 border border-slate-700/50">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+                  <ICONS.Bell className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-slate-400 text-sm font-medium">Active Alerts</span>
+              </div>
+              <p className="text-3xl font-black text-amber-400">{stats.alerts.active}</p>
+            </div>
+
+            <div className="bg-slate-900/50 rounded-2xl p-5 border border-slate-700/50">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
+                  <ICONS.MessageSquare className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-slate-400 text-sm font-medium">Announcements</span>
+              </div>
+              <p className="text-3xl font-black text-violet-400">{announcements.filter(a => a.isActive).length}</p>
+            </div>
+          </div>
+
           {/* User Growth Chart */}
           {stats.userGrowth.length > 0 && (
             <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700/50">
@@ -400,6 +692,27 @@ const Admin: React.FC = () => {
       {/* Users Section */}
       {activeSection === 'users' && (
         <div className="space-y-4">
+          {/* Header with Export */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-xl font-bold text-white">User Management</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={handleRefreshData}
+                disabled={isRefreshing}
+                className="flex items-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 rounded-xl font-medium hover:bg-slate-700 transition-colors disabled:opacity-50"
+              >
+                <ICONS.RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={handleExportUsers}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl font-medium hover:bg-emerald-500/20 transition-colors"
+              >
+                <ICONS.Download className="w-4 h-4" />
+                Export CSV
+              </button>
+            </div>
+          </div>
+
           {/* Search */}
           <div className="flex gap-2">
             <input
@@ -418,16 +731,73 @@ const Admin: React.FC = () => {
             </button>
           </div>
 
+          {/* Plan Filter */}
+          <div className="flex gap-2 flex-wrap">
+            {([
+              { id: 'all', label: 'All Users', color: 'slate' },
+              { id: 'paid', label: 'Paid Users', color: 'emerald' },
+              { id: 'premium', label: 'Premium', color: 'emerald' },
+              { id: 'basic', label: 'Basic', color: 'sky' },
+              { id: 'free', label: 'Free', color: 'slate' },
+            ] as const).map(filter => (
+              <button
+                key={filter.id}
+                onClick={() => setPlanFilter(filter.id)}
+                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+                  planFilter === filter.id
+                    ? filter.color === 'emerald'
+                      ? 'bg-emerald-500 text-white'
+                      : filter.color === 'sky'
+                      ? 'bg-sky-500 text-white'
+                      : 'bg-violet-500 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
           {/* Users List */}
           <div className="bg-slate-900/50 rounded-2xl border border-slate-700/50 overflow-hidden">
             <div className="p-4 border-b border-slate-700">
-              <p className="text-sm text-slate-400">
-                Showing {users.length} of {usersPagination.total} users
-              </p>
+              {(() => {
+                const filteredUsers = users.filter(user => {
+                  const plan = user.subscription?.plan || 'free';
+                  if (planFilter === 'all') return true;
+                  if (planFilter === 'paid') return plan === 'basic' || plan === 'premium';
+                  return plan === planFilter;
+                });
+                const paidCount = users.filter(u => u.subscription?.plan === 'basic' || u.subscription?.plan === 'premium').length;
+                return (
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-slate-400">
+                      Showing {filteredUsers.length} of {usersPagination.total} users
+                      {planFilter !== 'all' && ` (filtered by ${planFilter})`}
+                    </p>
+                    <p className="text-sm">
+                      <span className="text-emerald-400 font-bold">{paidCount}</span>
+                      <span className="text-slate-500"> paid users</span>
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
             <div className="divide-y divide-slate-700 max-h-[600px] overflow-y-auto">
-              {users.map(user => (
-                <div key={user._id} className="p-4 flex items-center justify-between hover:bg-slate-800/50">
+              {users.filter(user => {
+                const plan = user.subscription?.plan || 'free';
+                if (planFilter === 'all') return true;
+                if (planFilter === 'paid') return plan === 'basic' || plan === 'premium';
+                return plan === planFilter;
+              }).map(user => (
+                <div
+                  key={user._id}
+                  className="p-4 flex items-center justify-between hover:bg-slate-800/50 cursor-pointer"
+                  onClick={() => {
+                    setSelectedUserDetails(user);
+                    setShowUserDetails(true);
+                  }}
+                >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-white font-bold">
                       {user.email.charAt(0).toUpperCase()}
@@ -440,6 +810,16 @@ const Admin: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {/* Subscription Badge */}
+                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
+                      user.subscription?.plan === 'premium'
+                        ? 'bg-emerald-500/10 text-emerald-400'
+                        : user.subscription?.plan === 'basic'
+                        ? 'bg-sky-500/10 text-sky-400'
+                        : 'bg-slate-700 text-slate-400'
+                    }`}>
+                      {user.subscription?.plan?.toUpperCase() || 'FREE'}
+                    </span>
                     <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
                       user.status === 'active'
                         ? 'bg-emerald-500/10 text-emerald-400'
@@ -452,6 +832,20 @@ const Admin: React.FC = () => {
                         Admin
                       </span>
                     )}
+                    {/* Edit Subscription Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedUser(user);
+                        setShowSubscriptionModal(true);
+                      }}
+                      className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+                      title="Edit Subscription"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -463,6 +857,27 @@ const Admin: React.FC = () => {
       {/* Error Logs Section */}
       {activeSection === 'logs' && (
         <div className="space-y-4">
+          {/* Header with Export */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-xl font-bold text-white">Error Logs</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={handleRefreshData}
+                disabled={isRefreshing}
+                className="flex items-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 rounded-xl font-medium hover:bg-slate-700 transition-colors disabled:opacity-50"
+              >
+                <ICONS.RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={handleExportErrors}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl font-medium hover:bg-emerald-500/20 transition-colors"
+              >
+                <ICONS.Download className="w-4 h-4" />
+                Export CSV
+              </button>
+            </div>
+          </div>
+
           {/* Stats Cards */}
           {errorStats && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1022,6 +1437,351 @@ const Admin: React.FC = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Activity Logs Section */}
+      {activeSection === 'activity' && (
+        <div className="space-y-4">
+          {/* Header with Export */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-xl font-bold text-white">Activity Logs</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={handleRefreshData}
+                disabled={isRefreshing}
+                className="flex items-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 rounded-xl font-medium hover:bg-slate-700 transition-colors disabled:opacity-50"
+              >
+                <ICONS.RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={handleExportActivity}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl font-medium hover:bg-emerald-500/20 transition-colors"
+              >
+                <ICONS.Download className="w-4 h-4" />
+                Export CSV
+              </button>
+            </div>
+          </div>
+
+          {/* Activity Logs List */}
+          <div className="bg-slate-900/50 rounded-2xl border border-slate-700/50 overflow-hidden">
+            <div className="p-4 border-b border-slate-700">
+              <p className="text-sm text-slate-400">
+                Showing {activityLogs.length} of {activityPagination.total} activity logs
+              </p>
+            </div>
+            <div className="divide-y divide-slate-700 max-h-[600px] overflow-y-auto">
+              {activityLogs.length === 0 ? (
+                <div className="p-8 text-center text-slate-400">No activity logs found</div>
+              ) : (
+                activityLogs.map(log => {
+                  const actionColors: Record<string, string> = {
+                    login: 'bg-emerald-500/10 text-emerald-400',
+                    logout: 'bg-slate-700 text-slate-400',
+                    register: 'bg-sky-500/10 text-sky-400',
+                    update: 'bg-amber-500/10 text-amber-400',
+                    delete: 'bg-rose-500/10 text-rose-400',
+                    create: 'bg-violet-500/10 text-violet-400',
+                  };
+                  const actionType = log.action.toLowerCase().split('_')[0];
+                  const colorClass = actionColors[actionType] || 'bg-slate-700 text-slate-400';
+
+                  return (
+                    <div key={log._id} className="p-4 hover:bg-slate-800/50">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center flex-shrink-0">
+                          <ICONS.Activity className="w-5 h-5 text-slate-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${colorClass}`}>
+                              {log.action}
+                            </span>
+                          </div>
+                          <p className="text-sm text-white">{log.details || 'No details'}</p>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
+                            <span>{log.userId?.email || 'System'}</span>
+                            <span>•</span>
+                            <span>{new Date(log.createdAt).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            {activityLogs.length < activityPagination.total && (
+              <div className="p-4 border-t border-slate-700">
+                <button
+                  onClick={handleLoadMoreActivity}
+                  className="w-full py-2 bg-slate-800 text-slate-300 rounded-xl font-medium hover:bg-slate-700 transition-colors"
+                >
+                  Load More
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* System Alerts Section */}
+      {activeSection === 'alerts' && (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-xl font-bold text-white">System Alerts</h2>
+            <button
+              onClick={handleRefreshData}
+              disabled={isRefreshing}
+              className="flex items-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 rounded-xl font-medium hover:bg-slate-700 transition-colors disabled:opacity-50"
+            >
+              <ICONS.RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          {/* Filter */}
+          <div className="flex gap-2 overflow-x-auto">
+            {(['all', 'critical', 'warning', 'info'] as const).map(filter => (
+              <button
+                key={filter}
+                onClick={() => handleFilterAlerts(filter)}
+                className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${
+                  alertFilter === filter
+                    ? filter === 'critical'
+                      ? 'bg-rose-500 text-white'
+                      : filter === 'warning'
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-violet-500 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Alerts List */}
+          <div className="bg-slate-900/50 rounded-2xl border border-slate-700/50 overflow-hidden">
+            <div className="p-4 border-b border-slate-700">
+              <p className="text-sm text-slate-400">
+                Showing {systemAlerts.length} of {alertsPagination.total} alerts
+              </p>
+            </div>
+            <div className="divide-y divide-slate-700 max-h-[600px] overflow-y-auto">
+              {systemAlerts.length === 0 ? (
+                <div className="p-8 text-center text-slate-400">No system alerts found</div>
+              ) : (
+                systemAlerts.map(alert => {
+                  const severityColors: Record<string, string> = {
+                    critical: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+                    warning: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                    info: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+                  };
+                  const colorClass = severityColors[alert.severity] || severityColors.info;
+
+                  return (
+                    <div key={alert._id} className="p-4 hover:bg-slate-800/50">
+                      <div className="flex items-start gap-4">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          alert.severity === 'critical' ? 'bg-rose-500/10' :
+                          alert.severity === 'warning' ? 'bg-amber-500/10' : 'bg-sky-500/10'
+                        }`}>
+                          <ICONS.Bell className={`w-5 h-5 ${
+                            alert.severity === 'critical' ? 'text-rose-500' :
+                            alert.severity === 'warning' ? 'text-amber-500' : 'text-sky-500'
+                          }`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold border ${colorClass}`}>
+                              {alert.severity.toUpperCase()}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-700 text-slate-400">
+                              {alert.category}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                              alert.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-500'
+                            }`}>
+                              {alert.status}
+                            </span>
+                          </div>
+                          <p className="font-medium text-white">{alert.title}</p>
+                          <p className="text-sm text-slate-400 mt-1">{alert.message}</p>
+                          <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
+                            {alert.userId?.email && <span>{alert.userId.email}</span>}
+                            <span>{new Date(alert.createdAt).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Details Modal */}
+      {showUserDetails && selectedUserDetails && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowUserDetails(false)}>
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-white">User Details</h3>
+              <button onClick={() => setShowUserDetails(false)} className="p-2 hover:bg-slate-700 rounded-lg">
+                <ICONS.X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* User Avatar & Email */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
+                {selectedUserDetails.email.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-lg font-bold text-white">{selectedUserDetails.email}</p>
+                <p className="text-sm text-slate-400">User ID: {selectedUserDetails._id}</p>
+              </div>
+            </div>
+
+            {/* User Info Grid */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-700/50 rounded-xl p-3">
+                  <p className="text-xs text-slate-400 mb-1">Status</p>
+                  <span className={`px-2 py-1 rounded-lg text-sm font-bold ${
+                    selectedUserDetails.status === 'active'
+                      ? 'bg-emerald-500/10 text-emerald-400'
+                      : 'bg-slate-600 text-slate-400'
+                  }`}>
+                    {selectedUserDetails.status}
+                  </span>
+                </div>
+                <div className="bg-slate-700/50 rounded-xl p-3">
+                  <p className="text-xs text-slate-400 mb-1">Subscription</p>
+                  <span className={`px-2 py-1 rounded-lg text-sm font-bold ${
+                    selectedUserDetails.subscription?.plan === 'premium'
+                      ? 'bg-emerald-500/10 text-emerald-400'
+                      : selectedUserDetails.subscription?.plan === 'basic'
+                      ? 'bg-sky-500/10 text-sky-400'
+                      : 'bg-slate-600 text-slate-400'
+                  }`}>
+                    {selectedUserDetails.subscription?.plan?.toUpperCase() || 'FREE'}
+                  </span>
+                </div>
+                <div className="bg-slate-700/50 rounded-xl p-3">
+                  <p className="text-xs text-slate-400 mb-1">Admin</p>
+                  <span className={`px-2 py-1 rounded-lg text-sm font-bold ${
+                    selectedUserDetails.isAdmin
+                      ? 'bg-violet-500/10 text-violet-400'
+                      : 'bg-slate-600 text-slate-400'
+                  }`}>
+                    {selectedUserDetails.isAdmin ? 'Yes' : 'No'}
+                  </span>
+                </div>
+                <div className="bg-slate-700/50 rounded-xl p-3">
+                  <p className="text-xs text-slate-400 mb-1">Onboarding</p>
+                  <span className={`px-2 py-1 rounded-lg text-sm font-bold ${
+                    selectedUserDetails.onboardingCompleted
+                      ? 'bg-emerald-500/10 text-emerald-400'
+                      : 'bg-amber-500/10 text-amber-400'
+                  }`}>
+                    {selectedUserDetails.onboardingCompleted ? 'Completed' : 'Pending'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-slate-700/50 rounded-xl p-3">
+                <p className="text-xs text-slate-400 mb-1">Joined</p>
+                <p className="text-white font-medium">
+                  {new Date(selectedUserDetails.createdAt).toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowUserDetails(false);
+                  setSelectedUser(selectedUserDetails);
+                  setShowSubscriptionModal(true);
+                }}
+                className="flex-1 py-3 bg-violet-500 text-white rounded-xl font-bold hover:bg-violet-600 transition-colors"
+              >
+                Change Subscription
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subscription Management Modal */}
+      {showSubscriptionModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold text-white mb-2">Manage Subscription</h3>
+            <p className="text-slate-400 text-sm mb-6">{selectedUser.email}</p>
+
+            <div className="space-y-3">
+              {(['free', 'basic', 'premium'] as PlanType[]).map(plan => (
+                <button
+                  key={plan}
+                  onClick={() => handleUpdateSubscription(plan)}
+                  disabled={updatingSubscription}
+                  className={`w-full p-4 rounded-xl border-2 flex items-center justify-between transition-all ${
+                    selectedUser.subscription?.plan === plan
+                      ? plan === 'premium'
+                        ? 'border-emerald-500 bg-emerald-500/10'
+                        : plan === 'basic'
+                        ? 'border-sky-500 bg-sky-500/10'
+                        : 'border-slate-500 bg-slate-500/10'
+                      : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                  } ${updatingSubscription ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
+                      plan === 'premium'
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : plan === 'basic'
+                        ? 'bg-sky-500/20 text-sky-400'
+                        : 'bg-slate-600 text-slate-400'
+                    }`}>
+                      {plan === 'premium' ? '👑' : plan === 'basic' ? '⭐' : '🆓'}
+                    </div>
+                    <div className="text-left">
+                      <p className="font-bold text-white">{plan.charAt(0).toUpperCase() + plan.slice(1)}</p>
+                      <p className="text-xs text-slate-400">
+                        {plan === 'premium' ? 'Full access + AI features'
+                          : plan === 'basic' ? 'Unlimited tracking'
+                          : 'Limited tracking'}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedUser.subscription?.plan === plan && (
+                    <span className="px-2 py-1 rounded text-xs font-bold bg-violet-500/20 text-violet-400">
+                      Current
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowSubscriptionModal(false);
+                  setSelectedUser(null);
+                }}
+                disabled={updatingSubscription}
+                className="flex-1 px-4 py-3 bg-slate-700 text-slate-300 rounded-xl font-bold hover:bg-slate-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -25,7 +25,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     { name: 'Overview', path: '/admin', icon: ICONS.Dashboard, exact: true },
     { name: 'Users', path: '/admin/users', icon: ICONS.User },
     { name: 'Error Logs', path: '/admin/errors', icon: ICONS.AlertCircle },
-    { name: 'Announcements', path: '/admin/announcements', icon: ICONS.Bell },
+    { name: 'Activity Logs', path: '/admin/activity', icon: ICONS.Activity },
+    { name: 'System Alerts', path: '/admin/alerts', icon: ICONS.Bell },
+    { name: 'Announcements', path: '/admin/announcements', icon: ICONS.MessageSquare },
     { name: 'Page Settings', path: '/admin/pages', icon: ICONS.Settings },
   ];
 
@@ -212,7 +214,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             { path: '/admin', icon: ICONS.Dashboard, label: 'Home', exact: true },
             { path: '/admin/users', icon: ICONS.User, label: 'Users' },
             { path: '/admin/errors', icon: ICONS.AlertCircle, label: 'Errors' },
-            { path: '/admin/pages', icon: ICONS.Settings, label: 'Pages' },
+            { path: '/admin/activity', icon: ICONS.Activity, label: 'Activity' },
             { path: '/dashboard', icon: (props: any) => (
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
                 <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>

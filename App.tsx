@@ -302,6 +302,22 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/admin/activity"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout><SEO title="Admin - Activity Logs" noIndex /><Admin /></AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/alerts"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout><SEO title="Admin - System Alerts" noIndex /><Admin /></AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
 
               {/* 404 Catch-all Route */}
               <Route path="*" element={<NotFound />} />
