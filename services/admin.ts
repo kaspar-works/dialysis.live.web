@@ -1,5 +1,12 @@
 import { authFetch, apiFetch } from './auth';
 
+export type PlanType = 'free' | 'basic' | 'premium';
+
+export interface UserSubscription {
+  plan: PlanType;
+  status: string;
+}
+
 export interface AdminUser {
   _id: string;
   email: string;
@@ -7,6 +14,7 @@ export interface AdminUser {
   isAdmin: boolean;
   onboardingCompleted: boolean;
   createdAt: string;
+  subscription?: UserSubscription;
 }
 
 export interface SystemStats {
@@ -373,6 +381,21 @@ export async function getPublicPageSettings(): Promise<{ pages: Record<string, {
   const response = await apiFetch('/page-settings');
   if (!response.success) {
     throw new Error(response.error?.message || 'Failed to get page settings');
+  }
+  return response.data;
+}
+
+// Update user subscription (admin only)
+export async function updateUserSubscription(
+  userId: string,
+  plan: PlanType
+): Promise<{ subscription: UserSubscription }> {
+  const response = await authFetch(`/admin/users/${userId}/subscription`, {
+    method: 'PUT',
+    body: JSON.stringify({ plan }),
+  });
+  if (!response.success) {
+    throw new Error(response.error?.message || 'Failed to update user subscription');
   }
   return response.data;
 }

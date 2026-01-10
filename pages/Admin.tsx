@@ -15,12 +15,14 @@ import {
   deleteResolvedErrors,
   getPageSettings,
   togglePageSetting,
+  updateUserSubscription,
   SystemStats,
   AdminUser,
   SystemAnnouncement,
   ErrorLogEntry,
   ErrorLogStats,
   PageSetting,
+  PlanType,
 } from '../services/admin';
 
 const Admin: React.FC = () => {
@@ -71,6 +73,11 @@ const Admin: React.FC = () => {
   // Search states
   const [userSearch, setUserSearch] = useState('');
 
+  // Subscription management states
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [updatingSubscription, setUpdatingSubscription] = useState(false);
+
   const hasFetched = useRef(false);
 
   // Verify admin and load initial data
@@ -120,6 +127,28 @@ const Admin: React.FC = () => {
       setUsersPagination(data.pagination);
     } catch (err) {
       console.error('Failed to search users:', err);
+    }
+  };
+
+  // Update user subscription
+  const handleUpdateSubscription = async (plan: PlanType) => {
+    if (!selectedUser) return;
+    setUpdatingSubscription(true);
+    try {
+      await updateUserSubscription(selectedUser._id, plan);
+      // Update local state
+      setUsers(prev => prev.map(u =>
+        u._id === selectedUser._id
+          ? { ...u, subscription: { plan, status: 'active' } }
+          : u
+      ));
+      setShowSubscriptionModal(false);
+      setSelectedUser(null);
+    } catch (err) {
+      console.error('Failed to update subscription:', err);
+      alert('Failed to update subscription');
+    } finally {
+      setUpdatingSubscription(false);
     }
   };
 
@@ -440,6 +469,16 @@ const Admin: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {/* Subscription Badge */}
+                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
+                      user.subscription?.plan === 'premium'
+                        ? 'bg-emerald-500/10 text-emerald-400'
+                        : user.subscription?.plan === 'basic'
+                        ? 'bg-sky-500/10 text-sky-400'
+                        : 'bg-slate-700 text-slate-400'
+                    }`}>
+                      {user.subscription?.plan?.toUpperCase() || 'FREE'}
+                    </span>
                     <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
                       user.status === 'active'
                         ? 'bg-emerald-500/10 text-emerald-400'
@@ -452,6 +491,19 @@ const Admin: React.FC = () => {
                         Admin
                       </span>
                     )}
+                    {/* Edit Subscription Button */}
+                    <button
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setShowSubscriptionModal(true);
+                      }}
+                      className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+                      title="Edit Subscription"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -1022,6 +1074,73 @@ const Admin: React.FC = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Subscription Management Modal */}
+      {showSubscriptionModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold text-white mb-2">Manage Subscription</h3>
+            <p className="text-slate-400 text-sm mb-6">{selectedUser.email}</p>
+
+            <div className="space-y-3">
+              {(['free', 'basic', 'premium'] as PlanType[]).map(plan => (
+                <button
+                  key={plan}
+                  onClick={() => handleUpdateSubscription(plan)}
+                  disabled={updatingSubscription}
+                  className={`w-full p-4 rounded-xl border-2 flex items-center justify-between transition-all ${
+                    selectedUser.subscription?.plan === plan
+                      ? plan === 'premium'
+                        ? 'border-emerald-500 bg-emerald-500/10'
+                        : plan === 'basic'
+                        ? 'border-sky-500 bg-sky-500/10'
+                        : 'border-slate-500 bg-slate-500/10'
+                      : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                  } ${updatingSubscription ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
+                      plan === 'premium'
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : plan === 'basic'
+                        ? 'bg-sky-500/20 text-sky-400'
+                        : 'bg-slate-600 text-slate-400'
+                    }`}>
+                      {plan === 'premium' ? '👑' : plan === 'basic' ? '⭐' : '🆓'}
+                    </div>
+                    <div className="text-left">
+                      <p className="font-bold text-white">{plan.charAt(0).toUpperCase() + plan.slice(1)}</p>
+                      <p className="text-xs text-slate-400">
+                        {plan === 'premium' ? 'Full access + AI features'
+                          : plan === 'basic' ? 'Unlimited tracking'
+                          : 'Limited tracking'}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedUser.subscription?.plan === plan && (
+                    <span className="px-2 py-1 rounded text-xs font-bold bg-violet-500/20 text-violet-400">
+                      Current
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowSubscriptionModal(false);
+                  setSelectedUser(null);
+                }}
+                disabled={updatingSubscription}
+                className="flex-1 px-4 py-3 bg-slate-700 text-slate-300 rounded-xl font-bold hover:bg-slate-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
