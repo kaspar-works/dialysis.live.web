@@ -686,6 +686,87 @@ const Admin: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Build Info */}
+          <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700/50">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                <ICONS.Code className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Build Information</h3>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Git Commit */}
+              <div className="bg-slate-800/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <ICONS.GitBranch className="w-4 h-4 text-violet-400" />
+                  <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Git Commit</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="px-2 py-1 bg-violet-500/10 text-violet-400 rounded text-sm font-mono">
+                    {typeof __GIT_COMMIT_HASH__ !== 'undefined' ? __GIT_COMMIT_HASH__ : 'dev'}
+                  </code>
+                  <span className="text-xs text-slate-500">
+                    on {typeof __GIT_BRANCH__ !== 'undefined' ? __GIT_BRANCH__ : 'local'}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-300 mt-2 truncate" title={typeof __GIT_COMMIT_MESSAGE__ !== 'undefined' ? __GIT_COMMIT_MESSAGE__ : 'Development build'}>
+                  {typeof __GIT_COMMIT_MESSAGE__ !== 'undefined' ? __GIT_COMMIT_MESSAGE__ : 'Development build'}
+                </p>
+              </div>
+
+              {/* Build Timestamp */}
+              <div className="bg-slate-800/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <ICONS.Clock className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Build Time</span>
+                </div>
+                <p className="text-sm text-white font-medium">
+                  {typeof __BUILD_TIMESTAMP__ !== 'undefined'
+                    ? new Date(__BUILD_TIMESTAMP__).toLocaleString()
+                    : new Date().toLocaleString()}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Commit: {typeof __GIT_COMMIT_DATE__ !== 'undefined'
+                    ? new Date(__GIT_COMMIT_DATE__).toLocaleString()
+                    : 'N/A'}
+                </p>
+              </div>
+
+              {/* Build Mode */}
+              <div className="bg-slate-800/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <ICONS.Settings className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Build Mode</span>
+                </div>
+                <span className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold ${
+                  (typeof __BUILD_MODE__ !== 'undefined' ? __BUILD_MODE__ : 'development') === 'production'
+                    ? 'bg-emerald-500/10 text-emerald-400'
+                    : 'bg-amber-500/10 text-amber-400'
+                }`}>
+                  {typeof __BUILD_MODE__ !== 'undefined' ? __BUILD_MODE__.toUpperCase() : 'DEVELOPMENT'}
+                </span>
+              </div>
+
+              {/* Environment */}
+              <div className="bg-slate-800/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <ICONS.Globe className="w-4 h-4 text-sky-400" />
+                  <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Environment</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-2 py-1 bg-sky-500/10 text-sky-400 rounded text-xs font-medium">
+                    React {React.version}
+                  </span>
+                  <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded text-xs font-medium">
+                    {navigator.userAgent.includes('Chrome') ? 'Chrome' :
+                     navigator.userAgent.includes('Firefox') ? 'Firefox' :
+                     navigator.userAgent.includes('Safari') ? 'Safari' : 'Browser'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
