@@ -29,6 +29,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     { name: 'System Alerts', path: '/admin/alerts', icon: ICONS.Bell },
     { name: 'Announcements', path: '/admin/announcements', icon: ICONS.MessageSquare },
     { name: 'Page Settings', path: '/admin/pages', icon: ICONS.Settings },
+    { name: 'Build Info', path: '/admin/build', icon: ICONS.Code },
   ];
 
   const isActivePath = (path: string, exact?: boolean) => {

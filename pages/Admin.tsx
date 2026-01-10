@@ -43,6 +43,7 @@ const Admin: React.FC = () => {
     if (location.pathname === '/admin/pages') return 'pages';
     if (location.pathname === '/admin/activity') return 'activity';
     if (location.pathname === '/admin/alerts') return 'alerts';
+    if (location.pathname === '/admin/build') return 'build';
     return 'overview';
   };
   const activeSection = getActiveSection();
@@ -1700,6 +1701,149 @@ const Admin: React.FC = () => {
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Build Info Section */}
+      {activeSection === 'build' && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+              <ICONS.Code className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white">Build Information</h2>
+              <p className="text-slate-400 text-sm">Deployment and version details</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Git Commit Card */}
+            <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700/50">
+              <div className="flex items-center gap-2 mb-4">
+                <ICONS.GitBranch className="w-5 h-5 text-violet-400" />
+                <h3 className="text-lg font-bold text-white">Git Commit</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Commit Hash</p>
+                  <code className="px-3 py-2 bg-violet-500/10 text-violet-400 rounded-lg text-lg font-mono block">
+                    {typeof __GIT_COMMIT_HASH__ !== 'undefined' ? __GIT_COMMIT_HASH__ : 'dev'}
+                  </code>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Branch</p>
+                  <p className="text-white font-medium">
+                    {typeof __GIT_BRANCH__ !== 'undefined' ? __GIT_BRANCH__ : 'local'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Commit Message</p>
+                  <p className="text-slate-300 text-sm leading-relaxed">
+                    {typeof __GIT_COMMIT_MESSAGE__ !== 'undefined' ? __GIT_COMMIT_MESSAGE__ : 'Development build'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Commit Date</p>
+                  <p className="text-white font-medium">
+                    {typeof __GIT_COMMIT_DATE__ !== 'undefined'
+                      ? new Date(__GIT_COMMIT_DATE__).toLocaleString()
+                      : 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Build Details Card */}
+            <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700/50">
+              <div className="flex items-center gap-2 mb-4">
+                <ICONS.Clock className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-lg font-bold text-white">Build Details</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Build Timestamp</p>
+                  <p className="text-white font-medium text-lg">
+                    {typeof __BUILD_TIMESTAMP__ !== 'undefined'
+                      ? new Date(__BUILD_TIMESTAMP__).toLocaleString()
+                      : new Date().toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Build Mode</p>
+                  <span className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold ${
+                    (typeof __BUILD_MODE__ !== 'undefined' ? __BUILD_MODE__ : 'development') === 'production'
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                  }`}>
+                    {typeof __BUILD_MODE__ !== 'undefined' ? __BUILD_MODE__.toUpperCase() : 'DEVELOPMENT'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Environment Card */}
+            <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700/50">
+              <div className="flex items-center gap-2 mb-4">
+                <ICONS.Globe className="w-5 h-5 text-sky-400" />
+                <h3 className="text-lg font-bold text-white">Environment</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">React Version</p>
+                  <span className="px-3 py-1.5 bg-sky-500/10 text-sky-400 rounded-lg text-sm font-medium">
+                    React {React.version}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Browser</p>
+                  <p className="text-white font-medium">
+                    {navigator.userAgent.includes('Chrome') ? 'Google Chrome' :
+                     navigator.userAgent.includes('Firefox') ? 'Mozilla Firefox' :
+                     navigator.userAgent.includes('Safari') ? 'Apple Safari' :
+                     navigator.userAgent.includes('Edge') ? 'Microsoft Edge' : 'Unknown Browser'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Platform</p>
+                  <p className="text-white font-medium">{navigator.platform}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* API Status Card */}
+            <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700/50">
+              <div className="flex items-center gap-2 mb-4">
+                <ICONS.Activity className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-lg font-bold text-white">System Status</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">API Status</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                    <span className="text-emerald-400 font-medium">Online</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Database</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                    <span className="text-emerald-400 font-medium">Connected</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Total Users</span>
+                  <span className="text-white font-bold">{stats?.totalUsers || 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Active Users (24h)</span>
+                  <span className="text-white font-bold">{stats?.activeUsers || 0}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
