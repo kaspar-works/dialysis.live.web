@@ -207,7 +207,7 @@ const ComingSoon: React.FC<ComingSoonProps> = ({
           <p className="text-sm text-white/30">
             Need urgent assistance?{' '}
             <a
-              href="mailto:support@dialysis.live"
+              href="mailto:kaspar@kaspar.works"
               className="text-amber-400 hover:text-amber-300 underline underline-offset-2"
             >
               Contact Support

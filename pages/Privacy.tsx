@@ -144,13 +144,8 @@ const Privacy: React.FC = () => {
             <p className="text-white/40 text-lg md:text-xl font-medium max-w-xl mx-auto">Questions about your data or our privacy practices?</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-8 pt-4">
               <div className="space-y-2">
-                <span className="text-[10px] font-black text-sky-400 uppercase tracking-widest">Support Email</span>
-                <p className="text-xl md:text-2xl font-black">privacy@dialysis.live</p>
-              </div>
-              <div className="w-px h-12 bg-white/10 hidden sm:block"></div>
-              <div className="space-y-2">
-                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Platform Hub</span>
-                <p className="text-xl md:text-2xl font-black">dialysis.live</p>
+                <span className="text-[10px] font-black text-sky-400 uppercase tracking-widest">Contact</span>
+                <p className="text-xl md:text-2xl font-black">kaspar@kaspar.works</p>
               </div>
             </div>
           </div>
