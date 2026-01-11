@@ -484,11 +484,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await logout();
   }, [logout]);
 
-  // Initial session validation
+  // Initial session validation - only validate if user might be logged in
   useEffect(() => {
     if (hasValidatedRef.current) return;
     hasValidatedRef.current = true;
-    validateSession();
+
+    // Only call validateSession if there's an indication the user might be logged in
+    // This prevents unnecessary /auth/me calls on public pages like home/landing
+    const hasAuthIndicator = localStorage.getItem('lifeondialysis_auth');
+    if (hasAuthIndicator) {
+      validateSession();
+    } else {
+      // No auth indicator, set loading to false immediately
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+      }));
+    }
   }, [validateSession]);
 
   // Activity detection
