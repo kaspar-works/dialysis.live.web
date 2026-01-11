@@ -116,13 +116,8 @@ const Terms: React.FC = () => {
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-8 relative">
              <div className="space-y-1">
-                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Legal Affairs</span>
-                <p className="text-2xl font-bold">legal@dialysis.live</p>
-             </div>
-             <div className="w-px h-12 bg-white/10 hidden sm:block"></div>
-             <div className="space-y-1">
-                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Clinical Hub</span>
-                <p className="text-2xl font-bold">dialysis.live</p>
+                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Contact</span>
+                <p className="text-2xl font-bold">kaspar@kaspar.works</p>
              </div>
           </div>
         </section>
