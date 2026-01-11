@@ -318,6 +318,14 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/admin/build"
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout><SEO title="Admin - Build Info" noIndex /><Admin /></AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
 
               {/* 404 Catch-all Route */}
               <Route path="*" element={<NotFound />} />

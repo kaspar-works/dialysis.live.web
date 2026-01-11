@@ -1,10 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+    <linearGradient id="kidneyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d4f6e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#14b8a6;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="16" fill="#020617"/>
-  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="900" fill="url(#grad)">D</text>
+  <rect width="64" height="64" rx="14" fill="#f8fafc"/>
+  <!-- Kidney outline -->
+  <path d="M32 8c-8 0-16 6-16 20 0 14 10 28 20 28 4 0 8-4 10-10 2-6 1-12-2-18-3-6 0-12 4-14 2-1 0-6-4-6h-12z"
+        fill="none"
+        stroke="#0d4f6e"
+        stroke-width="3.5"
+        stroke-linecap="round"/>
+  <!-- Vessels -->
+  <path d="M24 32 C20 32 16 36 16 36" stroke="#14b8a6" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M28 38 C24 42 20 46 20 50" stroke="#14b8a6" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M32 38 C32 44 32 50 32 54" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- ECG line -->
+  <path d="M12 24 L20 24 L24 16 L28 32 L32 20 L36 24 L52 24"
+        stroke="#ef4444"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"/>
 </svg>
