@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { Link, useNavigate } from 'react-router';
+import { useAlert } from '../contexts/AlertContext';
 import { getSettings, updateSettings, UserSettings, defaultSettings } from '../services/settings';
 import {
   getCurrentSubscription,
@@ -34,6 +35,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const PAYMENT_DISABLED = true;
 
 const Settings: React.FC = () => {
+  const { showError, showSuccess } = useAlert();
   const { profile } = useStore();
   const navigate = useNavigate();
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
@@ -246,18 +248,25 @@ const Settings: React.FC = () => {
     }
   };
 
-  // Regenerate Backup Codes Handler
+  // Regenerate Backup Codes Handler - with inline prompt state
+  const [showRegenPrompt, setShowRegenPrompt] = useState(false);
+  const [regenToken, setRegenToken] = useState('');
+
   const handleRegenerateBackupCodes = async () => {
-    const token = prompt('Enter your current 2FA code to regenerate backup codes:');
-    if (!token || token.length !== 6) return;
+    if (!regenToken || regenToken.length !== 6) {
+      showError('Invalid Code', 'Please enter a valid 6-digit 2FA code');
+      return;
+    }
 
     setIsRegeneratingCodes(true);
+    setShowRegenPrompt(false);
     try {
-      const result = await regenerateBackupCodes(token);
+      const result = await regenerateBackupCodes(regenToken);
       setShowBackupCodes(result.backupCodes);
       setTwoFactorStatus(prev => prev ? { ...prev, backupCodesRemaining: 10 } : null);
+      setRegenToken('');
     } catch (err: any) {
-      alert(err.message || 'Failed to regenerate backup codes');
+      showError('Regenerate Failed', err.message || 'Failed to regenerate backup codes');
     } finally {
       setIsRegeneratingCodes(false);
     }
@@ -271,7 +280,7 @@ const Settings: React.FC = () => {
       setVerificationSent(true);
       setTimeout(() => setVerificationSent(false), 5000);
     } catch (err: any) {
-      alert(err.message || 'Failed to send verification email');
+      showError('Verification Failed', err.message || 'Failed to send verification email');
     } finally {
       setIsSendingVerification(false);
     }
@@ -1009,7 +1018,7 @@ const Settings: React.FC = () => {
                   {twoFactorStatus?.isEnabled && (
                     <div className="flex gap-2">
                       <button
-                        onClick={handleRegenerateBackupCodes}
+                        onClick={() => setShowRegenPrompt(true)}
                         disabled={isRegeneratingCodes}
                         className="px-3 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm rounded-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
                       >
@@ -1253,33 +1262,36 @@ const Settings: React.FC = () => {
 
       {/* Delete Account Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 md:p-8 max-w-md w-full shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            {/* Mobile drag indicator */}
+            <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
+
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center">
-                <svg className="w-6 h-6 text-rose-600 dark:text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-rose-600 dark:text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Delete Account</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Delete Account</h3>
             </div>
 
-            <div className="space-y-4">
-              <p className="text-slate-600 dark:text-slate-300">
+            <div className="space-y-3 sm:space-y-4">
+              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
                 This action is <span className="font-bold text-rose-600 dark:text-rose-400">permanent and irreversible</span>.
               </p>
 
-              <ul className="space-y-2 text-sm text-slate-500 dark:text-slate-400">
+              <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                 {['All dialysis sessions', 'Weight & fluid logs', 'Medications', 'Lab reports', 'Profile & settings'].map((item, i) => (
                   <li key={i} className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
                     {item}
                   </li>
                 ))}
               </ul>
 
-              <div className="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl">
-                <p className="text-sm text-rose-600 dark:text-rose-400">
+              <div className="p-2.5 sm:p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl">
+                <p className="text-xs sm:text-sm text-rose-600 dark:text-rose-400">
                   Type <span className="font-mono font-bold">DELETE</span> to confirm
                 </p>
               </div>
@@ -1289,14 +1301,14 @@ const Settings: React.FC = () => {
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
                 placeholder="Type DELETE to confirm"
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-mono text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-rose-500/20"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 sm:py-3 font-mono text-sm sm:text-base text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-rose-500/20"
                 autoComplete="off"
               />
 
-              {deleteError && <p className="text-sm text-rose-600 dark:text-rose-400">{deleteError}</p>}
+              {deleteError && <p className="text-xs sm:text-sm text-rose-600 dark:text-rose-400">{deleteError}</p>}
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 mt-5 sm:mt-6">
               <button
                 onClick={() => {
                   setShowDeleteModal(false);
@@ -1304,19 +1316,20 @@ const Settings: React.FC = () => {
                   setDeleteError(null);
                 }}
                 disabled={isDeleting}
-                className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                className="flex-1 px-4 py-2.5 sm:py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm sm:text-base rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors active:scale-[0.98]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteAccount}
                 disabled={deleteConfirmText !== 'DELETE' || isDeleting}
-                className="flex-1 px-4 py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 sm:py-3 bg-rose-600 text-white font-bold text-sm sm:text-base rounded-xl hover:bg-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98]"
               >
                 {isDeleting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Deleting...
+                    <span className="hidden sm:inline">Deleting...</span>
+                    <span className="sm:hidden">...</span>
                   </>
                 ) : (
                   'Delete Forever'
@@ -1329,22 +1342,25 @@ const Settings: React.FC = () => {
 
       {/* Disable 2FA Modal */}
       {showDisable2FAModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 md:p-8 max-w-md w-full shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            {/* Mobile drag indicator */}
+            <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
+
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center text-2xl">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center text-xl sm:text-2xl flex-shrink-0">
                 🔐
               </div>
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Disable 2FA</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Disable 2FA</h3>
             </div>
 
-            <div className="space-y-4">
-              <p className="text-slate-600 dark:text-slate-300">
+            <div className="space-y-3 sm:space-y-4">
+              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
                 Enter your current 2FA code to disable two-factor authentication.
               </p>
 
-              <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
-                <p className="text-sm text-amber-600 dark:text-amber-400">
+              <div className="p-2.5 sm:p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
+                <p className="text-xs sm:text-sm text-amber-600 dark:text-amber-400">
                   Warning: Disabling 2FA will make your account less secure.
                 </p>
               </div>
@@ -1353,19 +1369,20 @@ const Settings: React.FC = () => {
                 <label className="text-xs font-medium text-slate-500">2FA Code</label>
                 <input
                   type="text"
+                  inputMode="numeric"
                   value={disable2FAToken}
                   onChange={(e) => setDisable2FAToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   placeholder="000000"
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-mono text-2xl text-center text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 tracking-widest"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-mono text-xl sm:text-2xl text-center text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 tracking-widest"
                   maxLength={6}
                   autoComplete="off"
                 />
               </div>
 
-              {twoFactorError && <p className="text-sm text-rose-600 dark:text-rose-400">{twoFactorError}</p>}
+              {twoFactorError && <p className="text-xs sm:text-sm text-rose-600 dark:text-rose-400">{twoFactorError}</p>}
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 mt-5 sm:mt-6">
               <button
                 onClick={() => {
                   setShowDisable2FAModal(false);
@@ -1373,25 +1390,97 @@ const Settings: React.FC = () => {
                   setTwoFactorError(null);
                 }}
                 disabled={isDisabling2FA}
-                className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                className="flex-1 px-4 py-2.5 sm:py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm sm:text-base rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors active:scale-[0.98]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDisable2FA}
                 disabled={disable2FAToken.length !== 6 || isDisabling2FA}
-                className="flex-1 px-4 py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 sm:py-3 bg-rose-600 text-white font-bold text-sm sm:text-base rounded-xl hover:bg-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98]"
               >
                 {isDisabling2FA ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Disabling...
+                    <span className="hidden sm:inline">Disabling...</span>
+                    <span className="sm:hidden">...</span>
                   </>
                 ) : (
                   'Disable 2FA'
                 )}
               </button>
             </div>
+
+            {/* Safe area spacing for mobile */}
+            <div className="h-2 sm:h-0" />
+          </div>
+        </div>
+      )}
+
+      {/* Regenerate Backup Codes Prompt Modal */}
+      {showRegenPrompt && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 md:p-8 max-w-md w-full shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            {/* Mobile drag indicator */}
+            <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center text-xl sm:text-2xl flex-shrink-0">
+                🔐
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Regenerate Backup Codes</h3>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300">
+                Enter your current 2FA code to regenerate backup codes.
+              </p>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-500">2FA Code</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={regenToken}
+                  onChange={(e) => setRegenToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-mono text-xl sm:text-2xl text-center text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 tracking-widest"
+                  maxLength={6}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 mt-5 sm:mt-6">
+              <button
+                onClick={() => {
+                  setShowRegenPrompt(false);
+                  setRegenToken('');
+                }}
+                disabled={isRegeneratingCodes}
+                className="flex-1 px-4 py-2.5 sm:py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm sm:text-base rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors active:scale-[0.98]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRegenerateBackupCodes}
+                disabled={regenToken.length !== 6 || isRegeneratingCodes}
+                className="flex-1 px-4 py-2.5 sm:py-3 bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-bold text-sm sm:text-base rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98]"
+              >
+                {isRegeneratingCodes ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="hidden sm:inline">Regenerating...</span>
+                    <span className="sm:hidden">...</span>
+                  </>
+                ) : (
+                  'Regenerate'
+                )}
+              </button>
+            </div>
+
+            {/* Safe area spacing for mobile */}
+            <div className="h-2 sm:h-0" />
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
 import { ICONS } from '../constants';
+import { useAlert } from '../contexts/AlertContext';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
   ReferenceLine, CartesianGrid
@@ -31,6 +32,7 @@ import { useSettings } from '../contexts/SettingsContext';
 type ViewTab = 'overview' | 'trends' | 'history';
 
 const LabReports: React.FC = () => {
+  const { showConfirm, showSuccess, showError } = useAlert();
   const { displayShortDate, displayFullDate, displayFullWeekday, timezone } = useSettings();
   const [activeTab, setActiveTab] = useState<ViewTab>('overview');
   const [reports, setReports] = useState<LabReport[]>([]);
@@ -361,18 +363,23 @@ const LabReports: React.FC = () => {
   };
 
   // Handle delete
-  const handleDelete = async (reportId: string) => {
-    if (!confirm('Delete this lab report?')) return;
-    try {
-      await deleteLabReport(reportId);
-      setReports(prev => prev.filter(r => r._id !== reportId));
-      setSelectedReport(null);
-      setNotification({ message: 'Lab report deleted', type: 'success' });
-      setTimeout(() => setNotification(null), 3000);
-    } catch (err) {
-      console.error('Failed to delete:', err);
-      setError('Failed to delete lab report');
-    }
+  const handleDelete = (reportId: string) => {
+    showConfirm(
+      'Delete Lab Report',
+      'Are you sure you want to delete this lab report? This action cannot be undone.',
+      async () => {
+        try {
+          await deleteLabReport(reportId);
+          setReports(prev => prev.filter(r => r._id !== reportId));
+          setSelectedReport(null);
+          showSuccess('Deleted', 'Lab report has been deleted successfully.');
+        } catch (err) {
+          console.error('Failed to delete:', err);
+          showError('Error', 'Failed to delete lab report. Please try again.');
+        }
+      },
+      { confirmText: 'Delete', cancelText: 'Cancel' }
+    );
   };
 
   const tabs: { id: ViewTab; label: string; icon: string }[] = [
@@ -1008,36 +1015,39 @@ const LabReports: React.FC = () => {
 
       {/* Report Detail Modal */}
       {selectedReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={() => setSelectedReport(null)}
           />
-          <div className="relative bg-white dark:bg-slate-800 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 fade-in duration-200">
-            <div className="sticky top-0 bg-white dark:bg-slate-800 p-6 border-b border-slate-100 dark:border-slate-700 z-10">
+          <div className="relative bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl sm:max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 fade-in duration-200">
+            {/* Mobile drag indicator */}
+            <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mt-3 sm:hidden" />
+
+            <div className="sticky top-0 bg-white dark:bg-slate-800 p-4 sm:p-6 border-b border-slate-100 dark:border-slate-700 z-10">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                <div className="flex-1 min-w-0 pr-3">
+                  <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white truncate">
                     Lab Report - {displayFullDate(selectedReport.reportDate)}
                   </h3>
                   {selectedReport.labName && (
-                    <p className="text-slate-400 text-sm">{selectedReport.labName}</p>
+                    <p className="text-slate-400 text-xs sm:text-sm truncate">{selectedReport.labName}</p>
                   )}
                 </div>
                 <button
                   onClick={() => setSelectedReport(null)}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors flex-shrink-0"
                 >
-                  <ICONS.X className="w-6 h-6" />
+                  <ICONS.X className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               </div>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
               {/* Results Grid */}
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Test Results</h4>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                   {selectedReport.results.map((result, i) => {
                     const config = LAB_TEST_CONFIG[result.testCode];
                     const statusColor = getResultColor(result);

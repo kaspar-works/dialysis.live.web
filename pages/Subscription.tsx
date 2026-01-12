@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
+import { useAlert } from '../contexts/AlertContext';
 import {
   getCurrentSubscription,
   getUsageStats,
@@ -28,6 +29,7 @@ import PaymentModal from '../components/PaymentModal';
 const PAYMENT_DISABLED = true;
 
 const Subscription: React.FC = () => {
+  const { showConfirm } = useAlert();
   const [isYearly, setIsYearly] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionType | null>(null);
   const [usage, setUsage] = useState<UsageData | null>(null);
@@ -70,30 +72,42 @@ const Subscription: React.FC = () => {
     }
   };
 
-  const handleRemovePayment = async (paymentMethodId: string) => {
-    if (!confirm('Remove this payment method?')) return;
-    setIsProcessing(true);
-    try {
-      await removePaymentMethod(paymentMethodId);
-      setPaymentMethods(paymentMethods.filter(pm => pm.id !== paymentMethodId));
-    } catch (err: any) {
-      setError(err.message || 'Failed to remove payment method');
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleRemovePayment = (paymentMethodId: string) => {
+    showConfirm(
+      'Remove Payment Method',
+      'Are you sure you want to remove this payment method?',
+      async () => {
+        setIsProcessing(true);
+        try {
+          await removePaymentMethod(paymentMethodId);
+          setPaymentMethods(paymentMethods.filter(pm => pm.id !== paymentMethodId));
+        } catch (err: any) {
+          setError(err.message || 'Failed to remove payment method');
+        } finally {
+          setIsProcessing(false);
+        }
+      },
+      { confirmText: 'Remove', cancelText: 'Cancel' }
+    );
   };
 
-  const handleCancelSubscription = async () => {
-    if (!confirm('Cancel your subscription? You\'ll keep access until the billing period ends.')) return;
-    setIsProcessing(true);
-    try {
-      await cancelSubscription(false);
-      await fetchData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to cancel subscription');
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleCancelSubscription = () => {
+    showConfirm(
+      'Cancel Subscription',
+      'Are you sure you want to cancel your subscription? You\'ll keep access until the billing period ends.',
+      async () => {
+        setIsProcessing(true);
+        try {
+          await cancelSubscription(false);
+          await fetchData();
+        } catch (err: any) {
+          setError(err.message || 'Failed to cancel subscription');
+        } finally {
+          setIsProcessing(false);
+        }
+      },
+      { confirmText: 'Cancel Subscription', cancelText: 'Keep Subscription' }
+    );
   };
 
   const handleReactivate = async () => {

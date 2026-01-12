@@ -157,19 +157,19 @@ const PaymentForm: React.FC<{
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3 pt-2">
+      <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 pt-2">
         <button
           type="button"
           onClick={onClose}
           disabled={isProcessing}
-          className="flex-1 py-4 rounded-2xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all disabled:opacity-50"
+          className="flex-1 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-sm sm:text-base text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all disabled:opacity-50 active:scale-[0.98]"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={!stripe || isProcessing}
-          className="flex-1 py-4 rounded-2xl font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-sm sm:text-base text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
         >
           {isProcessing ? (
             <span className="flex items-center justify-center gap-2">
@@ -199,25 +199,28 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 relative">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-8 sm:max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 relative">
+        {/* Mobile drag indicator */}
+        <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
+
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
         >
           <ICONS.X className="w-5 h-5" />
         </button>
 
         {/* Header */}
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 mx-auto bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/20">
-            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="text-center mb-5 sm:mb-6">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl sm:rounded-2xl flex items-center justify-center mb-3 sm:mb-4 shadow-lg shadow-emerald-500/20">
+            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white">Complete Your Upgrade</h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">Enter your payment details to continue</p>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">Complete Your Upgrade</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base mt-1">Enter your payment details to continue</p>
         </div>
 
         {/* Stripe Elements Provider */}
@@ -229,6 +232,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             onSuccess={onSuccess}
           />
         </Elements>
+
+        {/* Safe area spacing for mobile */}
+        <div className="h-2 sm:h-0" />
       </div>
     </div>
   );

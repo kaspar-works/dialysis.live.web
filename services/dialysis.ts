@@ -216,7 +216,10 @@ export async function listSessions(params?: {
 
   const query = searchParams.toString();
   const result = await authFetch(`/dialysis/sessions${query ? `?${query}` : ''}`);
-  return result.data;
+  return {
+    sessions: result.data?.sessions || [],
+    pagination: result.meta?.pagination || result.data?.pagination || { total: 0, limit: 10, offset: 0 },
+  };
 }
 
 // Get session details with events

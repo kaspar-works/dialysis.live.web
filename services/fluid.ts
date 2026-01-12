@@ -76,8 +76,8 @@ export async function getFluidLogs(params?: {
   const query = searchParams.toString();
   const result = await authFetch(`/fluids${query ? `?${query}` : ''}`);
   return {
-    logs: result.data.logs,
-    pagination: result.meta.pagination,
+    logs: result.data?.logs || [],
+    pagination: result.meta?.pagination || result.data?.pagination || { total: 0, limit: 10, offset: 0 },
   };
 }
 
