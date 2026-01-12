@@ -255,7 +255,14 @@ const Appointments: React.FC = () => {
       resetFormValidation();
       fetchData();
     } catch (err: any) {
-      setError(err.message || 'Failed to save appointment');
+      console.error('Appointment save error:', err);
+      // Handle validation errors from API
+      if (err.errors && Array.isArray(err.errors)) {
+        const errorMessages = err.errors.map((e: any) => e.msg || e.message).join(', ');
+        setError(errorMessages || 'Validation failed');
+      } else {
+        setError(err.message || 'Failed to save appointment');
+      }
     }
   };
 
