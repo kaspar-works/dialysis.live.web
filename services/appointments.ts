@@ -87,12 +87,52 @@ export interface AppointmentStats {
 // API Functions
 
 /**
+ * Clean appointment data by removing empty strings and empty objects
+ */
+function cleanAppointmentData(data: CreateAppointmentData | UpdateAppointmentData): Record<string, any> {
+  const cleaned: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(data)) {
+    // Skip empty strings
+    if (value === '' || value === null || value === undefined) {
+      continue;
+    }
+
+    // Handle provider object - only include if it has non-empty values
+    if (key === 'provider' && typeof value === 'object') {
+      const providerData = value as Provider;
+      const cleanedProvider: Record<string, string> = {};
+      if (providerData.name?.trim()) cleanedProvider.name = providerData.name.trim();
+      if (providerData.specialty?.trim()) cleanedProvider.specialty = providerData.specialty.trim();
+      if (providerData.phone?.trim()) cleanedProvider.phone = providerData.phone.trim();
+      if (providerData.email?.trim()) cleanedProvider.email = providerData.email.trim();
+
+      // Only include provider if it has at least one value
+      if (Object.keys(cleanedProvider).length > 0) {
+        cleaned[key] = cleanedProvider;
+      }
+      continue;
+    }
+
+    // Trim strings
+    if (typeof value === 'string') {
+      cleaned[key] = value.trim();
+    } else {
+      cleaned[key] = value;
+    }
+  }
+
+  return cleaned;
+}
+
+/**
  * Create a new appointment
  */
 export async function createAppointment(data: CreateAppointmentData): Promise<Appointment> {
+  const cleanedData = cleanAppointmentData(data);
   const result = await authFetch('/appointments', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify(cleanedData),
   });
   return result.data.appointment;
 }
@@ -134,9 +174,10 @@ export async function updateAppointment(
   appointmentId: string,
   data: UpdateAppointmentData
 ): Promise<Appointment> {
+  const cleanedData = cleanAppointmentData(data);
   const result = await authFetch(`/appointments/${appointmentId}`, {
     method: 'PATCH',
-    body: JSON.stringify(data),
+    body: JSON.stringify(cleanedData),
   });
   return result.data.appointment;
 }

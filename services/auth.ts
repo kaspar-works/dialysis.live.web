@@ -630,7 +630,12 @@ export async function authFetch(endpoint: string, options: RequestInit = {}): Pr
   }
 
   if (!response.ok || result.success === false) {
-    throw new Error(result.error?.message || result.message || `Request failed: ${response.status}`);
+    const error: any = new Error(result.error?.message || result.message || `Request failed: ${response.status}`);
+    // Include validation errors if present
+    if (result.error?.errors || result.errors) {
+      error.errors = result.error?.errors || result.errors;
+    }
+    throw error;
   }
 
   return result;
