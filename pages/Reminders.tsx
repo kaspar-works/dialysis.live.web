@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
+import { useAlert } from '../contexts/AlertContext';
 import {
   getReminders,
   createReminder,
@@ -25,6 +26,7 @@ import {
 } from '../services/reminders';
 
 const Reminders: React.FC = () => {
+  const { showConfirm } = useAlert();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [upcoming, setUpcoming] = useState<Reminder[]>([]);
   const [stats, setStats] = useState<ReminderStats | null>(null);
@@ -193,15 +195,20 @@ const Reminders: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (reminderId: string) => {
-    if (!confirm('Are you sure you want to delete this reminder?')) return;
-
-    try {
-      await deleteReminder(reminderId);
-      fetchData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete reminder');
-    }
+  const handleDelete = (reminderId: string) => {
+    showConfirm(
+      'Delete Reminder',
+      'Are you sure you want to delete this reminder?',
+      async () => {
+        try {
+          await deleteReminder(reminderId);
+          fetchData();
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete reminder');
+        }
+      },
+      { confirmText: 'Delete', cancelText: 'Cancel' }
+    );
   };
 
   const handleToggle = async (reminderId: string) => {
@@ -516,11 +523,14 @@ const Reminders: React.FC = () => {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+            {/* Mobile drag indicator */}
+            <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mt-3 sm:hidden" />
+
+            <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
                   {editingReminder ? 'Edit Reminder' : 'New Reminder'}
                 </h2>
                 <button
@@ -528,14 +538,14 @@ const Reminders: React.FC = () => {
                     setShowModal(false);
                     setEditingReminder(null);
                   }}
-                  className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
                 >
-                  <ICONS.X className="w-5 h-5" />
+                  <ICONS.X className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5">
               {/* Title */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
@@ -738,7 +748,7 @@ const Reminders: React.FC = () => {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 pt-3 sm:pt-4">
                 <button
                   type="button"
                   onClick={() => {
@@ -746,18 +756,21 @@ const Reminders: React.FC = () => {
                     setEditingReminder(null);
                     resetFormValidation();
                   }}
-                  className="flex-1 px-5 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-semibold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  className="flex-1 px-4 sm:px-5 py-2.5 sm:py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-semibold text-sm sm:text-base hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors active:scale-[0.98]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={hasFormErrors}
-                  className="flex-1 px-5 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 sm:px-5 py-2.5 sm:py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-semibold text-sm sm:text-base transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
                 >
                   {editingReminder ? 'Update' : 'Create'}
                 </button>
               </div>
+
+              {/* Safe area spacing for mobile */}
+              <div className="h-2 sm:h-0" />
             </form>
           </div>
         </div>

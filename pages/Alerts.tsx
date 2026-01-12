@@ -10,6 +10,7 @@ import {
   AlertStatus,
   AlertCategory,
 } from '../services/alerts';
+import { useAlert } from '../contexts/AlertContext';
 
 // Inline icons to avoid any import issues
 const ChevronLeftIcon = () => (
@@ -58,6 +59,7 @@ const getCategoryIcon = (category: AlertCategory): string => {
 };
 
 const Alerts: React.FC = () => {
+  const { showConfirm, showSuccess, showError } = useAlert();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'read' | 'all'>('active');
@@ -126,21 +128,28 @@ const Alerts: React.FC = () => {
     }
   };
 
-  const handleDismissAll = async () => {
-    if (!confirm('Are you sure you want to dismiss all alerts?')) return;
-    setIsMarkingAllRead(true);
-    try {
-      await dismissAllAlerts();
-      setAlerts(prev => prev.map(a =>
-        (a.status === 'active' || a.status === 'acknowledged')
-          ? { ...a, status: 'dismissed' as AlertStatus, dismissedAt: new Date().toISOString() }
-          : a
-      ));
-    } catch (err) {
-      console.error('Failed to dismiss all:', err);
-    } finally {
-      setIsMarkingAllRead(false);
-    }
+  const handleDismissAll = () => {
+    showConfirm(
+      'Dismiss All Alerts',
+      'Are you sure you want to dismiss all alerts? This will clear all active and read alerts.',
+      async () => {
+        setIsMarkingAllRead(true);
+        try {
+          await dismissAllAlerts();
+          setAlerts(prev => prev.map(a =>
+            (a.status === 'active' || a.status === 'acknowledged')
+              ? { ...a, status: 'dismissed' as AlertStatus, dismissedAt: new Date().toISOString() }
+              : a
+          ));
+          showSuccess('Done', 'All alerts have been dismissed.');
+        } catch (err) {
+          showError('Error', 'Failed to dismiss alerts. Please try again.');
+        } finally {
+          setIsMarkingAllRead(false);
+        }
+      },
+      { confirmText: 'Dismiss All', cancelText: 'Cancel' }
+    );
   };
 
   const filteredAlerts = alerts.filter(alert => {

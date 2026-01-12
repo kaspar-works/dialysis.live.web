@@ -5,6 +5,7 @@ import { ICONS } from '../constants';
 import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
+import HelpChatWidget from './HelpChatWidget';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -412,6 +413,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </aside>
         </div>
       )}
+
+      {/* Help Chat Widget */}
+      <HelpChatWidget />
     </div>
   );
 };

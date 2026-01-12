@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ICONS } from '../constants';
+import { useAlert } from '../contexts/AlertContext';
 
 interface CheckResult {
   name: string;
@@ -10,6 +11,7 @@ interface CheckResult {
 }
 
 const HealthCheck: React.FC = () => {
+  const { showSuccess } = useAlert();
   const [checks, setChecks] = useState<CheckResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [lastRun, setLastRun] = useState<Date | null>(null);
@@ -542,7 +544,7 @@ const HealthCheck: React.FC = () => {
             onClick={() => {
               localStorage.clear();
               sessionStorage.clear();
-              alert('Storage cleared!');
+              showSuccess('Storage Cleared', 'LocalStorage and SessionStorage have been cleared');
             }}
             className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition-all"
           >
@@ -567,7 +569,7 @@ const HealthCheck: React.FC = () => {
                 },
               };
               navigator.clipboard.writeText(JSON.stringify(report, null, 2));
-              alert('Report copied to clipboard!');
+              showSuccess('Copied', 'Report copied to clipboard');
             }}
             className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition-all"
           >

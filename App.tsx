@@ -4,6 +4,7 @@ import { HashRouter as Router, Routes, Route } from 'react-router';
 import { AuthProvider } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { PageSettingsProvider } from './contexts/PageSettingsContext';
+import { AlertProvider } from './contexts/AlertContext';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -67,10 +68,11 @@ const ENABLE_HEALTH_CHECK = import.meta.env.VITE_ENABLE_HEALTH_CHECK === 'true';
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <SettingsProvider>
-          <Router>
-            <PageSettingsProvider>
+      <AlertProvider>
+        <AuthProvider>
+          <SettingsProvider>
+            <Router>
+              <PageSettingsProvider>
             <SEO />
             <SessionExpiredModal />
             <Suspense fallback={<PageLoader />}>
@@ -331,10 +333,11 @@ const App: React.FC = () => {
               <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
-            </PageSettingsProvider>
-          </Router>
-        </SettingsProvider>
-      </AuthProvider>
+              </PageSettingsProvider>
+            </Router>
+          </SettingsProvider>
+        </AuthProvider>
+      </AlertProvider>
     </ErrorBoundary>
   );
 };

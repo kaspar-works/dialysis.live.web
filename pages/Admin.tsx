@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { ICONS } from '../constants';
+import { useAlert } from '../contexts/AlertContext';
 import {
   verifyAdmin,
   getSystemStats,
@@ -30,6 +31,7 @@ import {
 } from '../services/admin';
 
 const Admin: React.FC = () => {
+  const { showError, showSuccess, showConfirm } = useAlert();
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
@@ -176,7 +178,7 @@ const Admin: React.FC = () => {
       setSelectedUser(null);
     } catch (err) {
       console.error('Failed to update subscription:', err);
-      alert('Failed to update subscription');
+      showError('Update Failed', 'Failed to update subscription');
     } finally {
       setUpdatingSubscription(false);
     }
@@ -215,27 +217,39 @@ const Admin: React.FC = () => {
   };
 
   // Delete error log
-  const handleDeleteError = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this error log?')) return;
-    try {
-      await deleteErrorLog(id);
-      setErrorLogs(prev => prev.filter(e => e._id !== id));
-      setSelectedError(null);
-    } catch (err) {
-      console.error('Failed to delete error:', err);
-    }
+  const handleDeleteError = (id: string) => {
+    showConfirm(
+      'Delete Error Log',
+      'Are you sure you want to delete this error log?',
+      async () => {
+        try {
+          await deleteErrorLog(id);
+          setErrorLogs(prev => prev.filter(e => e._id !== id));
+          setSelectedError(null);
+        } catch (err) {
+          console.error('Failed to delete error:', err);
+        }
+      },
+      { confirmText: 'Delete', cancelText: 'Cancel' }
+    );
   };
 
   // Delete all resolved errors
-  const handleDeleteResolvedErrors = async () => {
-    if (!confirm('Are you sure you want to delete all resolved error logs?')) return;
-    try {
-      const result = await deleteResolvedErrors();
-      setErrorLogs(prev => prev.filter(e => !e.resolved));
-      alert(`Deleted ${result.deletedCount} resolved error logs`);
-    } catch (err) {
-      console.error('Failed to delete resolved errors:', err);
-    }
+  const handleDeleteResolvedErrors = () => {
+    showConfirm(
+      'Delete Resolved Errors',
+      'Are you sure you want to delete all resolved error logs?',
+      async () => {
+        try {
+          const result = await deleteResolvedErrors();
+          setErrorLogs(prev => prev.filter(e => !e.resolved));
+          showSuccess('Deleted', `Deleted ${result.deletedCount} resolved error logs`);
+        } catch (err) {
+          console.error('Failed to delete resolved errors:', err);
+        }
+      },
+      { confirmText: 'Delete All', cancelText: 'Cancel' }
+    );
   };
 
   // Create or update announcement
@@ -277,15 +291,20 @@ const Admin: React.FC = () => {
   };
 
   // Delete announcement
-  const handleDeleteAnnouncement = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this announcement?')) return;
-
-    try {
-      await deleteAnnouncement(id);
-      setAnnouncements(prev => prev.filter(a => a._id !== id));
-    } catch (err) {
-      console.error('Failed to delete announcement:', err);
-    }
+  const handleDeleteAnnouncement = (id: string) => {
+    showConfirm(
+      'Delete Announcement',
+      'Are you sure you want to delete this announcement?',
+      async () => {
+        try {
+          await deleteAnnouncement(id);
+          setAnnouncements(prev => prev.filter(a => a._id !== id));
+        } catch (err) {
+          console.error('Failed to delete announcement:', err);
+        }
+      },
+      { confirmText: 'Delete', cancelText: 'Cancel' }
+    );
   };
 
   // Edit announcement

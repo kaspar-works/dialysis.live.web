@@ -205,7 +205,10 @@ export async function getVitalLogs(params: GetVitalsParams = {}): Promise<Vitals
   const endpoint = queryString ? `/vitals?${queryString}` : '/vitals';
 
   const result = await authFetch(endpoint);
-  return result.data;
+  return {
+    logs: result.data?.logs || [],
+    pagination: result.meta?.pagination || result.data?.pagination || { total: 0, limit: 10, offset: 0 },
+  };
 }
 
 export async function getLatestVitals(): Promise<VitalLog[]> {

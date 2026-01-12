@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { useAlert } from '../contexts/AlertContext';
 import { DialysisType } from '../types';
 import { ICONS } from '../constants';
 import { exportDataAsJSON } from '../services/export';
@@ -12,6 +13,7 @@ import { logout } from '../services/auth';
 type TabType = 'personal' | 'clinical' | 'account';
 
 const Profile: React.FC = () => {
+  const { showConfirm } = useAlert();
   const { profile, setProfile, sessions, weights, fluids, vitals, medications } = useStore();
   const { isAuthenticated } = useAuth();
   const { weightUnit, fluidUnit, convertWeightToKg, convertWeightFromKg, convertFluidToMl, convertFluidFromMl } = useSettings();
@@ -226,9 +228,14 @@ const Profile: React.FC = () => {
   };
 
   const handleLogout = () => {
-    if (confirm('Are you sure you want to logout?')) {
-      logout();
-    }
+    showConfirm(
+      'Sign Out',
+      'Are you sure you want to sign out of your account?',
+      () => {
+        logout();
+      },
+      { confirmText: 'Sign Out', cancelText: 'Cancel' }
+    );
   };
 
   const tabs = [
@@ -729,26 +736,29 @@ const Profile: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={() => setShowDeleteModal(false)}
           />
-          <div className="relative bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 fade-in duration-200">
+          <div className="relative bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 sm:max-w-sm w-full shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 fade-in duration-200">
+            {/* Mobile drag indicator */}
+            <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
+
             <div className="text-center">
-              <div className="w-16 h-16 bg-rose-500/10 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-rose-500/10 rounded-xl sm:rounded-2xl flex items-center justify-center text-2xl sm:text-3xl mx-auto mb-3 sm:mb-4">
                 🗑️
               </div>
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-1.5 sm:mb-2">
                 Delete Local Data?
               </h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
+              <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mb-5 sm:mb-6 px-2 sm:px-0">
                 This will clear all locally cached session data. Your cloud data will remain intact.
               </p>
-              <div className="flex gap-3">
+              <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3">
                 <button
                   onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 px-4 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  className="flex-1 px-4 py-2.5 sm:py-3 rounded-xl font-bold text-sm sm:text-base text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors active:scale-[0.98]"
                 >
                   Cancel
                 </button>
@@ -759,12 +769,15 @@ const Profile: React.FC = () => {
                     setNotification({ message: 'Local data cleared', type: 'success' });
                     setTimeout(() => setNotification(null), 3000);
                   }}
-                  className="flex-1 px-4 py-3 rounded-xl font-bold text-white bg-rose-500 hover:bg-rose-600 transition-colors"
+                  className="flex-1 px-4 py-2.5 sm:py-3 rounded-xl font-bold text-sm sm:text-base text-white bg-rose-500 hover:bg-rose-600 transition-colors active:scale-[0.98]"
                 >
                   Delete
                 </button>
               </div>
             </div>
+
+            {/* Safe area spacing for mobile */}
+            <div className="h-2 sm:h-0" />
           </div>
         </div>
       )}
