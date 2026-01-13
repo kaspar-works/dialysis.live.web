@@ -1,6 +1,5 @@
 
-import React, { useEffect } from 'react';
-import { useLocation } from 'react-router';
+import React, { useEffect, useState } from 'react';
 
 interface SEOProps {
   title?: string;
@@ -21,13 +20,29 @@ const SEO: React.FC<SEOProps> = ({
   type = 'website',
   noIndex = false
 }) => {
-  const location = useLocation();
+  // Use window.location.hash for path detection to avoid router context timing issues
+  const [pathname, setPathname] = useState(() => {
+    // Extract path from hash (e.g., "#/dashboard" -> "/dashboard")
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    return hash.replace(/^#/, '') || '/';
+  });
+
+  // Listen for hash changes
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      setPathname(hash.replace(/^#/, '') || '/');
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     // Don't append domain to title for SEO best practices
     const finalTitle = title || 'Modern Kidney Dialysis Management Platform';
     const finalDescription = description || DEFAULT_DESCRIPTION;
-    const currentUrl = `${BASE_URL}${location.pathname}`;
+    const currentUrl = `${BASE_URL}${pathname}`;
 
     // Update document title
     document.title = finalTitle;
@@ -88,7 +103,7 @@ const SEO: React.FC<SEOProps> = ({
     updateMeta('meta[name="twitter:url"]', currentUrl);
     updateMeta('meta[name="twitter:image"]', image);
 
-  }, [title, description, image, type, noIndex, location]);
+  }, [title, description, image, type, noIndex, pathname]);
 
   return null;
 };
