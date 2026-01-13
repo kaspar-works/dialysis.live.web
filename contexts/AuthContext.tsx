@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { UserProfile } from '../types';
-import { acceptTerms as acceptTermsApi } from '../services/auth';
+import { acceptTerms as acceptTermsApi, fetchCsrfToken, getCsrfToken } from '../services/auth';
 import ConsentModal from '../components/ConsentModal';
 
 // Types matching the auth service
@@ -149,6 +149,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Update localStorage for backward compatibility
         localStorage.setItem('lifeondialysis_auth', 'true');
 
+        // Fetch CSRF token for subsequent requests
+        fetchCsrfToken().catch(err => console.warn('Failed to fetch CSRF token:', err));
+
         return true;
       }
 
@@ -295,6 +298,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem('renalcare_data', JSON.stringify(data));
     }
 
+    // Fetch CSRF token for subsequent requests
+    fetchCsrfToken().catch(err => console.warn('Failed to fetch CSRF token after login:', err));
+
     lastRefreshRef.current = Date.now();
   }, []);
 
@@ -348,6 +354,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       };
       localStorage.setItem('renalcare_data', JSON.stringify(data));
     }
+
+    // Fetch CSRF token for subsequent requests
+    fetchCsrfToken().catch(err => console.warn('Failed to fetch CSRF token after Google login:', err));
 
     lastRefreshRef.current = Date.now();
   }, []);
@@ -418,18 +427,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
     localStorage.setItem('renalcare_data', JSON.stringify(data));
 
+    // Fetch CSRF token for subsequent requests
+    fetchCsrfToken().catch(err => console.warn('Failed to fetch CSRF token after registration:', err));
+
     lastRefreshRef.current = Date.now();
   }, []);
 
   // Logout (session-based)
   const logout = useCallback(async (): Promise<void> => {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Include CSRF token for logout request
+      const csrfToken = getCsrfToken();
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
+
       await fetch(`${API_BASE_URL}/auth/session/logout`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
     } catch (error) {
       console.error('Logout API error:', error);
