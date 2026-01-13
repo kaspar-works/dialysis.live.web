@@ -68,15 +68,15 @@ const ENABLE_HEALTH_CHECK = import.meta.env.VITE_ENABLE_HEALTH_CHECK === 'true';
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
-      <AlertProvider>
-        <AuthProvider>
-          <SettingsProvider>
-            <Router>
+      <Router>
+        <AlertProvider>
+          <AuthProvider>
+            <SettingsProvider>
               <PageSettingsProvider>
-            <SEO />
-            <SessionExpiredModal />
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
+                <SEO />
+                <SessionExpiredModal />
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
               {/* Public Marketing Routes - redirect to dashboard if authenticated */}
               <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -329,15 +329,15 @@ const App: React.FC = () => {
                 }
               />
 
-              {/* 404 Catch-all Route */}
-              <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
+                  {/* 404 Catch-all Route */}
+                  <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
               </PageSettingsProvider>
-            </Router>
-          </SettingsProvider>
-        </AuthProvider>
-      </AlertProvider>
+            </SettingsProvider>
+          </AuthProvider>
+        </AlertProvider>
+      </Router>
     </ErrorBoundary>
   );
 };
