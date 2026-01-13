@@ -13,6 +13,7 @@ import PageGuard from './components/PageGuard';
 import SessionExpiredModal from './components/SessionExpiredModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import SEO from './components/SEO';
+import RouterReady from './components/RouterReady';
 
 // Loading component for Suspense fallback
 const PageLoader: React.FC = () => (
@@ -69,14 +70,15 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <Router>
-        <AlertProvider>
-          <AuthProvider>
-            <SettingsProvider>
-              <PageSettingsProvider>
-                <SEO />
-                <SessionExpiredModal />
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
+        <RouterReady fallback={<PageLoader />}>
+          <AlertProvider>
+            <AuthProvider>
+              <SettingsProvider>
+                <PageSettingsProvider>
+                  <SEO />
+                  <SessionExpiredModal />
+                  <Suspense fallback={<PageLoader />}>
+                    <Routes>
               {/* Public Marketing Routes - redirect to dashboard if authenticated */}
               <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -329,14 +331,15 @@ const App: React.FC = () => {
                 }
               />
 
-                  {/* 404 Catch-all Route */}
-                  <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
-              </PageSettingsProvider>
-            </SettingsProvider>
-          </AuthProvider>
-        </AlertProvider>
+                    {/* 404 Catch-all Route */}
+                    <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
+                </PageSettingsProvider>
+              </SettingsProvider>
+            </AuthProvider>
+          </AlertProvider>
+        </RouterReady>
       </Router>
     </ErrorBoundary>
   );
