@@ -1,5 +1,4 @@
 import React, { ErrorInfo, ReactNode } from 'react';
-import { Link } from 'react-router';
 import { captureError } from '../config/sentry';
 
 interface Props {
@@ -17,6 +16,7 @@ class ErrorBoundary extends React.Component<Props, State> {
     super(props);
     this.state = { hasError: false, error: null };
     this.handleReset = this.handleReset.bind(this);
+    this.handleGoHome = this.handleGoHome.bind(this);
   }
 
   static getDerivedStateFromError(error: Error): State {
@@ -33,6 +33,12 @@ class ErrorBoundary extends React.Component<Props, State> {
 
   handleReset(): void {
     this.setState({ hasError: false, error: null });
+  }
+
+  handleGoHome(): void {
+    this.setState({ hasError: false, error: null });
+    // Use window.location for navigation since we might be outside Router context
+    window.location.hash = '/';
   }
 
   render(): React.ReactNode {
@@ -85,14 +91,13 @@ class ErrorBoundary extends React.Component<Props, State> {
               >
                 Try Again
               </button>
-              <Link
-                to="/"
-                onClick={this.handleReset}
+              <button
+                onClick={this.handleGoHome}
                 aria-label="Return to homepage"
                 className="w-full sm:w-auto px-8 py-4 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-700 transition-colors"
               >
                 Go Home
-              </Link>
+              </button>
             </div>
           </div>
         </div>
