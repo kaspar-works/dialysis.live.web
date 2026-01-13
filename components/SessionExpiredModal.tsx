@@ -1,22 +1,31 @@
 import React from 'react';
-import { useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
 
 const SessionExpiredModal: React.FC = () => {
   const { showSessionExpiredModal, dismissSessionModal } = useAuth();
-  const navigate = useNavigate();
 
+  // Don't render anything if modal is not visible
+  // This prevents router hooks from being called unnecessarily
   if (!showSessionExpiredModal) return null;
 
+  return <SessionExpiredModalContent dismissSessionModal={dismissSessionModal} />;
+};
+
+// Separate component that only mounts when modal is visible
+// This avoids router hook issues during initial render cycle
+const SessionExpiredModalContent: React.FC<{
+  dismissSessionModal: () => void;
+}> = ({ dismissSessionModal }) => {
   const handleSignIn = () => {
     dismissSessionModal();
-    navigate('/login');
+    // Use window.location.hash for HashRouter - avoids router context timing issues
+    window.location.hash = '/login';
   };
 
   const handleGoHome = () => {
     dismissSessionModal();
-    navigate('/');
+    window.location.hash = '/';
   };
 
   return (
