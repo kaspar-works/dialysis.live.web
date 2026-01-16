@@ -8,7 +8,7 @@ import { authFetch } from '../services/auth';
 
 const OnboardingModal: React.FC = () => {
   const { profile, completeOnboarding } = useStore();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user, setUser } = useAuth();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -24,6 +24,11 @@ const OnboardingModal: React.FC = () => {
   // Check API for onboarding status
   useEffect(() => {
     const checkOnboarding = async () => {
+      // Wait for auth to finish loading
+      if (authLoading) {
+        return;
+      }
+
       // If not authenticated, skip showing the modal
       if (!isAuthenticated) {
         setIsOnboarded(true);
@@ -33,12 +38,13 @@ const OnboardingModal: React.FC = () => {
 
       // If we already have user info from AuthContext, use it
       if (user) {
+        // Check if onboarding is completed (treat undefined as not completed only if explicitly false)
         setIsOnboarded(user.onboardingCompleted === true);
         setChecking(false);
         return;
       }
 
-      // Fallback: check via API
+      // Fallback: check via API (user might be null temporarily)
       try {
         const result = await authFetch('/auth/me');
         if (result.success !== false && result.data?.user) {
@@ -53,10 +59,10 @@ const OnboardingModal: React.FC = () => {
     };
 
     checkOnboarding();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, authLoading, user]);
 
-  // Wait while checking
-  if (checking) return null;
+  // Wait while auth is loading or checking onboarding status
+  if (authLoading || checking) return null;
 
   // Don't show if onboarded
   if (isOnboarded) return null;
@@ -83,6 +89,11 @@ const OnboardingModal: React.FC = () => {
 
       // Update local state
       completeOnboarding(formData);
+
+      // Update AuthContext user state to reflect completed onboarding
+      if (user) {
+        setUser({ ...user, onboardingCompleted: true });
+      }
 
       // Close modal on success
       setIsOnboarded(true);
