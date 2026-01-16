@@ -63,6 +63,18 @@ const SymptomAnalysis = lazy(() => import('./pages/SymptomAnalysis'));
 const Alerts = lazy(() => import('./pages/Alerts'));
 const Admin = lazy(() => import('./pages/Admin'));
 
+// Community pages
+const Community = lazy(() => import('./pages/Community'));
+const CommunityProfile = lazy(() => import('./pages/CommunityProfile'));
+const Forums = lazy(() => import('./pages/Forums'));
+const ForumCategory = lazy(() => import('./pages/ForumCategory'));
+const ForumPost = lazy(() => import('./pages/ForumPost'));
+const NewForumPost = lazy(() => import('./pages/NewForumPost'));
+const SuccessStories = lazy(() => import('./pages/SuccessStories'));
+const SuccessStoryDetail = lazy(() => import('./pages/SuccessStoryDetail'));
+const SubmitStory = lazy(() => import('./pages/SubmitStory'));
+const HCPVerification = lazy(() => import('./pages/HCPVerification'));
+
 // Check if health check page is enabled via env variable
 const ENABLE_HEALTH_CHECK = import.meta.env.VITE_ENABLE_HEALTH_CHECK === 'true';
 
@@ -266,6 +278,89 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
+
+              {/* Community Routes */}
+              <Route
+                path="/community"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Community" noIndex /><Community /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/community/my-profile"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Community Profile" noIndex /><CommunityProfile /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/community/forums"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Forums" noIndex /><Forums /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/community/forums/new-post"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="New Post" noIndex /><NewForumPost /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/community/forums/:slug"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Forum Category" noIndex /><ForumCategory /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/community/forums/post/:slug"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Forum Post" noIndex /><ForumPost /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/community/stories"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Success Stories" noIndex /><SuccessStories /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/community/stories/submit"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Share Your Story" noIndex /><SubmitStory /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/community/stories/:slug"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Success Story" noIndex /><SuccessStoryDetail /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/community/hcp-apply"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="HCP Verification" noIndex /><HCPVerification /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+
               <Route
                 path="/admin"
                 element={
