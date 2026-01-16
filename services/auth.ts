@@ -87,6 +87,7 @@ export interface LoginData {
 
 // CSRF Token Management
 let _csrfToken: string | null = null;
+let _csrfTokenPromise: Promise<string | null> | null = null;
 
 export function setCsrfToken(token: string | null) {
   _csrfToken = token;
@@ -95,6 +96,50 @@ export function setCsrfToken(token: string | null) {
 export function getCsrfToken(): string | null {
   return _csrfToken;
 }
+
+// Fetch CSRF token from backend
+export async function fetchCsrfToken(): Promise<string | null> {
+  // If we're already fetching, return the existing promise
+  if (_csrfTokenPromise) {
+    return _csrfTokenPromise;
+  }
+
+  _csrfTokenPromise = (async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/csrf-token`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data?.csrfToken) {
+          _csrfToken = result.data.csrfToken;
+          return _csrfToken;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.warn('Failed to fetch CSRF token:', error);
+      return null;
+    } finally {
+      _csrfTokenPromise = null;
+    }
+  })();
+
+  return _csrfTokenPromise;
+}
+
+// Ensure we have a CSRF token before making state-changing requests
+async function ensureCsrfToken(): Promise<string | null> {
+  if (_csrfToken) {
+    return _csrfToken;
+  }
+  return fetchCsrfToken();
+}
+
+// Methods that require CSRF token
+const CSRF_REQUIRED_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
 // Check if user is authenticated (based on localStorage flag for quick check)
 export function isAuthenticated(): boolean {
@@ -146,6 +191,9 @@ export async function login(data: LoginData): Promise<AuthResponse> {
       throw new Error(result.error?.message || result.message || 'Login failed');
     }
 
+    // Fetch CSRF token after successful login for subsequent requests
+    fetchCsrfToken().catch(err => console.warn('Failed to fetch CSRF token after login:', err));
+
     return result;
   } catch (error: any) {
     console.error('Login error:', error);
@@ -171,6 +219,9 @@ export async function googleAuth(idToken: string): Promise<AuthResponse> {
       throw new Error(result.error?.message || result.message || 'Google authentication failed');
     }
 
+    // Fetch CSRF token after successful login for subsequent requests
+    fetchCsrfToken().catch(err => console.warn('Failed to fetch CSRF token after Google auth:', err));
+
     return result;
   } catch (error: any) {
     console.error('Google auth error:', error);
@@ -181,12 +232,20 @@ export async function googleAuth(idToken: string): Promise<AuthResponse> {
 // Logout - call backend and clear local data (session-based)
 export async function logoutApi(): Promise<void> {
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+
+    // Include CSRF token for logout request
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+
     await fetch(`${API_BASE_URL}/auth/session/logout`, {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers
     });
   } catch (error) {
     console.error('Logout API error:', error);
@@ -570,12 +629,22 @@ export async function resetPassword(token: string, password: string): Promise<vo
 // Utility Functions
 // =====================
 
-// Authenticated fetch with cookie credentials
+// Authenticated fetch with cookie credentials and CSRF protection
 export async function authFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
+  const method = (options.method || 'GET').toUpperCase();
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
   };
+
+  // Add CSRF token for state-changing requests
+  if (CSRF_REQUIRED_METHODS.includes(method)) {
+    const csrfToken = await ensureCsrfToken();
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
