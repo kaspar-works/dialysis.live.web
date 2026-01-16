@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { UserProfile } from '../types';
-import { acceptTerms as acceptTermsApi, fetchCsrfToken, getCsrfToken, setCsrfToken } from '../services/auth';
+import { acceptTerms as acceptTermsApi, fetchCsrfToken, getCsrfToken, setCsrfToken, ensureCsrfToken } from '../services/auth';
 import ConsentModal from '../components/ConsentModal';
 
 // Types matching the auth service
@@ -170,8 +170,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         'Content-Type': 'application/json',
       };
 
-      // Include CSRF token for session refresh
-      const csrfToken = getCsrfToken();
+      // Ensure we have a CSRF token before making the request
+      const csrfToken = await ensureCsrfToken();
       if (csrfToken) {
         headers['X-CSRF-Token'] = csrfToken;
       }
