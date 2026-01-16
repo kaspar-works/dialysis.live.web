@@ -131,7 +131,7 @@ export async function fetchCsrfToken(): Promise<string | null> {
 }
 
 // Ensure we have a CSRF token before making state-changing requests
-async function ensureCsrfToken(): Promise<string | null> {
+export async function ensureCsrfToken(): Promise<string | null> {
   if (_csrfToken) {
     return _csrfToken;
   }

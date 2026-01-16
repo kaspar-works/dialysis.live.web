@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { UserProfile } from '../types';
-import { acceptTerms as acceptTermsApi, fetchCsrfToken, getCsrfToken } from '../services/auth';
+import { acceptTerms as acceptTermsApi, fetchCsrfToken, getCsrfToken, setCsrfToken, ensureCsrfToken } from '../services/auth';
 import ConsentModal from '../components/ConsentModal';
 
 // Types matching the auth service
@@ -61,17 +61,6 @@ const SESSION_CONFIG = {
   WARNING_THRESHOLD: 5 * 60 * 1000, // Warn 5 minutes before expiry
   ACTIVITY_DEBOUNCE: 1000, // 1 second debounce for activity detection
 };
-
-// Module-level CSRF token storage
-let _csrfToken: string | null = null;
-
-export function setCsrfToken(token: string | null) {
-  _csrfToken = token;
-}
-
-export function getCsrfToken(): string | null {
-  return _csrfToken;
-}
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -181,8 +170,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         'Content-Type': 'application/json',
       };
 
-      // Include CSRF token for session refresh
-      const csrfToken = getCsrfToken();
+      // Ensure we have a CSRF token before making the request
+      const csrfToken = await ensureCsrfToken();
       if (csrfToken) {
         headers['X-CSRF-Token'] = csrfToken;
       }
