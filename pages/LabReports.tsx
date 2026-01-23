@@ -1113,6 +1113,28 @@ const LabReports: React.FC = () => {
                     <p className="text-slate-700 dark:text-slate-300 text-sm">{selectedReport.aiAnalysis.summary}</p>
                   </div>
 
+                  {selectedReport.aiAnalysis.highlights && selectedReport.aiAnalysis.highlights.length > 0 && (
+                    <div>
+                      <h5 className="text-xs font-bold text-cyan-500 uppercase mb-2">Highlights</h5>
+                      <ul className="space-y-2">
+                        {selectedReport.aiAnalysis.highlights.map((h, i) => (
+                          <li key={i} className="text-sm text-slate-600 dark:text-slate-400">
+                            <div className="flex items-center gap-2">
+                              <span className="text-cyan-500">★</span>
+                              <span className="font-medium text-slate-900 dark:text-white">{h.testName}</span>
+                              <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                h.status === 'normal' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' :
+                                h.status === 'critical' ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400' :
+                                'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                              }`}>{h.status}</span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-500 ml-5 mt-0.5">{h.message}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {selectedReport.aiAnalysis.concerns.length > 0 && (
                     <div>
                       <h5 className="text-xs font-bold text-rose-500 uppercase mb-2">Concerns</h5>
@@ -1141,6 +1163,30 @@ const LabReports: React.FC = () => {
                     </div>
                   )}
 
+                  {selectedReport.aiAnalysis.trends && selectedReport.aiAnalysis.trends.length > 0 && (
+                    <div>
+                      <h5 className="text-xs font-bold text-purple-500 uppercase mb-2">Trends</h5>
+                      <ul className="space-y-2">
+                        {selectedReport.aiAnalysis.trends.map((t, i) => (
+                          <li key={i} className="text-sm text-slate-600 dark:text-slate-400">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs ${
+                                t.direction === 'up' ? 'text-rose-500' :
+                                t.direction === 'down' ? 'text-emerald-500' : 'text-slate-400'
+                              }`}>
+                                {t.direction === 'up' ? '↑' : t.direction === 'down' ? '↓' : '→'}
+                              </span>
+                              <span className="font-medium text-slate-900 dark:text-white">{t.testName}</span>
+                            </div>
+                            {t.description && (
+                              <p className="text-xs text-slate-500 dark:text-slate-500 ml-5 mt-0.5">{t.description}</p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {selectedReport.aiAnalysis.recommendations.length > 0 && (
                     <div>
                       <h5 className="text-xs font-bold text-indigo-500 uppercase mb-2">Recommendations</h5>
@@ -1152,6 +1198,13 @@ const LabReports: React.FC = () => {
                           </li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+
+                  {selectedReport.aiAnalysis.dialysisRelevance && (
+                    <div>
+                      <h5 className="text-xs font-bold text-pink-500 uppercase mb-2">Dialysis Relevance</h5>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">{selectedReport.aiAnalysis.dialysisRelevance}</p>
                     </div>
                   )}
 
