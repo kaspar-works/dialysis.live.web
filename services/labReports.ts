@@ -421,6 +421,25 @@ export interface TrendAnalysis {
   trend: 'improving' | 'worsening' | 'stable';
 }
 
+export interface ScannedLabResult {
+  testCode: string;
+  testName: string;
+  value: number;
+  unit: string;
+  referenceMin?: number;
+  referenceMax?: number;
+  confidence?: number;
+}
+
+export interface LabScanResult {
+  results: ScannedLabResult[];
+  labName?: string;
+  orderedBy?: string;
+  reportDate?: string;
+  confidence?: number;
+  rawText?: string;
+}
+
 // ============================================
 // API Functions
 // ============================================
@@ -546,6 +565,18 @@ export async function getLatestResults(): Promise<LatestResult[]> {
 export async function getReferenceRanges(): Promise<Record<string, { low: number; high: number; unit: string; category: LabTestCategory }>> {
   const result = await authFetch('/lab-reports/reference-ranges');
   return result.data.referenceRanges;
+}
+
+/**
+ * Scan a lab report image and extract results
+ * POST /api/v1/lab-reports/scan
+ */
+export async function scanLabReportImage(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<LabScanResult> {
+  const result = await authFetch('/lab-reports/scan', {
+    method: 'POST',
+    body: JSON.stringify({ image: imageBase64, mimeType }),
+  });
+  return result.data;
 }
 
 // ============================================

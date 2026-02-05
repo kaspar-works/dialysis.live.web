@@ -13,10 +13,13 @@ import {
   analyzeLabReport,
   createLabReport,
   deleteLabReport,
+  scanLabReportImage,
   LabReport,
   LatestResult,
   LabTrendResult,
   LabReportAnalysis,
+  LabScanResult,
+  ScannedLabResult,
   LAB_TEST_CONFIG,
   CATEGORY_CONFIG,
   LabTestCategory,
@@ -26,7 +29,7 @@ import {
   getCommonTestPresets,
   groupResultsByCategory,
 } from '../services/labReports';
-import { SubscriptionLimitError } from '../services/auth';
+import { SubscriptionLimitError, FeatureRestrictedError } from '../services/auth';
 import { useSettings } from '../contexts/SettingsContext';
 
 type ViewTab = 'overview' | 'trends' | 'history';
@@ -53,6 +56,17 @@ const LabReports: React.FC = () => {
   // AI Analysis state
   const [analyzingReportId, setAnalyzingReportId] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<LabReport | null>(null);
+
+  // Scan state
+  const [showScanMode, setShowScanMode] = useState(false);
+  const [scanImage, setScanImage] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<LabScanResult | null>(null);
+  const [editedScanResults, setEditedScanResults] = useState<ScannedLabResult[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanReportDate, setScanReportDate] = useState(new Date().toISOString().split('T')[0]);
+  const [scanLabName, setScanLabName] = useState('');
+  const [featureError, setFeatureError] = useState<{ message: string } | null>(null);
+  const scanFileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -382,6 +396,128 @@ const LabReports: React.FC = () => {
     );
   };
 
+  // Handle scan file selection
+  const handleScanFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setScanImage(reader.result as string);
+        setScanResult(null);
+        setEditedScanResults([]);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle scan
+  const handleScan = async () => {
+    if (!scanImage) return;
+    setIsScanning(true);
+    setError(null);
+
+    try {
+      const mimeType = scanImage.split(';')[0].split(':')[1] || 'image/jpeg';
+      const base64Data = scanImage.includes(',') ? scanImage.split(',')[1] : scanImage;
+
+      const result = await scanLabReportImage(base64Data, mimeType);
+      setScanResult(result);
+      setEditedScanResults(result.results.map(r => ({ ...r })));
+      if (result.labName) setScanLabName(result.labName);
+      if (result.reportDate) {
+        const date = new Date(result.reportDate);
+        if (!isNaN(date.getTime())) {
+          setScanReportDate(date.toISOString().split('T')[0]);
+        }
+      }
+    } catch (err) {
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({ message: err.message });
+      } else if (err instanceof FeatureRestrictedError) {
+        setFeatureError({ message: err.message });
+      } else {
+        console.error('Failed to scan lab report:', err);
+        setError('Failed to scan lab report. Please try again.');
+      }
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // Update scanned result value
+  const updateScanResultValue = (index: number, value: string) => {
+    setEditedScanResults(prev => prev.map((r, i) =>
+      i === index ? { ...r, value: parseFloat(value) || 0 } : r
+    ));
+  };
+
+  // Remove scanned result
+  const removeScanResult = (index: number) => {
+    setEditedScanResults(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Save scan results as lab report
+  const handleSaveScanResults = async () => {
+    if (editedScanResults.length === 0) {
+      setError('No results to save');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const newReport = await createLabReport({
+        reportDate: scanReportDate,
+        labName: scanLabName || undefined,
+        results: editedScanResults.map(r => ({
+          testName: r.testName,
+          testCode: r.testCode,
+          value: r.value,
+          unit: r.unit,
+          referenceRange: r.referenceMin !== undefined && r.referenceMax !== undefined
+            ? { low: r.referenceMin, high: r.referenceMax }
+            : undefined,
+        })),
+        notes: 'Scanned from photo',
+      });
+
+      setReports(prev => [newReport, ...prev]);
+      // Reset scan state
+      setShowForm(false);
+      setShowScanMode(false);
+      setScanImage(null);
+      setScanResult(null);
+      setEditedScanResults([]);
+      setScanReportDate(new Date().toISOString().split('T')[0]);
+      setScanLabName('');
+      setNotification({ message: 'Lab report saved from scan', type: 'success' });
+      setTimeout(() => setNotification(null), 3000);
+
+      // Refresh latest results
+      const latestRes = await getLatestResults();
+      setLatestResults(latestRes);
+    } catch (err) {
+      console.error('Failed to save scanned lab report:', err);
+      if (err instanceof SubscriptionLimitError) {
+        setLimitError({ message: err.message });
+      } else {
+        setError('Failed to save lab report');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Reset scan state
+  const resetScanState = () => {
+    setScanImage(null);
+    setScanResult(null);
+    setEditedScanResults([]);
+    setScanReportDate(new Date().toISOString().split('T')[0]);
+    setScanLabName('');
+  };
+
   const tabs: { id: ViewTab; label: string; icon: string }[] = [
     { id: 'overview', label: 'Overview', icon: '📊' },
     { id: 'trends', label: 'Trends', icon: '📈' },
@@ -473,14 +609,287 @@ const LabReports: React.FC = () => {
         </div>
       )}
 
+      {/* Feature Restriction Banner */}
+      {featureError && (
+        <div className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 rounded-2xl p-5 animate-in slide-in-from-top">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center shrink-0">
+              <span className="text-2xl">🔒</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-purple-700 dark:text-purple-400 text-lg">Premium Feature</h3>
+              <p className="text-purple-600 dark:text-purple-300/80 mt-1">{featureError.message}</p>
+              <div className="flex items-center gap-3 mt-4">
+                <Link
+                  to="/pricing"
+                  className="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
+                >
+                  View Plans
+                </Link>
+                <button
+                  onClick={() => setFeatureError(null)}
+                  className="px-4 py-2.5 text-purple-600 dark:text-purple-400 font-medium text-sm hover:bg-purple-500/10 rounded-xl transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Lab Report Form */}
       {showForm && (
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 animate-in slide-in-from-top duration-300 shadow-xl overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-slate-700">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Add Lab Report</h2>
-            <p className="text-slate-400 text-sm mt-1">Enter your lab test results</p>
+            <p className="text-slate-400 text-sm mt-1">Scan a photo or enter results manually</p>
           </div>
 
+          {/* Mode Toggle */}
+          <div className="p-4 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl">
+              <button
+                type="button"
+                onClick={() => { setShowScanMode(true); resetFormValidation(); }}
+                className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                  showScanMode
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <ICONS.Camera className="w-4 h-4" />
+                Scan Photo
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowScanMode(false); resetScanState(); }}
+                className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                  !showScanMode
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <ICONS.Edit className="w-4 h-4" />
+                Manual Entry
+              </button>
+            </div>
+          </div>
+
+          {/* Scan Mode UI */}
+          {showScanMode && (
+            <div className="p-6 space-y-6">
+              {/* Upload Area */}
+              <div
+                onClick={() => scanFileInputRef.current?.click()}
+                className={`relative cursor-pointer aspect-video rounded-2xl flex flex-col items-center justify-center p-8 border-2 border-dashed ${
+                  scanImage
+                    ? 'border-transparent'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-500'
+                }`}
+              >
+                {scanImage ? (
+                  <>
+                    <img src={scanImage} className="absolute inset-0 w-full h-full object-contain rounded-2xl bg-slate-100 dark:bg-slate-900" alt="Lab report" />
+                    <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                      <span className="text-white font-bold text-sm bg-black/50 px-4 py-2 rounded-lg">Click to change</span>
+                    </div>
+                    {isScanning && (
+                      <div className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center">
+                        <div className="text-center text-white">
+                          <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+                          <p className="font-bold">Analyzing lab report...</p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <ICONS.Camera className="w-8 h-8 text-indigo-500" />
+                    </div>
+                    <p className="font-bold text-slate-900 dark:text-white mb-1">Upload lab report photo</p>
+                    <p className="text-sm text-slate-400">Click to select an image</p>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  ref={scanFileInputRef}
+                  onChange={handleScanFileChange}
+                  accept="image/*"
+                  className="hidden"
+                />
+              </div>
+
+              {/* Scan Button */}
+              {scanImage && !scanResult && (
+                <button
+                  type="button"
+                  onClick={handleScan}
+                  disabled={isScanning}
+                  className="w-full py-4 bg-indigo-500 text-white rounded-xl font-bold hover:bg-indigo-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isScanning ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <ICONS.Sparkles className="w-5 h-5" />
+                      Scan with AI
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Scan Results */}
+              {scanResult && editedScanResults.length > 0 && (
+                <div className="space-y-6">
+                  {/* Confidence indicator */}
+                  {scanResult.confidence !== undefined && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-slate-400">Confidence:</span>
+                      <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            scanResult.confidence > 0.8 ? 'bg-emerald-500' :
+                            scanResult.confidence > 0.6 ? 'bg-amber-500' : 'bg-rose-500'
+                          }`}
+                          style={{ width: `${scanResult.confidence * 100}%` }}
+                        />
+                      </div>
+                      <span className="font-bold text-slate-600 dark:text-slate-300">
+                        {Math.round(scanResult.confidence * 100)}%
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Date and Lab Name */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                        Report Date
+                      </label>
+                      <input
+                        type="date"
+                        value={scanReportDate}
+                        onChange={e => setScanReportDate(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                        Lab Name
+                      </label>
+                      <input
+                        type="text"
+                        value={scanLabName}
+                        onChange={e => setScanLabName(e.target.value)}
+                        placeholder="e.g., Quest Diagnostics"
+                        className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Extracted Results */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
+                      Extracted Results ({editedScanResults.length} tests)
+                    </label>
+                    <div className="space-y-3">
+                      {editedScanResults.map((result, index) => {
+                        const config = LAB_TEST_CONFIG[result.testCode];
+                        return (
+                          <div key={index} className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1">
+                                <p className="font-bold text-slate-900 dark:text-white text-sm">{result.testName}</p>
+                                <p className="text-[10px] text-slate-400">
+                                  {result.testCode}
+                                  {(result.referenceMin !== undefined || config) && (
+                                    <> · Ref: {result.referenceMin ?? config?.dialysisRange.low} - {result.referenceMax ?? config?.dialysisRange.high} {result.unit || config?.unit}</>
+                                  )}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  value={result.value}
+                                  onChange={e => updateScanResultValue(index, e.target.value)}
+                                  className="w-24 px-3 py-2 rounded-lg text-right font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                                />
+                                <span className="text-xs text-slate-400 w-16">{result.unit || config?.unit}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeScanResult(index)}
+                                  className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+                                >
+                                  <ICONS.X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Save Button */}
+                  <button
+                    type="button"
+                    onClick={handleSaveScanResults}
+                    disabled={isSubmitting || editedScanResults.length === 0}
+                    className="w-full py-4 rounded-2xl font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg"
+                  >
+                    {isSubmitting ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <span className="text-xl">🔬</span>
+                        Save Lab Report
+                      </>
+                    )}
+                  </button>
+
+                  {/* Rescan Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScanResult(null);
+                      setEditedScanResults([]);
+                    }}
+                    className="w-full py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Scan Again
+                  </button>
+                </div>
+              )}
+
+              {/* Empty state after scan */}
+              {scanResult && editedScanResults.length === 0 && (
+                <div className="text-center py-8">
+                  <div className="text-4xl mb-3">🔍</div>
+                  <p className="text-slate-600 dark:text-slate-300 font-bold">No results extracted</p>
+                  <p className="text-slate-400 text-sm mt-1">Try scanning a clearer image</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScanResult(null);
+                      setScanImage(null);
+                    }}
+                    className="mt-4 px-6 py-2 bg-indigo-500 text-white rounded-xl font-bold text-sm"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Manual Entry Form */}
+          {!showScanMode && (
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {/* Date and Lab */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -660,6 +1069,7 @@ const LabReports: React.FC = () => {
               )}
             </button>
           </form>
+          )}
         </div>
       )}
 
