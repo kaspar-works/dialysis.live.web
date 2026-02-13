@@ -7,11 +7,13 @@ import { getSettings, updateSettings, UserSettings, defaultSettings } from '../s
 import {
   getCurrentSubscription,
   updateSubscription,
+  getUsageStats,
   Subscription,
   PlanType,
   BillingInterval,
   PLAN_CONFIGS,
   getPlanDisplayName,
+  UsageData,
 } from '../services/subscription';
 import {
   deleteAccount,
@@ -40,6 +42,7 @@ const Settings: React.FC = () => {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [usageStats, setUsageStats] = useState<UsageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
@@ -93,16 +96,18 @@ const Settings: React.FC = () => {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const [settingsData, subData, tfaStatus, emailVerifyStatus] = await Promise.all([
+      const [settingsData, subData, tfaStatus, emailVerifyStatus, usageData] = await Promise.all([
         getSettings(),
         getCurrentSubscription(),
         getTwoFactorStatus().catch(() => null),
         getEmailVerificationStatus().catch(() => null),
+        getUsageStats().catch(() => null),
       ]);
       setSettings(settingsData);
       setSubscription(subData);
       if (tfaStatus) setTwoFactorStatus(tfaStatus);
       if (emailVerifyStatus) setEmailStatus(emailVerifyStatus);
+      if (usageData) setUsageStats(usageData);
     } catch (err: any) {
       if (!err?.message?.includes('Session expired')) {
         console.error('Failed to load settings:', err);
@@ -400,7 +405,7 @@ const Settings: React.FC = () => {
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8">
             <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
               <p className="text-slate-400 text-xs font-medium">Plan</p>
               <p className="text-white font-black text-lg capitalize">{subscription?.plan || 'Free'}</p>
@@ -416,6 +421,14 @@ const Settings: React.FC = () => {
             <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
               <p className="text-slate-400 text-xs font-medium">Dry Weight</p>
               <p className="text-white font-black text-lg">{settings.dryWeightKg || '--'} kg</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
+              <p className="text-slate-400 text-xs font-medium">AI Requests</p>
+              <p className="text-white font-black text-lg">
+                {usageStats?.usage.aiRequests.unlimited
+                  ? 'Unlimited'
+                  : `${usageStats?.usage.aiRequests.current ?? 0} / ${usageStats?.usage.aiRequests.limit ?? 0}`}
+              </p>
             </div>
           </div>
         </div>
