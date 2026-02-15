@@ -4,7 +4,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { ICONS } from '../constants';
 import { Link } from 'react-router';
 import OnboardingModal from '../components/OnboardingModal';
-import { getDashboard, getHealthOverview, DashboardStats, HealthOverview } from '../services/dashboard';
+import { getDashboard, getHealthOverview, getAchievements, DashboardStats, HealthOverview, AchievementsResponse } from '../services/dashboard';
 import {
   getDashboardAlerts,
   dismissAlert,
@@ -54,6 +54,7 @@ const Dashboard: React.FC = () => {
   const [nutritionData, setNutritionData] = useState<TodayMealsResponse | null>(null);
   const [recentFluidLogs, setRecentFluidLogs] = useState<FluidLog[]>([]);
   const [announcements, setAnnouncements] = useState<PublicAnnouncement[]>([]);
+  const [achievementsData, setAchievementsData] = useState<AchievementsResponse | null>(null);
   const [dismissedAnnouncements, setDismissedAnnouncements] = useState<string[]>(() => {
     const saved = localStorage.getItem('dismissedAnnouncements');
     return saved ? JSON.parse(saved) : [];
@@ -82,7 +83,7 @@ const Dashboard: React.FC = () => {
 
     const fetchDashboard = async () => {
       try {
-        const [dashData, alertsData, healthData, remindersData, appointmentsData, nutriData, fluidData] = await Promise.all([
+        const [dashData, alertsData, healthData, remindersData, appointmentsData, nutriData, fluidData, achieveData] = await Promise.all([
           getDashboard(30),
           getDashboardAlerts().catch(() => null),
           getHealthOverview().catch(() => null),
@@ -90,6 +91,7 @@ const Dashboard: React.FC = () => {
           getUpcomingAppointments(7).catch(() => []),
           getTodayMeals().catch(() => null),
           getTodayFluidIntake(timezone).catch(() => null),
+          getAchievements().catch(() => null),
         ]);
 
         setDashboardData(dashData);
@@ -119,6 +121,10 @@ const Dashboard: React.FC = () => {
 
         if (fluidData?.logs) {
           setRecentFluidLogs(fluidData.logs);
+        }
+
+        if (achieveData) {
+          setAchievementsData(achieveData);
         }
       } catch (err: unknown) {
         const error = err as { message?: string };
@@ -1362,6 +1368,57 @@ const Dashboard: React.FC = () => {
             })}
           </div>
         </div>
+
+        {/* Achievements Card */}
+        {achievementsData && (
+          <Link
+            to="/achievements"
+            className="col-span-12 bg-white dark:bg-white/5 rounded-2xl p-5 sm:p-6 border border-slate-100 dark:border-white/10 shadow-sm hover:shadow-lg hover:scale-[1.01] transition-all duration-300 group"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Achievements</p>
+              <svg className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div className="flex items-center gap-5">
+              {/* Mini Recovery Score */}
+              <div className="relative w-14 h-14 shrink-0">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" strokeWidth="8"
+                    className="text-slate-100 dark:text-white/10" />
+                  <circle cx="50" cy="50" r="42" fill="none" strokeWidth="8" strokeLinecap="round"
+                    stroke={achievementsData.recoveryScore >= 70 ? '#22c55e' : '#f59e0b'}
+                    strokeDasharray={`${achievementsData.recoveryScore * 2.64} 264`} />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-sm font-black text-slate-900 dark:text-white">{achievementsData.recoveryScore}</span>
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm text-slate-900 dark:text-white">Recovery Score</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {achievementsData.achievements.filter(a => a.earned).length} badge{achievementsData.achievements.filter(a => a.earned).length !== 1 ? 's' : ''} earned
+                </p>
+              </div>
+
+              {/* Badge chips */}
+              <div className="hidden sm:flex gap-2">
+                {achievementsData.achievements.slice(0, 3).map(a => (
+                  <span
+                    key={a.id}
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${
+                      a.earned
+                        ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                        : 'bg-slate-50 dark:bg-white/5 text-slate-400 dark:text-slate-500'
+                    }`}
+                  >
+                    {a.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Link>
+        )}
 
         {/* Quick Actions */}
         <div className="col-span-12 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">

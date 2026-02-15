@@ -210,3 +210,27 @@ export async function getHealthOverview(): Promise<HealthOverview> {
   const result = await authFetch('/dashboard/health-overview');
   return result.data;
 }
+
+// Achievements types
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  earned: boolean;
+  progress: number;
+  tier: string | null;
+  currentValue: number | null;
+  targetValue: number | null;
+}
+
+export interface AchievementsResponse {
+  recoveryScore: number;
+  achievements: Achievement[];
+}
+
+// Get achievements and recovery score
+export async function getAchievements(): Promise<AchievementsResponse> {
+  const result = await authFetch('/dashboard/achievements');
+  return result.data;
+}

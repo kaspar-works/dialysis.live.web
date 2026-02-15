@@ -61,6 +61,7 @@ const AIChat = lazy(() => import('./pages/AIChat'));
 const AIInsights = lazy(() => import('./pages/AIInsights'));
 const SymptomAnalysis = lazy(() => import('./pages/SymptomAnalysis'));
 const Alerts = lazy(() => import('./pages/Alerts'));
+const Achievements = lazy(() => import('./pages/Achievements'));
 const Admin = lazy(() => import('./pages/Admin'));
 
 // Community pages
@@ -275,6 +276,14 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <PageGuard><Layout><SEO title="Alerts" noIndex /><Alerts /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/achievements"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Achievements" noIndex /><Achievements /></Layout></PageGuard>
                   </ProtectedRoute>
                 }
               />
