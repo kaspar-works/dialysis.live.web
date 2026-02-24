@@ -21,10 +21,11 @@ import {
   markDoseTaken,
   markDoseSkipped,
   getTodayDoseStats,
+  getDoseHistory,
 } from '../services/medications';
 import { checkMedications, MedicationCheckResponse, MEDICAL_DISCLAIMER } from '../services/ai';
 
-type TabView = 'today' | 'medications';
+type TabView = 'today' | 'medications' | 'history';
 
 interface DoseWithMed extends MedicationDose {
   medication?: Medication;
@@ -54,6 +55,11 @@ const Medications: React.FC = () => {
   // Skip reason
   const [showSkipModal, setShowSkipModal] = useState(false);
   const [doseToSkip, setDoseToSkip] = useState<string | null>(null);
+
+  // Dose history
+  const [historyDoses, setHistoryDoses] = useState<DoseWithMed[]>([]);
+  const [historyDays, setHistoryDays] = useState(7);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Medication interaction check
   const [isCheckingInteractions, setIsCheckingInteractions] = useState(false);
@@ -224,6 +230,34 @@ const Medications: React.FC = () => {
       setDoseToSkip(null);
     }
   };
+
+  const fetchDoseHistory = useCallback(async (days: number) => {
+    setIsLoadingHistory(true);
+    try {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - days);
+      // Exclude today (today tab handles that)
+      to.setHours(0, 0, 0, 0);
+
+      const data = await getDoseHistory(from.toISOString(), to.toISOString());
+      const allDoses: DoseWithMed[] = [];
+      for (const entry of data.medications) {
+        for (const dose of entry.doses) {
+          allDoses.push({
+            ...dose,
+            medication: entry.medication,
+          });
+        }
+      }
+      allDoses.sort((a, b) => new Date(b.scheduledFor).getTime() - new Date(a.scheduledFor).getTime());
+      setHistoryDoses(allDoses);
+    } catch (err) {
+      console.error('Failed to fetch dose history:', err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, []);
 
   const handleAddMedication = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -652,6 +686,16 @@ const Medications: React.FC = () => {
         >
           All Medications
         </button>
+        <button
+          onClick={() => { setActiveTab('history'); fetchDoseHistory(historyDays); }}
+          className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${
+            activeTab === 'history'
+              ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          History
+        </button>
       </div>
 
       {/* Today's Schedule Tab */}
@@ -849,6 +893,111 @@ const Medications: React.FC = () => {
                 </div>
               </div>
             ))
+          )}
+        </div>
+      )}
+
+      {/* Dose History Tab */}
+      {activeTab === 'history' && (
+        <div className="space-y-4">
+          {/* Period selector */}
+          <div className="flex gap-2">
+            {[7, 14, 30].map((d) => (
+              <button
+                key={d}
+                onClick={() => { setHistoryDays(d); fetchDoseHistory(d); }}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                  historyDays === d
+                    ? 'bg-pink-500 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+
+          {isLoadingHistory ? (
+            <div className="flex justify-center py-12">
+              <div className="w-10 h-10 border-4 border-pink-500/20 border-t-pink-500 rounded-full animate-spin" />
+            </div>
+          ) : historyDoses.length === 0 ? (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-700">
+              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <ICONS.Clock className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+              </div>
+              <p className="text-slate-900 dark:text-white font-bold text-lg">No dose history</p>
+              <p className="text-slate-400 text-sm mt-1">Past doses will appear here</p>
+            </div>
+          ) : (
+            (() => {
+              const grouped: Record<string, DoseWithMed[]> = {};
+              historyDoses.forEach((dose) => {
+                const day = new Date(dose.scheduledFor).toLocaleDateString(undefined, {
+                  weekday: 'short', month: 'short', day: 'numeric',
+                });
+                if (!grouped[day]) grouped[day] = [];
+                grouped[day].push(dose);
+              });
+
+              return Object.entries(grouped).map(([day, doses]) => {
+                const taken = doses.filter(d => d.status === DoseStatus.TAKEN).length;
+                const total = doses.length;
+                const pct = total > 0 ? Math.round((taken / total) * 100) : 0;
+
+                return (
+                  <div key={day}>
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">{day}</h3>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        pct === 100 ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' :
+                        pct >= 50 ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' :
+                        'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                      }`}>
+                        {taken}/{total} ({pct}%)
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {doses.map((dose) => {
+                        const med = dose.medication;
+                        const isTaken = dose.status === DoseStatus.TAKEN;
+                        const isSkipped = dose.status === DoseStatus.SKIPPED;
+
+                        return (
+                          <div
+                            key={dose._id}
+                            className={`flex items-center gap-3 bg-white dark:bg-slate-800 rounded-lg px-4 py-3 border ${
+                              isTaken ? 'border-emerald-100 dark:border-emerald-500/20' :
+                              isSkipped ? 'border-amber-100 dark:border-amber-500/20' :
+                              'border-rose-100 dark:border-rose-500/20'
+                            }`}
+                          >
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              isTaken ? 'bg-emerald-500 text-white' :
+                              isSkipped ? 'bg-amber-500 text-white' :
+                              'bg-rose-500 text-white'
+                            }`}>
+                              {isTaken ? <ICONS.Check className="w-4 h-4" /> :
+                               isSkipped ? <ICONS.X className="w-3.5 h-3.5" /> :
+                               <ICONS.Clock className="w-3.5 h-3.5" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-slate-900 dark:text-white text-sm truncate">{med?.name || 'Unknown'}</p>
+                              <p className="text-xs text-slate-400">{med?.dose} · {formatTime(dose.scheduledFor)}</p>
+                            </div>
+                            <span className={`text-xs font-bold uppercase ${
+                              isTaken ? 'text-emerald-500' : isSkipped ? 'text-amber-500' : 'text-rose-500'
+                            }`}>
+                              {dose.status}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              });
+            })()
           )}
         </div>
       )}

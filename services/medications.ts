@@ -216,6 +216,22 @@ export async function updateSchedule(
   return result.data.schedule;
 }
 
+/**
+ * Get dose history for a date range
+ * GET /api/v1/medications/schedule?from=&to=
+ */
+export async function getDoseHistory(from: string, to: string): Promise<{
+  dateRange: { from: string; to: string };
+  medications: Array<{
+    medication: Medication;
+    schedules: MedicationSchedule[];
+    doses: MedicationDose[];
+  }>;
+}> {
+  const result = await authFetch(`/medications/schedule?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+  return result.data;
+}
+
 // ============================================
 // Medication Doses
 // ============================================
