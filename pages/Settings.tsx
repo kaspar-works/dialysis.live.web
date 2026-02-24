@@ -1257,6 +1257,40 @@ const Settings: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Save Button */}
+        {activeSection !== 'security' && (
+          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+            <p className="text-sm text-slate-400">
+              {saveStatus === 'saved' ? (
+                <span className="text-emerald-500 font-medium flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Saved
+                </span>
+              ) : saveStatus === 'error' ? (
+                <span className="text-rose-500 font-medium">Failed to save. Try again.</span>
+              ) : (
+                'Changes are saved when you click the button.'
+              )}
+            </p>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="px-8 py-3 bg-gradient-to-r from-sky-500 to-cyan-500 text-white rounded-xl font-bold text-sm hover:from-sky-600 hover:to-cyan-600 transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-sky-500/20"
+            >
+              {isSaving ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              Save Changes
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Payment Modal */}
