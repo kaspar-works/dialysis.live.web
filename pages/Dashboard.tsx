@@ -36,6 +36,8 @@ import {
 } from '../services/nutrition';
 import { createFluidLog, getTodayFluidIntake, FluidLog } from '../services/fluid';
 import { getActiveAnnouncements, PublicAnnouncement } from '../services/admin';
+import { getLatestResults, LatestResult } from '../services/labReports';
+import DryWeightTracker from '../components/DryWeightTracker';
 
 const Dashboard: React.FC = () => {
   const { profile, addFluid } = useStore();
@@ -55,6 +57,7 @@ const Dashboard: React.FC = () => {
   const [recentFluidLogs, setRecentFluidLogs] = useState<FluidLog[]>([]);
   const [announcements, setAnnouncements] = useState<PublicAnnouncement[]>([]);
   const [achievementsData, setAchievementsData] = useState<AchievementsResponse | null>(null);
+  const [latestLabResults, setLatestLabResults] = useState<LatestResult[]>([]);
   const [dismissedAnnouncements, setDismissedAnnouncements] = useState<string[]>(() => {
     const saved = localStorage.getItem('dismissedAnnouncements');
     return saved ? JSON.parse(saved) : [];
@@ -83,7 +86,7 @@ const Dashboard: React.FC = () => {
 
     const fetchDashboard = async () => {
       try {
-        const [dashData, alertsData, healthData, remindersData, appointmentsData, nutriData, fluidData, achieveData] = await Promise.all([
+        const [dashData, alertsData, healthData, remindersData, appointmentsData, nutriData, fluidData, achieveData, labResults] = await Promise.all([
           getDashboard(30),
           getDashboardAlerts().catch(() => null),
           getHealthOverview().catch(() => null),
@@ -92,6 +95,7 @@ const Dashboard: React.FC = () => {
           getTodayMeals().catch(() => null),
           getTodayFluidIntake(timezone).catch(() => null),
           getAchievements().catch(() => null),
+          getLatestResults().catch(() => []),
         ]);
 
         setDashboardData(dashData);
@@ -125,6 +129,10 @@ const Dashboard: React.FC = () => {
 
         if (achieveData) {
           setAchievementsData(achieveData);
+        }
+
+        if (labResults) {
+          setLatestLabResults(labResults);
         }
       } catch (err: unknown) {
         const error = err as { message?: string };
@@ -377,6 +385,31 @@ const Dashboard: React.FC = () => {
     return { label: 'Needs Attention', color: 'rose', message: 'Please review your health metrics and consult your care team.' };
   }, [healthOverview, healthScore]);
 
+  // Latest potassium lab result
+  const latestPotassium = useMemo(() => {
+    return latestLabResults.find(r => r.testCode === 'POTASSIUM') ?? null;
+  }, [latestLabResults]);
+
+  // Potassium risk level
+  const potassiumRisk = useMemo(() => {
+    const intake = nutritionTotals.potassium;
+    const limit = nutritionLimits.potassium || 2500;
+    const dietRatio = limit > 0 ? intake / limit : 0;
+    const labValue = latestPotassium?.latestValue ?? null;
+    const hasHighPotassiumSymptoms = dashboardData?.symptoms?.recentSymptoms?.some(
+      s => ['numbness', 'weakness', 'palpitations', 'muscle_weakness', 'tingling'].includes(s.symptomType?.toLowerCase() ?? '')
+    ) ?? false;
+
+    // High: over limit AND (lab > 5.5 OR relevant symptoms)
+    if (dietRatio > 1 && (labValue !== null && labValue > 5.5 || hasHighPotassiumSymptoms)) return 'high';
+    // Elevated: diet > 90% OR lab > 5.5
+    if (dietRatio > 0.9 || (labValue !== null && labValue > 5.5)) return 'elevated';
+    // Moderate: diet 60-90% OR lab 5.0-5.5
+    if (dietRatio > 0.6 || (labValue !== null && labValue >= 5.0 && labValue <= 5.5)) return 'moderate';
+    // Low: diet < 60% AND (no lab or lab 3.5-5.0)
+    return 'low';
+  }, [nutritionTotals.potassium, nutritionLimits.potassium, latestPotassium, dashboardData?.symptoms]);
+
   // Display alerts from API only (no local fallback)
   const displayAlerts = useMemo(() => {
     // If we've fetched from API, use API alerts only (even if empty)
@@ -462,6 +495,181 @@ const Dashboard: React.FC = () => {
 
     return { line, area, points };
   }, [weightData]);
+
+  // Weekly Trend Sparkline Data
+  const bpSparkline = useMemo(() => {
+    const history = dashboardData?.vitals?.history;
+    if (!history) return [];
+    return history
+      .filter(v => v.type === 'blood_pressure')
+      .sort((a, b) => new Date(a.loggedAt).getTime() - new Date(b.loggedAt).getTime())
+      .slice(-7)
+      .map(v => v.value1);
+  }, [dashboardData]);
+
+  const weightSparkline = useMemo(() => {
+    return weightData.map(d => d.weight);
+  }, [weightData]);
+
+  const sessionSparkline = useMemo(() => {
+    const sessions = dashboardData?.sessions?.recentSessions;
+    if (!sessions || sessions.length === 0) return [];
+    const now = new Date();
+    const days: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dayStr = d.toISOString().slice(0, 10);
+      const count = sessions.filter(s => s.startedAt.slice(0, 10) === dayStr).length;
+      days.push(count);
+    }
+    return days;
+  }, [dashboardData]);
+
+  const fluidSparkline = useMemo(() => {
+    const history = dashboardData?.fluid?.history;
+    if (!history || history.length === 0) return [];
+    return history
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(-7)
+      .map(h => h.total);
+  }, [dashboardData]);
+
+  // Sparkline SVG path generator
+  const makeSparkline = (values: number[], color: string, asBars?: boolean) => {
+    if (values.length < 2 && !asBars) return null;
+    if (values.length === 0) return null;
+    const w = 120, h = 48, pad = 4;
+    const cw = w - pad * 2, ch = h - pad * 2;
+
+    if (asBars) {
+      const barW = cw / values.length - 2;
+      const maxV = Math.max(...values, 1);
+      const bars = values.map((v, i) => {
+        const barH = Math.max((v / maxV) * ch, 2);
+        const x = pad + i * (cw / values.length) + 1;
+        const y = pad + ch - barH;
+        return `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="2" fill="${color}" opacity="${i === values.length - 1 ? 1 : 0.5}" />`;
+      });
+      return { svg: bars.join(''), type: 'bars' as const };
+    }
+
+    const minV = Math.min(...values);
+    const maxV = Math.max(...values);
+    const range = maxV - minV || 1;
+    const xStep = cw / (values.length - 1);
+    const pts = values.map((v, i) => ({
+      x: pad + i * xStep,
+      y: pad + ch - ((v - minV) / range) * ch,
+    }));
+    const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+    const area = `${line} L ${pts[pts.length - 1].x.toFixed(1)} ${h - pad} L ${pad} ${h - pad} Z`;
+    return { line, area, type: 'line' as const };
+  };
+
+  // Trend direction helpers
+  const getTrend = (values: number[]): 'up' | 'down' | 'stable' => {
+    if (values.length < 2) return 'stable';
+    const last = values[values.length - 1];
+    const prev = values[values.length - 2];
+    const diff = last - prev;
+    const pct = Math.abs(diff) / (prev || 1);
+    if (pct < 0.02) return 'stable';
+    return diff > 0 ? 'up' : 'down';
+  };
+
+  const trendIcon = (dir: 'up' | 'down' | 'stable') =>
+    dir === 'up' ? '↑' : dir === 'down' ? '↓' : '→';
+  const trendColor = (dir: 'up' | 'down' | 'stable', invert?: boolean) => {
+    if (dir === 'stable') return 'text-slate-500 bg-slate-100 dark:bg-slate-700/50';
+    const good = invert ? dir === 'down' : dir === 'up';
+    return good
+      ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10'
+      : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10';
+  };
+
+  // Build sparkline cards data
+  const sparklineCards = useMemo(() => {
+    const cards: Array<{
+      key: string;
+      label: string;
+      color: string;
+      gradientFrom: string;
+      gradientTo: string;
+      values: number[];
+      asBars?: boolean;
+      currentDisplay: string;
+      unit: string;
+      trend: 'up' | 'down' | 'stable';
+      invertTrend?: boolean;
+    }> = [];
+
+    if (bpSparkline.length >= 2) {
+      const bpTrend = getTrend(bpSparkline);
+      cards.push({
+        key: 'bp',
+        label: 'Blood Pressure',
+        color: '#f43f5e',
+        gradientFrom: 'from-rose-500',
+        gradientTo: 'to-pink-500',
+        values: bpSparkline,
+        currentDisplay: latestBP ? `${latestBP.systolic}/${latestBP.diastolic}` : '--',
+        unit: 'mmHg',
+        trend: bpTrend,
+        invertTrend: true,
+      });
+    }
+
+    if (weightSparkline.length >= 2) {
+      cards.push({
+        key: 'weight',
+        label: 'Weight',
+        color: '#8b5cf6',
+        gradientFrom: 'from-violet-500',
+        gradientTo: 'to-purple-500',
+        values: weightSparkline,
+        currentDisplay: currentWeight !== null ? formatWeight(currentWeight) : '--',
+        unit: weightUnit,
+        trend: weightTrend as 'up' | 'down' | 'stable',
+      });
+    }
+
+    if (sessionSparkline.some(v => v > 0)) {
+      const thisWeekCount = sessionStats?.thisWeek ?? 0;
+      cards.push({
+        key: 'sessions',
+        label: 'Sessions',
+        color: '#10b981',
+        gradientFrom: 'from-emerald-500',
+        gradientTo: 'to-teal-500',
+        values: sessionSparkline,
+        asBars: true,
+        currentDisplay: `${thisWeekCount}`,
+        unit: '/wk',
+        trend: getTrend(sessionSparkline),
+      });
+    }
+
+    if (fluidSparkline.length >= 2) {
+      const avg = fluidSparkline.reduce((a, b) => a + b, 0) / fluidSparkline.length;
+      const todayVal = fluidSparkline[fluidSparkline.length - 1];
+      const fluidTrend: 'up' | 'down' | 'stable' = todayVal > avg * 1.1 ? 'up' : todayVal < avg * 0.9 ? 'down' : 'stable';
+      cards.push({
+        key: 'hydration',
+        label: 'Hydration',
+        color: '#0ea5e9',
+        gradientFrom: 'from-sky-500',
+        gradientTo: 'to-cyan-500',
+        values: fluidSparkline,
+        currentDisplay: dailyFluidLimit > 0 ? `${fluidPercentage}` : formatFluid(todayFluid),
+        unit: dailyFluidLimit > 0 ? '%' : fluidUnit,
+        trend: fluidTrend,
+        invertTrend: true,
+      });
+    }
+
+    return cards;
+  }, [bpSparkline, weightSparkline, sessionSparkline, fluidSparkline, latestBP, currentWeight, formatWeight, weightUnit, weightTrend, sessionStats, dailyFluidLimit, fluidPercentage, todayFluid, formatFluid, fluidUnit]);
 
   if (isLoading) {
     return (
@@ -895,6 +1103,164 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Dialysis Intelligence */}
+      {(currentWeight !== null && dryWeight !== null) || nutritionTotals.potassium > 0 || latestPotassium ? (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+              <span className="text-lg">🧠</span>
+            </div>
+            <div>
+              <h2 className="font-black text-slate-900 dark:text-white text-lg">Dialysis Intelligence</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Clinical insights from your data</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Fluid Retention Tracker */}
+            {currentWeight !== null && dryWeight !== null && (
+              <div>
+                <DryWeightTracker
+                  currentWeight={currentWeight}
+                  dryWeight={dryWeight}
+                  previousWeight={dashboardData?.weight?.history?.[1]?.weight}
+                  trend={weightTrend as 'up' | 'down' | 'stable'}
+                />
+                {currentWeight - dryWeight > 2.5 && (
+                  <div className="mt-3 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl">
+                    <div className="flex items-start gap-3">
+                      <span className="text-xl">🚨</span>
+                      <div>
+                        <p className="font-bold text-rose-700 dark:text-rose-300 text-sm">Critical Fluid Overload</p>
+                        <p className="text-rose-600 dark:text-rose-400 text-sm mt-1">
+                          You are {(currentWeight - dryWeight).toFixed(1)}kg above your dry weight. Contact your dialysis team about increasing ultrafiltration or adjusting your fluid restriction.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Potassium Risk Monitor */}
+            {(nutritionTotals.potassium > 0 || latestPotassium) && (
+              <div className="bg-white dark:bg-slate-800/50 glass-light rounded-[2rem] p-6 border border-slate-200/50 dark:border-slate-700/50">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                      potassiumRisk === 'high' ? 'bg-rose-500/10' :
+                      potassiumRisk === 'elevated' ? 'bg-orange-500/10' :
+                      potassiumRisk === 'moderate' ? 'bg-amber-500/10' : 'bg-emerald-500/10'
+                    }`}>
+                      <span className="text-2xl">🍌</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white">Potassium Risk</h3>
+                      <p className="text-slate-400 text-sm">Electrolyte monitoring</p>
+                    </div>
+                  </div>
+                  <span className={`px-3 py-1.5 rounded-full text-sm font-bold ${
+                    potassiumRisk === 'high' ? 'bg-rose-500/10 text-rose-500' :
+                    potassiumRisk === 'elevated' ? 'bg-orange-500/10 text-orange-500' :
+                    potassiumRisk === 'moderate' ? 'bg-amber-500/10 text-amber-500' :
+                    'bg-emerald-500/10 text-emerald-500'
+                  }`}>
+                    {potassiumRisk === 'high' ? '⚠️ High' :
+                     potassiumRisk === 'elevated' ? '🔼 Elevated' :
+                     potassiumRisk === 'moderate' ? '📊 Moderate' : '✓ Low'}
+                  </span>
+                </div>
+
+                {/* Diet intake */}
+                {nutritionTotals.potassium > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-slate-500 dark:text-slate-400">Diet Intake</span>
+                      <span className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+                        {Math.round(nutritionTotals.potassium)} / {nutritionLimits.potassium || 2500} mg
+                      </span>
+                    </div>
+                    <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          nutritionTotals.potassium / (nutritionLimits.potassium || 2500) > 0.9 ? 'bg-rose-500' :
+                          nutritionTotals.potassium / (nutritionLimits.potassium || 2500) > 0.6 ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                        style={{ width: `${Math.min(100, (nutritionTotals.potassium / (nutritionLimits.potassium || 2500)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Lab value */}
+                <div className="p-3 bg-slate-50 dark:bg-slate-700/30 rounded-xl mb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🔬</span>
+                      <span className="text-sm text-slate-500 dark:text-slate-400">Latest Lab</span>
+                    </div>
+                    {latestPotassium ? (
+                      <div className="flex items-center gap-2">
+                        <span className={`text-lg font-black tabular-nums ${
+                          latestPotassium.latestValue > 5.5 ? 'text-rose-500' :
+                          latestPotassium.latestValue >= 5.0 ? 'text-amber-500' :
+                          latestPotassium.latestValue < 3.5 ? 'text-sky-500' : 'text-emerald-500'
+                        }`}>
+                          {latestPotassium.latestValue.toFixed(1)}
+                        </span>
+                        <span className="text-xs text-slate-400">{latestPotassium.unit}</span>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                          latestPotassium.isAbnormal ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'
+                        }`}>
+                          {latestPotassium.isAbnormal ? 'Abnormal' : 'Normal'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-slate-400">No recent labs</span>
+                    )}
+                  </div>
+                  {latestPotassium && (
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Normal range: {latestPotassium.referenceRange.low}–{latestPotassium.referenceRange.high} {latestPotassium.unit}
+                    </p>
+                  )}
+                </div>
+
+                {/* Symptom indicators */}
+                {dashboardData?.symptoms?.recentSymptoms?.some(
+                  s => ['numbness', 'weakness', 'palpitations', 'muscle_weakness', 'tingling'].includes(s.symptomType?.toLowerCase() ?? '')
+                ) && (
+                  <div className="p-3 bg-rose-500/5 border border-rose-500/10 rounded-xl mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🩺</span>
+                      <span className="text-sm font-medium text-rose-600 dark:text-rose-400">
+                        Related symptoms detected (numbness, weakness, or palpitations)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Risk-based tip */}
+                <div className={`p-3 rounded-xl ${
+                  potassiumRisk === 'high' || potassiumRisk === 'elevated' ? 'bg-rose-500/5' :
+                  potassiumRisk === 'moderate' ? 'bg-amber-500/5' : 'bg-emerald-500/5'
+                }`}>
+                  <p className={`text-sm ${
+                    potassiumRisk === 'high' || potassiumRisk === 'elevated' ? 'text-rose-600 dark:text-rose-400' :
+                    potassiumRisk === 'moderate' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+                  }`}>
+                    {potassiumRisk === 'high' && 'Limit high-potassium foods (bananas, oranges, potatoes, tomatoes). Contact your care team.'}
+                    {potassiumRisk === 'elevated' && 'Watch your potassium intake closely. Avoid high-potassium foods for the rest of the day.'}
+                    {potassiumRisk === 'moderate' && 'On track — keep balancing your meals. Choose lower-potassium alternatives when possible.'}
+                    {potassiumRisk === 'low' && 'Great potassium management! Keep following your renal diet plan.'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       {/* Vitals Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Blood Pressure */}
@@ -989,6 +1355,54 @@ const Dashboard: React.FC = () => {
           <p className="text-slate-400 text-[10px] sm:text-xs mt-1">% SpO2</p>
         </div>
       </div>
+
+      {/* Weekly Trends */}
+      {sparklineCards.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {sparklineCards.map(card => {
+            const spark = makeSparkline(card.values, card.color, card.asBars);
+            const dir = card.trend;
+            return (
+              <div key={card.key} className="bg-white dark:bg-slate-800/50 glass-light rounded-xl sm:rounded-[1.5rem] p-3 sm:p-4 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-lg hover:scale-[1.01] transition-all duration-300">
+                {/* Top row */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${card.gradientFrom} ${card.gradientTo}`} />
+                    <span className="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{card.label}</span>
+                  </div>
+                  <span className={`px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold ${trendColor(dir, card.invertTrend)}`}>
+                    {trendIcon(dir)} {dir === 'up' ? 'Up' : dir === 'down' ? 'Down' : 'Stable'}
+                  </span>
+                </div>
+                {/* Sparkline */}
+                {spark && (
+                  <svg viewBox="0 0 120 48" className="w-full h-10 sm:h-12 mb-2" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id={`sparkGrad-${card.key}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={card.color} stopOpacity="0.3" />
+                        <stop offset="100%" stopColor={card.color} stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+                    {spark.type === 'line' ? (
+                      <>
+                        <path d={spark.area} fill={`url(#sparkGrad-${card.key})`} />
+                        <path d={spark.line} fill="none" stroke={card.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </>
+                    ) : (
+                      <g dangerouslySetInnerHTML={{ __html: spark.svg! }} />
+                    )}
+                  </svg>
+                )}
+                {/* Bottom value */}
+                <div className="flex items-baseline gap-1">
+                  <span className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tabular-nums">{card.currentDisplay}</span>
+                  <span className="text-[10px] sm:text-xs text-slate-400 font-medium">{card.unit}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-12 gap-4 sm:gap-6">
