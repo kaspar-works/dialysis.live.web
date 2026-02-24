@@ -246,6 +246,15 @@ export async function getActiveSession(): Promise<DialysisSession | null> {
   }
 }
 
+// Cancel session
+export async function cancelSession(sessionId: string, reason?: string): Promise<DialysisSession> {
+  const result = await authFetch(`/dialysis/sessions/${sessionId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+  return result.data.session;
+}
+
 // Delete session
 export async function deleteSession(sessionId: string): Promise<void> {
   await authFetch(`/dialysis/sessions/${sessionId}`, { method: 'DELETE' });
