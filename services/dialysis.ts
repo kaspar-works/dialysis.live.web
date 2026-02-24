@@ -31,12 +31,14 @@ export enum SessionRating {
 }
 
 export enum EventType {
-  VITAL_CHECK = 'vital_check',
-  MEDICATION = 'medication',
+  BP_READING = 'bp_reading',
   SYMPTOM = 'symptom',
   NOTE = 'note',
+  PAUSE = 'pause',
+  RESUME = 'resume',
   ALARM = 'alarm',
-  INTERVENTION = 'intervention',
+  UF_UPDATE = 'uf_update',
+  CUSTOM = 'custom',
 }
 
 export interface DialysisSession {
@@ -188,6 +190,16 @@ export async function addSessionEvent(sessionId: string, data: AddEventData): Pr
     body: JSON.stringify(data),
   });
   return result.data.event;
+}
+
+// Pause session
+export async function pauseSession(sessionId: string): Promise<SessionEvent> {
+  return addSessionEvent(sessionId, { eventType: EventType.PAUSE, payload: { timestamp: new Date().toISOString() } });
+}
+
+// Resume session
+export async function resumeSession(sessionId: string): Promise<SessionEvent> {
+  return addSessionEvent(sessionId, { eventType: EventType.RESUME, payload: { timestamp: new Date().toISOString() } });
 }
 
 // End session

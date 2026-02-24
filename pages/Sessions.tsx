@@ -32,6 +32,8 @@ import {
   getActiveSession,
   getSessionDetails,
   cancelSession,
+  pauseSession,
+  resumeSession,
   deleteSession,
   formatDuration,
   getStatusColor,
@@ -57,6 +59,8 @@ const Sessions: React.FC = () => {
   const [sessionEvents, setSessionEvents] = useState<SessionEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [totalSessions, setTotalSessions] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [elapsed, setElapsed] = useState('00:00:00');
 
   // Form states for new session
@@ -113,6 +117,7 @@ const Sessions: React.FC = () => {
   const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   // Selected session vitals (for detail view)
   const [selectedSessionVitals, setSelectedSessionVitals] = useState<VitalRecord[]>([]);
@@ -157,6 +162,7 @@ const Sessions: React.FC = () => {
         ]);
 
         setSessions(sessionsData.sessions);
+        setTotalSessions(sessionsData.pagination?.total || sessionsData.sessions.length);
 
         if (active) {
           setActiveSession(active);
@@ -472,6 +478,21 @@ const Sessions: React.FC = () => {
     }
   };
 
+  const handlePauseResume = async () => {
+    if (!activeSession) return;
+    try {
+      if (isPaused) {
+        await resumeSession(activeSession._id);
+        setIsPaused(false);
+      } else {
+        await pauseSession(activeSession._id);
+        setIsPaused(true);
+      }
+    } catch (err) {
+      console.error('Failed to pause/resume:', err);
+    }
+  };
+
   const handleCancelSession = async () => {
     if (!activeSession) return;
     setIsCancelling(true);
@@ -489,6 +510,19 @@ const Sessions: React.FC = () => {
       setShowValidationModal(true);
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleLoadMore = async () => {
+    setIsLoadingMore(true);
+    try {
+      const sessionsData = await listSessions({ limit: 20, offset: sessions.length });
+      setSessions(prev => [...prev, ...sessionsData.sessions]);
+      setTotalSessions(sessionsData.pagination?.total || sessions.length + sessionsData.sessions.length);
+    } catch (err) {
+      console.error('Failed to load more sessions:', err);
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -1329,7 +1363,7 @@ const Sessions: React.FC = () => {
               <span className="text-sm text-slate-400">{completedSessions.length} completed</span>
             </div>
 
-            {completedSessions.length > 0 ? (
+            {completedSessions.length > 0 ? (<>
               <div className="space-y-3">
                 {completedSessions.map(session => (
                   <div
@@ -1385,6 +1419,18 @@ const Sessions: React.FC = () => {
                   </div>
                 ))}
               </div>
+              {sessions.length < totalSessions && (
+                <div className="flex justify-center mt-4">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                    className="px-6 py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-semibold hover:bg-slate-200 dark:hover:bg-slate-600 transition-all disabled:opacity-50"
+                  >
+                    {isLoadingMore ? 'Loading...' : `Load More (${sessions.length} of ${totalSessions})`}
+                  </button>
+                </div>
+              )}
+            </>
             ) : (
               <div className="py-16 text-center text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
                 <ICONS.Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -1925,6 +1971,24 @@ const Sessions: React.FC = () => {
               {elapsed}
             </div>
 
+            <button
+              onClick={handlePauseResume}
+              className={`mx-auto mb-4 px-5 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${
+                isPaused
+                  ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                {isPaused ? (
+                  <path d="M8 5v14l11-7z" />
+                ) : (
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                )}
+              </svg>
+              {isPaused ? 'Resume' : 'Pause'}
+            </button>
+
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="bg-white/5 rounded-2xl p-4">
                 <p className="text-white/40 text-xs uppercase">Target UF</p>
@@ -2268,10 +2332,16 @@ const Sessions: React.FC = () => {
                 type="number"
                 step="0.1"
                 value={postData.postWeightKg}
-                onChange={e => setPostData({ ...postData, postWeightKg: e.target.value })}
+                onChange={e => handleFieldChange('postWeightKg', e.target.value, val => setPostData({ ...postData, postWeightKg: val }))}
+                onBlur={e => handleFieldBlur('postWeightKg', e.target.value)}
                 placeholder={weightUnit === 'lb' ? 'e.g. 164.0' : 'e.g. 74.5'}
-                className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                className={`w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none ${
+                  fieldErrors.postWeightKg && touchedFields.postWeightKg ? 'ring-2 ring-rose-500' : ''
+                }`}
               />
+              {fieldErrors.postWeightKg && touchedFields.postWeightKg && (
+                <p className="text-xs text-rose-500 mt-1">{fieldErrors.postWeightKg}</p>
+              )}
             </div>
 
             {/* Actual UF */}
@@ -2280,10 +2350,16 @@ const Sessions: React.FC = () => {
               <input
                 type="number"
                 value={postData.actualUfMl}
-                onChange={e => setPostData({ ...postData, actualUfMl: e.target.value })}
+                onChange={e => handleFieldChange('actualUfMl', e.target.value, val => setPostData({ ...postData, actualUfMl: val }))}
+                onBlur={e => handleFieldBlur('actualUfMl', e.target.value)}
                 placeholder={fluidUnit === 'oz' ? 'e.g. 81' : 'e.g. 2400'}
-                className="w-full bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 rounded-xl px-4 py-3 font-semibold text-sky-600 dark:text-sky-400 outline-none"
+                className={`w-full bg-sky-50 dark:bg-sky-500/10 border border-sky-100 dark:border-sky-500/20 rounded-xl px-4 py-3 font-semibold text-sky-600 dark:text-sky-400 outline-none ${
+                  fieldErrors.actualUfMl && touchedFields.actualUfMl ? 'ring-2 ring-rose-500' : ''
+                }`}
               />
+              {fieldErrors.actualUfMl && touchedFields.actualUfMl && (
+                <p className="text-xs text-rose-500 mt-1">{fieldErrors.actualUfMl}</p>
+              )}
             </div>
 
             {/* Post BP */}
@@ -2293,18 +2369,27 @@ const Sessions: React.FC = () => {
                 <input
                   type="number"
                   value={postData.postBpSystolic}
-                  onChange={e => setPostData({ ...postData, postBpSystolic: e.target.value })}
+                  onChange={e => handleFieldChange('postBpSystolic', e.target.value, val => setPostData({ ...postData, postBpSystolic: val }))}
+                  onBlur={e => handleFieldBlur('postBpSystolic', e.target.value)}
                   placeholder="Sys"
-                  className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                  className={`w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none ${
+                    fieldErrors.postBpSystolic && touchedFields.postBpSystolic ? 'ring-2 ring-rose-500' : ''
+                  }`}
                 />
                 <input
                   type="number"
                   value={postData.postBpDiastolic}
-                  onChange={e => setPostData({ ...postData, postBpDiastolic: e.target.value })}
+                  onChange={e => handleFieldChange('postBpDiastolic', e.target.value, val => setPostData({ ...postData, postBpDiastolic: val }))}
+                  onBlur={e => handleFieldBlur('postBpDiastolic', e.target.value)}
                   placeholder="Dia"
-                  className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                  className={`w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none ${
+                    fieldErrors.postBpDiastolic && touchedFields.postBpDiastolic ? 'ring-2 ring-rose-500' : ''
+                  }`}
                 />
               </div>
+              {((fieldErrors.postBpSystolic && touchedFields.postBpSystolic) || (fieldErrors.postBpDiastolic && touchedFields.postBpDiastolic) || (fieldErrors.postBpPair && (touchedFields.postBpSystolic || touchedFields.postBpDiastolic))) && (
+                <p className="text-xs text-rose-500 mt-1">{fieldErrors.postBpSystolic || fieldErrors.postBpDiastolic || fieldErrors.postBpPair}</p>
+              )}
             </div>
 
             {/* Post Heart Rate */}
@@ -2313,10 +2398,16 @@ const Sessions: React.FC = () => {
               <input
                 type="number"
                 value={postData.postHeartRate}
-                onChange={e => setPostData({ ...postData, postHeartRate: e.target.value })}
+                onChange={e => handleFieldChange('postHeartRate', e.target.value, val => setPostData({ ...postData, postHeartRate: val }))}
+                onBlur={e => handleFieldBlur('postHeartRate', e.target.value)}
                 placeholder="e.g. 68"
-                className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                className={`w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none ${
+                  fieldErrors.postHeartRate && touchedFields.postHeartRate ? 'ring-2 ring-rose-500' : ''
+                }`}
               />
+              {fieldErrors.postHeartRate && touchedFields.postHeartRate && (
+                <p className="text-xs text-rose-500 mt-1">{fieldErrors.postHeartRate}</p>
+              )}
             </div>
 
             {/* Rating */}
