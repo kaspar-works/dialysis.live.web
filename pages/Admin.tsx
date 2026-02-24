@@ -480,28 +480,29 @@ const Admin: React.FC = () => {
   };
 
   // Handle seed test data
-  const handleSeedTestData = async () => {
+  const handleSeedTestData = () => {
     if (!seedUserId.trim()) {
       showError('Validation Error', 'Please enter a user ID');
       return;
     }
-    const confirmed = await showConfirm(
+    showConfirm(
       'Seed Test Data',
-      `This will DELETE all existing health data for this user and generate ${seedDays} days of test data. Continue?`
+      `This will DELETE all existing health data for this user and generate ${seedDays} days of test data. Continue?`,
+      async () => {
+        setIsSeeding(true);
+        setSeedResult(null);
+        try {
+          const result = await seedTestData(seedUserId.trim(), seedDays);
+          setSeedResult(result);
+          showSuccess('Data Seeded', `Successfully seeded ${seedDays} days of test data`);
+        } catch (err: any) {
+          showError('Seed Failed', err.message || 'Failed to seed test data');
+        } finally {
+          setIsSeeding(false);
+        }
+      },
+      { confirmText: 'Seed Data', cancelText: 'Cancel' }
     );
-    if (!confirmed) return;
-
-    setIsSeeding(true);
-    setSeedResult(null);
-    try {
-      const result = await seedTestData(seedUserId.trim(), seedDays);
-      setSeedResult(result);
-      showSuccess('Data Seeded', `Successfully seeded ${seedDays} days of test data`);
-    } catch (err: any) {
-      showError('Seed Failed', err.message || 'Failed to seed test data');
-    } finally {
-      setIsSeeding(false);
-    }
   };
 
   // Calculate subscription statistics
