@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { ICONS } from '../constants';
 import { useStore } from '../store';
+import { version } from '../package.json';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
 import HelpChatWidget from './HelpChatWidget';
@@ -239,7 +240,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
-                   <p className="text-xs font-bold text-slate-400 dark:text-slate-600">© 2025 dialysis.live</p>
+                   <p className="text-xs font-bold text-slate-400 dark:text-slate-600">© 2025 dialysis.live · v{version}</p>
                    <p className="text-xs text-slate-400 dark:text-slate-600">
                      Website developed by <a href="https://kaspar.works/" target="_blank" rel="noopener noreferrer" className="font-bold text-sky-500 hover:text-pink-500 transition-colors">kaspar.works</a>
                    </p>
