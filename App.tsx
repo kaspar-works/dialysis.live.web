@@ -25,58 +25,82 @@ const PageLoader: React.FC = () => (
   </div>
 );
 
+// Retry dynamic imports — on chunk load failure (stale deploy), reload the page once
+function lazyWithRetry(importFn: () => Promise<any>) {
+  return lazy(() =>
+    importFn().catch((error: Error) => {
+      const isChunkError =
+        error.message?.includes('Failed to fetch dynamically imported module') ||
+        error.message?.includes('Importing a module script failed') ||
+        error.message?.includes('Loading chunk') ||
+        error.message?.includes('Loading CSS chunk');
+
+      if (isChunkError) {
+        const key = 'chunk_reload';
+        const last = sessionStorage.getItem(key);
+        const now = Date.now();
+        if (!last || now - parseInt(last) > 60000) {
+          sessionStorage.setItem(key, String(now));
+          window.location.reload();
+        }
+      }
+      throw error;
+    })
+  );
+}
+
 // Lazy load pages for code splitting
 // Public pages
-const Landing = lazy(() => import('./pages/Landing'));
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
-const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
-const ResetPassword = lazy(() => import('./pages/ResetPassword'));
-const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
-const Logout = lazy(() => import('./pages/Logout'));
-const Privacy = lazy(() => import('./pages/Privacy'));
-const Terms = lazy(() => import('./pages/Terms'));
-const Features = lazy(() => import('./pages/Features'));
-const Pricing = lazy(() => import('./pages/Pricing'));
-const NotFound = lazy(() => import('./pages/NotFound'));
+const Landing = lazyWithRetry(() => import('./pages/Landing'));
+const Login = lazyWithRetry(() => import('./pages/Login'));
+const Register = lazyWithRetry(() => import('./pages/Register'));
+const ForgotPassword = lazyWithRetry(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazyWithRetry(() => import('./pages/ResetPassword'));
+const VerifyEmail = lazyWithRetry(() => import('./pages/VerifyEmail'));
+const Logout = lazyWithRetry(() => import('./pages/Logout'));
+const Privacy = lazyWithRetry(() => import('./pages/Privacy'));
+const Terms = lazyWithRetry(() => import('./pages/Terms'));
+const Features = lazyWithRetry(() => import('./pages/Features'));
+const Pricing = lazyWithRetry(() => import('./pages/Pricing'));
+const NotFound = lazyWithRetry(() => import('./pages/NotFound'));
 
 // Protected pages
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Sessions = lazy(() => import('./pages/Sessions'));
-const WeightLog = lazy(() => import('./pages/WeightLog'));
-const FluidLog = lazy(() => import('./pages/FluidLog'));
-const Medications = lazy(() => import('./pages/Medications'));
-const Education = lazy(() => import('./pages/Education'));
-const Profile = lazy(() => import('./pages/Profile'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Vitals = lazy(() => import('./pages/Vitals'));
-const Subscription = lazy(() => import('./pages/Subscription'));
-const SubscriptionDetail = lazy(() => import('./pages/SubscriptionDetail'));
-const Reports = lazy(() => import('./pages/Reports'));
-const NutritionScan = lazy(() => import('./pages/NutritionScan'));
-const LabReports = lazy(() => import('./pages/LabReports'));
-const Symptoms = lazy(() => import('./pages/Symptoms'));
-const Reminders = lazy(() => import('./pages/Reminders'));
-const Appointments = lazy(() => import('./pages/Appointments'));
-const HealthCheck = lazy(() => import('./pages/HealthCheck'));
-const AIChat = lazy(() => import('./pages/AIChat'));
-const AIInsights = lazy(() => import('./pages/AIInsights'));
-const SymptomAnalysis = lazy(() => import('./pages/SymptomAnalysis'));
-const Alerts = lazy(() => import('./pages/Alerts'));
-const Achievements = lazy(() => import('./pages/Achievements'));
-const Admin = lazy(() => import('./pages/Admin'));
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
+const Sessions = lazyWithRetry(() => import('./pages/Sessions'));
+const WeightLog = lazyWithRetry(() => import('./pages/WeightLog'));
+const FluidLog = lazyWithRetry(() => import('./pages/FluidLog'));
+const Medications = lazyWithRetry(() => import('./pages/Medications'));
+const Education = lazyWithRetry(() => import('./pages/Education'));
+const Profile = lazyWithRetry(() => import('./pages/Profile'));
+const Settings = lazyWithRetry(() => import('./pages/Settings'));
+const Vitals = lazyWithRetry(() => import('./pages/Vitals'));
+const Subscription = lazyWithRetry(() => import('./pages/Subscription'));
+const SubscriptionDetail = lazyWithRetry(() => import('./pages/SubscriptionDetail'));
+const Reports = lazyWithRetry(() => import('./pages/Reports'));
+const NutritionScan = lazyWithRetry(() => import('./pages/NutritionScan'));
+const LabReports = lazyWithRetry(() => import('./pages/LabReports'));
+const Symptoms = lazyWithRetry(() => import('./pages/Symptoms'));
+const Reminders = lazyWithRetry(() => import('./pages/Reminders'));
+const Appointments = lazyWithRetry(() => import('./pages/Appointments'));
+const HealthCheck = lazyWithRetry(() => import('./pages/HealthCheck'));
+const AIChat = lazyWithRetry(() => import('./pages/AIChat'));
+const AIInsights = lazyWithRetry(() => import('./pages/AIInsights'));
+const SymptomAnalysis = lazyWithRetry(() => import('./pages/SymptomAnalysis'));
+const Alerts = lazyWithRetry(() => import('./pages/Alerts'));
+const Achievements = lazyWithRetry(() => import('./pages/Achievements'));
+const Admin = lazyWithRetry(() => import('./pages/Admin'));
 
 // Community pages
-const Community = lazy(() => import('./pages/Community'));
-const CommunityProfile = lazy(() => import('./pages/CommunityProfile'));
-const Forums = lazy(() => import('./pages/Forums'));
-const ForumCategory = lazy(() => import('./pages/ForumCategory'));
-const ForumPost = lazy(() => import('./pages/ForumPost'));
-const NewForumPost = lazy(() => import('./pages/NewForumPost'));
-const SuccessStories = lazy(() => import('./pages/SuccessStories'));
-const SuccessStoryDetail = lazy(() => import('./pages/SuccessStoryDetail'));
-const SubmitStory = lazy(() => import('./pages/SubmitStory'));
-const HCPVerification = lazy(() => import('./pages/HCPVerification'));
+const Community = lazyWithRetry(() => import('./pages/Community'));
+const CommunityProfile = lazyWithRetry(() => import('./pages/CommunityProfile'));
+const Forums = lazyWithRetry(() => import('./pages/Forums'));
+const ForumCategory = lazyWithRetry(() => import('./pages/ForumCategory'));
+const ForumPost = lazyWithRetry(() => import('./pages/ForumPost'));
+const NewForumPost = lazyWithRetry(() => import('./pages/NewForumPost'));
+const SuccessStories = lazyWithRetry(() => import('./pages/SuccessStories'));
+const SuccessStoryDetail = lazyWithRetry(() => import('./pages/SuccessStoryDetail'));
+const SubmitStory = lazyWithRetry(() => import('./pages/SubmitStory'));
+const HCPVerification = lazyWithRetry(() => import('./pages/HCPVerification'));
 
 // Check if health check page is enabled via env variable
 const ENABLE_HEALTH_CHECK = import.meta.env.VITE_ENABLE_HEALTH_CHECK === 'true';
