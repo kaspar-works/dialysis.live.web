@@ -25,6 +25,26 @@ class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+
+    // Auto-reload on stale chunk errors (happens after deploys)
+    const isChunkError =
+      error.message?.includes('Failed to fetch dynamically imported module') ||
+      error.message?.includes('Importing a module script failed') ||
+      error.message?.includes('Loading chunk') ||
+      error.message?.includes('Loading CSS chunk');
+
+    if (isChunkError) {
+      const reloadKey = 'chunk_error_reload';
+      const lastReload = sessionStorage.getItem(reloadKey);
+      const now = Date.now();
+      // Only auto-reload once per minute to prevent infinite loops
+      if (!lastReload || now - parseInt(lastReload) > 60000) {
+        sessionStorage.setItem(reloadKey, String(now));
+        window.location.reload();
+        return;
+      }
+    }
+
     // Send to Sentry
     captureError(error, {
       componentStack: errorInfo.componentStack,
