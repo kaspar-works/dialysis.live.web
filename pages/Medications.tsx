@@ -11,6 +11,7 @@ import {
   DoseStatus,
   getMedications,
   createMedication,
+  updateMedication,
   deleteMedication,
   createSchedule,
   getTodayDoses,
@@ -42,6 +43,9 @@ const Medications: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [medToDelete, setMedToDelete] = useState<Medication | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Edit medication
+  const [editingMed, setEditingMed] = useState<Medication | null>(null);
 
   // Medication interaction check
   const [isCheckingInteractions, setIsCheckingInteractions] = useState(false);
@@ -148,6 +152,7 @@ const Medications: React.FC = () => {
     setFieldErrors({});
     setTouchedFields({});
     setFormError(null);
+    setEditingMed(null);
   };
 
   // Fetch data
@@ -272,6 +277,58 @@ const Medications: React.FC = () => {
       console.error('Failed to delete medication:', err);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const openEditModal = (med: Medication) => {
+    setEditingMed(med);
+    setNewMed({
+      name: med.name,
+      dose: med.dose,
+      route: med.route,
+      instructions: med.instructions || '',
+      scheduleType: ScheduleType.DAILY,
+      times: ['08:00'],
+    });
+    setFieldErrors({});
+    setTouchedFields({});
+    setFormError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleUpdateMedication = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMed) return;
+    setFormError(null);
+
+    setTouchedFields({ name: true, dose: true, instructions: true });
+
+    const nameError = validateName(newMed.name);
+    const doseError = validateDose(newMed.dose);
+    const instructionsError = validateInstructions(newMed.instructions);
+
+    const newErrors = { name: nameError, dose: doseError, instructions: instructionsError };
+    setFieldErrors(newErrors);
+
+    if (nameError || doseError || instructionsError) return;
+
+    setIsSubmitting(true);
+    try {
+      await updateMedication(editingMed._id, {
+        name: newMed.name.trim(),
+        dose: newMed.dose.trim(),
+        route: newMed.route,
+        instructions: newMed.instructions?.trim() || undefined,
+      });
+
+      resetForm();
+      setEditingMed(null);
+      setIsModalOpen(false);
+      fetchData();
+    } catch (err) {
+      setFormError('Failed to update medication. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -715,11 +772,18 @@ const Medications: React.FC = () => {
                       {med.active ? 'Active' : 'Inactive'}
                     </span>
                     <button
+                      onClick={() => openEditModal(med)}
+                      className="p-2 text-slate-400 sm:text-slate-300 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-500/10 rounded-lg transition-all sm:opacity-0 sm:group-hover:opacity-100"
+                      title="Edit medication"
+                    >
+                      <ICONS.Edit className="w-5 h-5" />
+                    </button>
+                    <button
                       onClick={() => {
                         setMedToDelete(med);
                         setShowDeleteModal(true);
                       }}
-                      className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                      className="p-2 text-slate-400 sm:text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all sm:opacity-0 sm:group-hover:opacity-100"
                     >
                       <ICONS.Trash className="w-5 h-5" />
                     </button>
@@ -737,8 +801,8 @@ const Medications: React.FC = () => {
           <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-lg w-full animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Add Medication</h2>
-                <p className="text-sm text-slate-400 mt-1">Set up your medication schedule</p>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">{editingMed ? 'Edit Medication' : 'Add Medication'}</h2>
+                <p className="text-sm text-slate-400 mt-1">{editingMed ? 'Update medication details' : 'Set up your medication schedule'}</p>
               </div>
               <button
                 onClick={() => { resetForm(); setIsModalOpen(false); }}
@@ -748,7 +812,7 @@ const Medications: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAddMedication} className="p-6 space-y-5">
+            <form onSubmit={editingMed ? handleUpdateMedication : handleAddMedication} className="p-6 space-y-5">
               {formError && (
                 <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl p-3 flex items-center gap-2">
                   <ICONS.AlertCircle className="w-5 h-5 text-rose-500" />
@@ -817,6 +881,7 @@ const Medications: React.FC = () => {
                 </div>
               </div>
 
+              {!editingMed && (
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
                   Schedule
@@ -832,7 +897,9 @@ const Medications: React.FC = () => {
                   <option value={ScheduleType.AS_NEEDED}>As Needed</option>
                 </select>
               </div>
+              )}
 
+              {!editingMed && (
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
                   Times <span className="text-rose-500">*</span>
@@ -874,6 +941,7 @@ const Medications: React.FC = () => {
                   <ICONS.Plus className="w-4 h-4" /> Add Time
                 </button>
               </div>
+              )}
 
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
@@ -911,6 +979,11 @@ const Medications: React.FC = () => {
                 >
                   {isSubmitting ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : editingMed ? (
+                    <>
+                      <ICONS.Check className="w-5 h-5" />
+                      Update Medication
+                    </>
                   ) : (
                     <>
                       <ICONS.Plus className="w-5 h-5" />
