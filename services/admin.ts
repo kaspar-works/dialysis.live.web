@@ -385,6 +385,24 @@ export async function getPublicPageSettings(): Promise<{ pages: Record<string, {
   return response.data;
 }
 
+// Seed test data for a user
+export interface SeedTestDataResult {
+  userId: string;
+  daysSeeded: number;
+  counts: Record<string, number>;
+}
+
+export async function seedTestData(userId: string, daysBack: number = 60): Promise<SeedTestDataResult> {
+  const response = await authFetch('/admin/seed-test-data', {
+    method: 'POST',
+    body: JSON.stringify({ userId, daysBack }),
+  });
+  if (!response.success) {
+    throw new Error(response.error?.message || 'Failed to seed test data');
+  }
+  return response.data;
+}
+
 // Update user subscription (admin only)
 export async function updateUserSubscription(
   userId: string,

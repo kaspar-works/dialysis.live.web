@@ -19,6 +19,8 @@ import {
   updateUserSubscription,
   getAllAlerts,
   getActivityLogs,
+  seedTestData,
+  SeedTestDataResult,
   SystemStats,
   AdminUser,
   SystemAnnouncement,
@@ -94,6 +96,12 @@ const Admin: React.FC = () => {
   });
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Seed data states
+  const [seedUserId, setSeedUserId] = useState('');
+  const [seedDays, setSeedDays] = useState(60);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState<SeedTestDataResult | null>(null);
 
   // Search states
   const [userSearch, setUserSearch] = useState('');
@@ -469,6 +477,31 @@ const Admin: React.FC = () => {
     link.href = URL.createObjectURL(blob);
     link.download = `activity_export_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
+  };
+
+  // Handle seed test data
+  const handleSeedTestData = async () => {
+    if (!seedUserId.trim()) {
+      showError('Validation Error', 'Please enter a user ID');
+      return;
+    }
+    const confirmed = await showConfirm(
+      'Seed Test Data',
+      `This will DELETE all existing health data for this user and generate ${seedDays} days of test data. Continue?`
+    );
+    if (!confirmed) return;
+
+    setIsSeeding(true);
+    setSeedResult(null);
+    try {
+      const result = await seedTestData(seedUserId.trim(), seedDays);
+      setSeedResult(result);
+      showSuccess('Data Seeded', `Successfully seeded ${seedDays} days of test data`);
+    } catch (err: any) {
+      showError('Seed Failed', err.message || 'Failed to seed test data');
+    } finally {
+      setIsSeeding(false);
+    }
   };
 
   // Calculate subscription statistics
@@ -1863,6 +1896,81 @@ const Admin: React.FC = () => {
                   <span className="text-white font-bold">{stats?.activeUsers || 0}</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Seed Test Data */}
+          <div className="bg-slate-900/50 rounded-2xl p-6 border border-slate-700/50">
+            <div className="flex items-center gap-2 mb-4">
+              <ICONS.Sparkles className="w-5 h-5 text-amber-400" />
+              <h3 className="text-lg font-bold text-white">Seed Test Data</h3>
+            </div>
+            <p className="text-slate-400 text-sm mb-4">
+              Generate realistic health data (sessions, vitals, weight, fluids, symptoms, meals, medications) for a user. This will <span className="text-rose-400 font-semibold">delete all existing health data</span> for the target user first.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-slate-400 uppercase tracking-wider mb-1 block">User ID or select from list</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={seedUserId}
+                    onChange={e => setSeedUserId(e.target.value)}
+                    placeholder="MongoDB User ID"
+                    className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm font-mono placeholder-slate-500 focus:outline-none focus:border-violet-500"
+                  />
+                  <select
+                    onChange={e => { if (e.target.value) setSeedUserId(e.target.value); }}
+                    className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="">Pick user...</option>
+                    {users.map(u => (
+                      <option key={u._id} value={u._id}>{u.email}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase tracking-wider mb-1 block">Days of data</label>
+                <input
+                  type="number"
+                  value={seedDays}
+                  onChange={e => setSeedDays(Math.max(1, Math.min(365, parseInt(e.target.value) || 60)))}
+                  min={1}
+                  max={365}
+                  className="w-32 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-violet-500"
+                />
+              </div>
+              <button
+                onClick={handleSeedTestData}
+                disabled={isSeeding || !seedUserId.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-medium hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSeeding ? (
+                  <>
+                    <ICONS.RefreshCw className="w-4 h-4 animate-spin" />
+                    Seeding...
+                  </>
+                ) : (
+                  <>
+                    <ICONS.Sparkles className="w-4 h-4" />
+                    Seed Data
+                  </>
+                )}
+              </button>
+              {seedResult && (
+                <div className="mt-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <p className="text-emerald-400 font-medium text-sm mb-2">Seeded {seedResult.daysSeeded} days of data</p>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    {Object.entries(seedResult.counts).map(([key, count]) => (
+                      <div key={key} className="flex justify-between">
+                        <span className="text-slate-400 capitalize">{key}</span>
+                        <span className="text-white font-mono">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
