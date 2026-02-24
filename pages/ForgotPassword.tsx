@@ -8,6 +8,8 @@ import { forgotPassword } from '../services/auth';
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isOAuth, setIsOAuth] = useState(false);
+  const [oauthProvider, setOauthProvider] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -17,7 +19,14 @@ const ForgotPassword: React.FC = () => {
     setIsLoading(true);
 
     try {
-      await forgotPassword(email);
+      const result = await forgotPassword(email);
+
+      if (result.isOAuth) {
+        const match = result.message.match(/uses (\w+) login/i);
+        setOauthProvider(match ? match[1].charAt(0).toUpperCase() + match[1].slice(1) : 'a social');
+        setIsOAuth(true);
+      }
+
       setIsSubmitted(true);
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
@@ -116,20 +125,41 @@ const ForgotPassword: React.FC = () => {
              </div>
            ) : (
              <div className="space-y-8 text-center animate-in zoom-in-95 duration-500">
-                <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner border border-emerald-100 mb-8">
-                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div className="space-y-4">
-                   <h2 className="text-3xl font-black text-slate-900 tracking-tight">Protocol Dispatched</h2>
-                   <p className="text-slate-500 font-medium leading-relaxed">
-                      A recovery link has been synchronized to <span className="text-slate-900 font-black">{email}</span>. Please verify your identity to proceed.
-                   </p>
-                </div>
-                <div className="pt-8">
-                   <Link to="/login" className="px-12 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl hover:bg-sky-600 transition-all">
-                      Return to Hub
-                   </Link>
-                </div>
+                {isOAuth ? (
+                  <>
+                    <div className="w-24 h-24 bg-amber-50 text-amber-500 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner border border-amber-100 mb-8">
+                       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    </div>
+                    <div className="space-y-4">
+                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">No Password to Reset</h2>
+                       <p className="text-slate-500 font-medium leading-relaxed">
+                          The account for <span className="text-slate-900 font-black">{email}</span> was created using <span className="text-slate-900 font-black">{oauthProvider}</span> sign-in. Please use that provider to access your account.
+                       </p>
+                    </div>
+                    <div className="pt-8">
+                       <Link to="/login" className="px-12 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl hover:bg-sky-600 transition-all">
+                          Sign In with {oauthProvider}
+                       </Link>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner border border-emerald-100 mb-8">
+                       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <div className="space-y-4">
+                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">Protocol Dispatched</h2>
+                       <p className="text-slate-500 font-medium leading-relaxed">
+                          A recovery link has been synchronized to <span className="text-slate-900 font-black">{email}</span>. Please verify your identity to proceed.
+                       </p>
+                    </div>
+                    <div className="pt-8">
+                       <Link to="/login" className="px-12 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl hover:bg-sky-600 transition-all">
+                          Return to Hub
+                       </Link>
+                    </div>
+                  </>
+                )}
              </div>
            )}
         </div>

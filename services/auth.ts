@@ -593,7 +593,7 @@ export async function regenerateBackupCodes(token: string): Promise<{ backupCode
 // Forgot Password
 // =====================
 
-export async function forgotPassword(email: string): Promise<void> {
+export async function forgotPassword(email: string): Promise<{ message: string; isOAuth?: boolean }> {
   const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
     method: 'POST',
     headers: {
@@ -607,6 +607,11 @@ export async function forgotPassword(email: string): Promise<void> {
   if (!response.ok || result.success === false) {
     throw new Error(result.error?.message || result.message || 'Failed to send reset email');
   }
+
+  const message: string = result.message || '';
+  const isOAuth = message.toLowerCase().includes('uses') && message.toLowerCase().includes('login');
+
+  return { message, isOAuth };
 }
 
 export async function resetPassword(token: string, password: string): Promise<void> {
