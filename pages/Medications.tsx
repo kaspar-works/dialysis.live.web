@@ -6,6 +6,7 @@ import { SubscriptionLimitError, FeatureRestrictedError } from '../services/auth
 import {
   Medication,
   MedicationDose,
+  MedicationSchedule,
   MedicationRoute,
   ScheduleType,
   DoseStatus,
@@ -14,6 +15,8 @@ import {
   updateMedication,
   deleteMedication,
   createSchedule,
+  getSchedule,
+  updateSchedule,
   getTodayDoses,
   markDoseTaken,
   markDoseSkipped,
@@ -46,6 +49,11 @@ const Medications: React.FC = () => {
 
   // Edit medication
   const [editingMed, setEditingMed] = useState<Medication | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<MedicationSchedule | null>(null);
+
+  // Skip reason
+  const [showSkipModal, setShowSkipModal] = useState(false);
+  const [doseToSkip, setDoseToSkip] = useState<string | null>(null);
 
   // Medication interaction check
   const [isCheckingInteractions, setIsCheckingInteractions] = useState(false);
@@ -164,7 +172,7 @@ const Medications: React.FC = () => {
 
     try {
       const [medsData, dosesData, statsData] = await Promise.all([
-        getMedications(true),
+        getMedications(),
         getTodayDoses(),
         getTodayDoseStats(),
       ]);
@@ -199,12 +207,21 @@ const Medications: React.FC = () => {
     }
   };
 
-  const handleSkipDose = async (doseId: string) => {
+  const handleSkipDose = (doseId: string) => {
+    setDoseToSkip(doseId);
+    setShowSkipModal(true);
+  };
+
+  const handleConfirmSkip = async (reason: string | undefined) => {
+    if (!doseToSkip) return;
     try {
-      await markDoseSkipped(doseId);
+      await markDoseSkipped(doseToSkip, reason);
       fetchData();
     } catch (err) {
       console.error('Failed to skip dose:', err);
+    } finally {
+      setShowSkipModal(false);
+      setDoseToSkip(null);
     }
   };
 
@@ -280,8 +297,9 @@ const Medications: React.FC = () => {
     }
   };
 
-  const openEditModal = (med: Medication) => {
+  const openEditModal = async (med: Medication) => {
     setEditingMed(med);
+    setEditingSchedule(null);
     setNewMed({
       name: med.name,
       dose: med.dose,
@@ -294,6 +312,22 @@ const Medications: React.FC = () => {
     setTouchedFields({});
     setFormError(null);
     setIsModalOpen(true);
+
+    // Fetch schedule in background
+    try {
+      const schedules = await getSchedule(med._id);
+      if (schedules.length > 0) {
+        const sched = schedules[0];
+        setEditingSchedule(sched);
+        setNewMed(prev => ({
+          ...prev,
+          scheduleType: sched.scheduleType as ScheduleType,
+          times: sched.times.length > 0 ? sched.times : ['08:00'],
+        }));
+      }
+    } catch {
+      // Schedule fetch failed — not critical, keep modal open
+    }
   };
 
   const handleUpdateMedication = async (e: React.FormEvent) => {
@@ -301,16 +335,19 @@ const Medications: React.FC = () => {
     if (!editingMed) return;
     setFormError(null);
 
-    setTouchedFields({ name: true, dose: true, instructions: true });
+    setTouchedFields({ name: true, dose: true, instructions: true, times: true });
 
     const nameError = validateName(newMed.name);
     const doseError = validateDose(newMed.dose);
     const instructionsError = validateInstructions(newMed.instructions);
+    const timesError = validateTimes(newMed.times);
 
-    const newErrors = { name: nameError, dose: doseError, instructions: instructionsError };
+    const newErrors = { name: nameError, dose: doseError, instructions: instructionsError, times: timesError };
     setFieldErrors(newErrors);
 
-    if (nameError || doseError || instructionsError) return;
+    if (nameError || doseError || instructionsError || timesError) return;
+
+    const validTimes = newMed.times.filter(t => t && t.trim() !== '');
 
     setIsSubmitting(true);
     try {
@@ -321,8 +358,22 @@ const Medications: React.FC = () => {
         instructions: newMed.instructions?.trim() || undefined,
       });
 
+      // Update or create schedule
+      if (editingSchedule) {
+        await updateSchedule(editingMed._id, editingSchedule._id, {
+          scheduleType: newMed.scheduleType,
+          times: validTimes,
+        });
+      } else {
+        await createSchedule(editingMed._id, {
+          scheduleType: newMed.scheduleType,
+          times: validTimes,
+        });
+      }
+
       resetForm();
       setEditingMed(null);
+      setEditingSchedule(null);
       setIsModalOpen(false);
       fetchData();
     } catch (err) {
@@ -431,7 +482,7 @@ const Medications: React.FC = () => {
             Dosing Log
           </h1>
           {medications.length > 0 && (
-            <p className="text-slate-400 text-sm mt-1">{medications.length} active medication{medications.length !== 1 ? 's' : ''}</p>
+            <p className="text-slate-400 text-sm mt-1">{medications.filter(m => m.active).length} active medication{medications.filter(m => m.active).length !== 1 ? 's' : ''}{medications.filter(m => !m.active).length > 0 ? ` · ${medications.filter(m => !m.active).length} inactive` : ''}</p>
           )}
         </div>
         <div className="flex items-center gap-3">
@@ -762,15 +813,22 @@ const Medications: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <span
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase ${
+                    <button
+                      onClick={async () => {
+                        try {
+                          await updateMedication(med._id, { active: !med.active });
+                          fetchData();
+                        } catch {}
+                      }}
+                      title={med.active ? 'Deactivate medication' : 'Reactivate medication'}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase cursor-pointer transition-all hover:scale-105 ${
                         med.active
-                          ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
+                          ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-500/30'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
                       }`}
                     >
                       {med.active ? 'Active' : 'Inactive'}
-                    </span>
+                    </button>
                     <button
                       onClick={() => openEditModal(med)}
                       className="p-2 text-slate-400 sm:text-slate-300 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-500/10 rounded-lg transition-all sm:opacity-0 sm:group-hover:opacity-100"
@@ -881,7 +939,6 @@ const Medications: React.FC = () => {
                 </div>
               </div>
 
-              {!editingMed && (
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
                   Schedule
@@ -897,9 +954,7 @@ const Medications: React.FC = () => {
                   <option value={ScheduleType.AS_NEEDED}>As Needed</option>
                 </select>
               </div>
-              )}
 
-              {!editingMed && (
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
                   Times <span className="text-rose-500">*</span>
@@ -941,7 +996,6 @@ const Medications: React.FC = () => {
                   <ICONS.Plus className="w-4 h-4" /> Add Time
                 </button>
               </div>
-              )}
 
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">
@@ -1049,6 +1103,46 @@ const Medications: React.FC = () => {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Skip Reason Modal */}
+      {showSkipModal && doseToSkip && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center">
+                <ICONS.AlertCircle className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Skip Dose</h3>
+                <p className="text-xs text-slate-400">Why are you skipping?</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {['Out of medication', 'Side effects', 'Forgot', 'Doctor advised'].map((reason) => (
+                <button
+                  key={reason}
+                  onClick={() => handleConfirmSkip(reason)}
+                  className="w-full text-left px-4 py-3 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  {reason}
+                </button>
+              ))}
+              <button
+                onClick={() => handleConfirmSkip(undefined)}
+                className="w-full text-left px-4 py-3 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl text-sm font-medium text-slate-400 transition-colors"
+              >
+                No reason
+              </button>
+            </div>
+            <button
+              onClick={() => { setShowSkipModal(false); setDoseToSkip(null); }}
+              className="w-full mt-4 py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

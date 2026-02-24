@@ -200,6 +200,22 @@ export async function getSchedule(medicationId: string): Promise<MedicationSched
   return result.data.schedules;
 }
 
+/**
+ * Update a schedule
+ * PATCH /api/v1/medications/:medicationId/schedule/:scheduleId
+ */
+export async function updateSchedule(
+  medicationId: string,
+  scheduleId: string,
+  data: Partial<CreateScheduleInput>
+): Promise<MedicationSchedule> {
+  const result = await authFetch(`/medications/${medicationId}/schedule/${scheduleId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return result.data.schedule;
+}
+
 // ============================================
 // Medication Doses
 // ============================================
