@@ -336,6 +336,17 @@ export async function deleteResolvedErrors(): Promise<{ deletedCount: number }> 
   return response.data;
 }
 
+// Delete all errors
+export async function deleteAllErrors(): Promise<{ deletedCount: number }> {
+  const response = await authFetch('/admin/errors/all', {
+    method: 'DELETE',
+  });
+  if (!response.success) {
+    throw new Error(response.error?.message || 'Failed to delete all errors');
+  }
+  return response.data;
+}
+
 // Page Settings
 export interface PageSetting {
   path: string;

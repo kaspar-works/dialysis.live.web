@@ -14,6 +14,7 @@ import {
   resolveError,
   deleteErrorLog,
   deleteResolvedErrors,
+  deleteAllErrors,
   getPageSettings,
   togglePageSetting,
   updateUserSubscription,
@@ -255,6 +256,24 @@ const Admin: React.FC = () => {
           showSuccess('Deleted', `Deleted ${result.deletedCount} resolved error logs`);
         } catch (err) {
           console.error('Failed to delete resolved errors:', err);
+        }
+      },
+      { confirmText: 'Delete All', cancelText: 'Cancel' }
+    );
+  };
+
+  // Delete all errors
+  const handleDeleteAllErrors = () => {
+    showConfirm(
+      'Delete All Errors',
+      'Are you sure you want to delete ALL error logs? This cannot be undone.',
+      async () => {
+        try {
+          const result = await deleteAllErrors();
+          setErrorLogs([]);
+          showSuccess('Deleted', `Deleted ${result.deletedCount} error logs`);
+        } catch (err) {
+          console.error('Failed to delete all errors:', err);
         }
       },
       { confirmText: 'Delete All', cancelText: 'Cancel' }
@@ -1053,12 +1072,20 @@ const Admin: React.FC = () => {
                 </button>
               ))}
             </div>
-            <button
-              onClick={handleDeleteResolvedErrors}
-              className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-700 transition-colors"
-            >
-              Clear Resolved
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDeleteResolvedErrors}
+                className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-700 transition-colors"
+              >
+                Clear Resolved
+              </button>
+              <button
+                onClick={handleDeleteAllErrors}
+                className="px-4 py-2 bg-rose-500/20 text-rose-400 rounded-xl font-bold text-sm hover:bg-rose-500/30 transition-colors"
+              >
+                Delete All
+              </button>
+            </div>
           </div>
 
           {/* Error Logs List */}
