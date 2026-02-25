@@ -60,7 +60,7 @@ const Admin: React.FC = () => {
   const [errorStats, setErrorStats] = useState<ErrorLogStats | null>(null);
   const [errorsPagination, setErrorsPagination] = useState({ total: 0, limit: 100, offset: 0 });
   const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>([]);
-  const [errorFilter, setErrorFilter] = useState<'all' | 'critical' | 'error' | 'warn' | 'unresolved'>('all');
+  const [errorFilter, setErrorFilter] = useState<'all' | 'critical' | 'error' | 'warn' | 'unresolved' | 'client'>('all');
   const [selectedError, setSelectedError] = useState<ErrorLogEntry | null>(null);
   const [pageSettings, setPageSettings] = useState<PageSetting[]>([]);
   const [togglingPage, setTogglingPage] = useState<string | null>(null);
@@ -196,11 +196,12 @@ const Admin: React.FC = () => {
   const handleFilterErrors = async (filter: typeof errorFilter) => {
     setErrorFilter(filter);
     try {
-      const params: { level?: 'error' | 'warn' | 'critical'; resolved?: boolean; limit: number } = { limit: 100 };
+      const params: { level?: 'error' | 'warn' | 'critical'; resolved?: boolean; limit: number; endpoint?: string } = { limit: 100 };
       if (filter === 'critical') params.level = 'critical';
       if (filter === 'error') params.level = 'error';
       if (filter === 'warn') params.level = 'warn';
       if (filter === 'unresolved') params.resolved = false;
+      if (filter === 'client') params.endpoint = 'client-report';
 
       const data = await getErrorLogs(params);
       setErrorLogs(data.errors);
@@ -1038,7 +1039,7 @@ const Admin: React.FC = () => {
           {/* Filter and Actions */}
           <div className="flex flex-wrap gap-2 items-center justify-between">
             <div className="flex gap-2 overflow-x-auto">
-              {(['all', 'critical', 'error', 'warn', 'unresolved'] as const).map(filter => (
+              {(['all', 'critical', 'error', 'warn', 'unresolved', 'client'] as const).map(filter => (
                 <button
                   key={filter}
                   onClick={() => handleFilterErrors(filter)}
@@ -1106,6 +1107,15 @@ const Admin: React.FC = () => {
                             {error.resolved && (
                               <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/10 text-emerald-400">
                                 Resolved
+                              </span>
+                            )}
+                            {error.endpoint === 'client-report' && (
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                (error.metadata as any)?.source === 'ios'
+                                  ? 'bg-blue-500/10 text-blue-400'
+                                  : 'bg-cyan-500/10 text-cyan-400'
+                              }`}>
+                                {(error.metadata as any)?.source === 'ios' ? 'iOS' : (error.metadata as any)?.source === 'android' ? 'Android' : 'Web'}
                               </span>
                             )}
                           </div>

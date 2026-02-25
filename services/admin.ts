@@ -274,6 +274,7 @@ export async function getErrorLogs(params?: {
   resolved?: boolean;
   limit?: number;
   offset?: number;
+  endpoint?: string;
 }): Promise<{
   errors: ErrorLogEntry[];
   stats: ErrorLogStats;
@@ -284,6 +285,7 @@ export async function getErrorLogs(params?: {
   if (params?.resolved !== undefined) searchParams.set('resolved', String(params.resolved));
   if (params?.limit) searchParams.set('limit', String(params.limit));
   if (params?.offset) searchParams.set('offset', String(params.offset));
+  if (params?.endpoint) searchParams.set('endpoint', params.endpoint);
 
   const queryString = searchParams.toString();
   const response = await authFetch(`/admin/errors${queryString ? `?${queryString}` : ''}`);

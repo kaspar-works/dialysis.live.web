@@ -1,5 +1,6 @@
 import React, { ErrorInfo, ReactNode } from 'react';
 import { captureError } from '../config/sentry';
+import { reportError } from '../services/errorReporter';
 
 interface Props {
   children: ReactNode;
@@ -48,6 +49,12 @@ class ErrorBoundary extends React.Component<Props, State> {
     // Send to Sentry
     captureError(error, {
       componentStack: errorInfo.componentStack,
+    });
+
+    // Send to backend for admin panel visibility
+    reportError(error, {
+      componentStack: errorInfo.componentStack,
+      page: window.location.href,
     });
   }
 

@@ -634,6 +634,15 @@ export async function resetPassword(token: string, password: string): Promise<vo
 // Utility Functions
 // =====================
 
+// Lazy import to avoid circular dependency
+let _reportError: ((error: Error | string, metadata?: Record<string, unknown>) => void) | null = null;
+function getReportError() {
+  if (!_reportError) {
+    import('./errorReporter').then(m => { _reportError = m.reportError; }).catch(() => {});
+  }
+  return _reportError;
+}
+
 // Authenticated fetch with cookie credentials and CSRF protection
 export async function authFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
   const method = (options.method || 'GET').toUpperCase();
@@ -708,6 +717,13 @@ export async function authFetch(endpoint: string, options: RequestInit = {}): Pr
     // Include validation errors if present
     if (result.error?.errors || result.errors) {
       error.errors = result.error?.errors || result.errors;
+    }
+    // Report server errors to backend for admin visibility
+    if (response.status >= 500) {
+      const report = getReportError();
+      if (report) {
+        report(error, { endpoint, statusCode: response.status });
+      }
     }
     throw error;
   }
