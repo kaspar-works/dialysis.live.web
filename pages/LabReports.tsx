@@ -12,6 +12,7 @@ import {
   getLabTrends,
   analyzeLabReport,
   createLabReport,
+  updateLabReport,
   deleteLabReport,
   scanLabReportImage,
   LabReport,
@@ -43,6 +44,7 @@ const LabReports: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingReport, setEditingReport] = useState<LabReport | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [limitError, setLimitError] = useState<{ message: string } | null>(null);
@@ -303,7 +305,7 @@ const LabReports: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const newReport = await createLabReport({
+      const reportData = {
         reportDate: formData.reportDate,
         labName: formData.labName || undefined,
         results: formData.results.map(r => ({
@@ -311,17 +313,26 @@ const LabReports: React.FC = () => {
           testCode: r.testCode,
           value: parseFloat(r.value),
         })),
-      });
+      };
 
-      setReports(prev => [newReport, ...prev]);
+      if (editingReport) {
+        const updated = await updateLabReport(editingReport._id, reportData);
+        setReports(prev => prev.map(r => r._id === editingReport._id ? updated : r));
+        setNotification({ message: 'Lab report updated', type: 'success' });
+      } else {
+        const newReport = await createLabReport(reportData);
+        setReports(prev => [newReport, ...prev]);
+        setNotification({ message: 'Lab report saved', type: 'success' });
+      }
+
       setShowForm(false);
+      setEditingReport(null);
       setFormData({
         reportDate: new Date().toISOString().split('T')[0],
         labName: '',
         results: [],
       });
       resetFormValidation();
-      setNotification({ message: 'Lab report saved', type: 'success' });
       setTimeout(() => setNotification(null), 3000);
 
       // Refresh latest results
@@ -333,7 +344,7 @@ const LabReports: React.FC = () => {
         setLimitError({ message: err.message });
         setShowForm(false);
       } else {
-        setError('Failed to save lab report');
+        setError(editingReport ? 'Failed to update lab report' : 'Failed to save lab report');
       }
     } finally {
       setIsSubmitting(false);
@@ -394,6 +405,23 @@ const LabReports: React.FC = () => {
       },
       { confirmText: 'Delete', cancelText: 'Cancel' }
     );
+  };
+
+  // Handle edit
+  const openEditForm = (report: LabReport) => {
+    setEditingReport(report);
+    setFormData({
+      reportDate: report.reportDate.split('T')[0],
+      labName: report.labName || '',
+      results: report.results.map(r => ({
+        testCode: r.testCode,
+        testName: r.testName,
+        value: String(r.value),
+      })),
+    });
+    resetFormValidation();
+    setShowForm(true);
+    setSelectedReport(null);
   };
 
   // Handle scan file selection
@@ -556,6 +584,7 @@ const LabReports: React.FC = () => {
             if (showForm) {
               // Reset validation when closing form
               resetFormValidation();
+              setEditingReport(null);
             }
             setShowForm(!showForm);
           }}
@@ -642,8 +671,8 @@ const LabReports: React.FC = () => {
       {showForm && (
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 animate-in slide-in-from-top duration-300 shadow-xl overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-slate-700">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Add Lab Report</h2>
-            <p className="text-slate-400 text-sm mt-1">Scan a photo or enter results manually</p>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">{editingReport ? 'Edit Lab Report' : 'Add Lab Report'}</h2>
+            <p className="text-slate-400 text-sm mt-1">{editingReport ? 'Update report details and results' : 'Scan a photo or enter results manually'}</p>
           </div>
 
           {/* Mode Toggle */}
@@ -1064,7 +1093,7 @@ const LabReports: React.FC = () => {
               ) : (
                 <>
                   <span className="text-xl">🔬</span>
-                  Save Lab Report
+                  {editingReport ? 'Update Lab Report' : 'Save Lab Report'}
                 </>
               )}
             </button>
@@ -1396,6 +1425,13 @@ const LabReports: React.FC = () => {
                                     )}
                                   </button>
                                   <button
+                                    onClick={() => openEditForm(report)}
+                                    className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors"
+                                    title="Edit"
+                                  >
+                                    <ICONS.Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
                                     onClick={() => handleDelete(report._id)}
                                     className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
                                     title="Delete"
@@ -1444,12 +1480,21 @@ const LabReports: React.FC = () => {
                     <p className="text-slate-400 text-xs sm:text-sm truncate">{selectedReport.labName}</p>
                   )}
                 </div>
-                <button
-                  onClick={() => setSelectedReport(null)}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors flex-shrink-0"
-                >
-                  <ICONS.X className="w-5 h-5 sm:w-6 sm:h-6" />
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => openEditForm(selectedReport)}
+                    className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-xl transition-colors"
+                    title="Edit Report"
+                  >
+                    <ICONS.Edit className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setSelectedReport(null)}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
+                  >
+                    <ICONS.X className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </button>
+                </div>
               </div>
             </div>
 
