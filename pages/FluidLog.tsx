@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { useSettings } from '../contexts/SettingsContext';
-import { createFluidLog, getTodayFluidIntake, getFluidLogs, deleteFluidLog, FluidLog as FluidLogType, FluidSource, FluidPagination } from '../services/fluid';
+import { createFluidLog, updateFluidLog, getTodayFluidIntake, getFluidLogs, deleteFluidLog, FluidLog as FluidLogType, FluidSource, FluidPagination } from '../services/fluid';
 import { SubscriptionLimitError } from '../services/auth';
 
 const beverages: { name: string; source: FluidSource; icon: string; color: string; gradient: string }[] = [
@@ -11,8 +11,17 @@ const beverages: { name: string; source: FluidSource; icon: string; color: strin
   { name: 'Tea', source: 'tea', icon: '🍵', color: 'emerald', gradient: 'from-emerald-400 to-teal-500' },
   { name: 'Coffee', source: 'coffee', icon: '☕', color: 'amber', gradient: 'from-amber-500 to-orange-600' },
   { name: 'Juice', source: 'juice', icon: '🧃', color: 'orange', gradient: 'from-orange-400 to-rose-500' },
+  { name: 'Milk', source: 'milk', icon: '🥛', color: 'slate', gradient: 'from-slate-300 to-slate-400' },
+  { name: 'Soda', source: 'soda', icon: '🥤', color: 'red', gradient: 'from-red-400 to-red-500' },
   { name: 'Soup', source: 'soup', icon: '🥣', color: 'rose', gradient: 'from-rose-400 to-pink-500' },
+  { name: 'Ice', source: 'ice', icon: '🧊', color: 'blue', gradient: 'from-blue-300 to-blue-400' },
 ];
+
+const dataSourceConfig: Record<string, { label: string; color: string }> = {
+  'apple_watch': { label: 'Apple Watch', color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' },
+  'device': { label: 'Device', color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' },
+  'import': { label: 'Imported', color: 'text-teal-500 bg-teal-50 dark:bg-teal-500/10' },
+};
 
 const quickAmountsMl = [100, 150, 200, 250, 300, 500];
 const quickAmountsOz = [4, 5, 6, 8, 10, 16];
@@ -29,6 +38,7 @@ const FluidLog: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recentlyAdded, setRecentlyAdded] = useState<string | null>(null);
+  const [editingLog, setEditingLog] = useState<FluidLogType | null>(null);
   const [deleteModalLog, setDeleteModalLog] = useState<FluidLogType | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -178,6 +188,55 @@ const FluidLog: React.FC = () => {
 
   const today = getTodayString();
   const todayLogs = logs.filter(l => getDateString(l.loggedAt) === today);
+
+  const openEditForm = (log: FluidLogType) => {
+    const bev = beverages.find(b => b.source === log.source) || beverages[0];
+    setEditingLog(log);
+    setSelectedBeverage(bev);
+    setCustomAmount(convertFluidFromMl(log.amountMl).toString());
+    setCustomAmountError('');
+    setCustomAmountTouched(false);
+  };
+
+  const cancelEdit = () => {
+    setEditingLog(null);
+    setCustomAmount('');
+    setSelectedBeverage(beverages[0]);
+    setCustomAmountError('');
+    setCustomAmountTouched(false);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingLog || isAdding) return;
+    setError(null);
+
+    setCustomAmountTouched(true);
+    const validationError = validateFluidAmount(customAmount);
+    setCustomAmountError(validationError);
+    if (validationError) return;
+
+    const amount = parseFloat(customAmount);
+    const amountMl = convertFluidToMl(amount);
+
+    setIsAdding(true);
+    try {
+      await updateFluidLog(editingLog._id, {
+        amountMl,
+        source: selectedBeverage.source,
+      });
+      setEditingLog(null);
+      setCustomAmount('');
+      setCustomAmountError('');
+      setCustomAmountTouched(false);
+      await fetchFluidData();
+      setNotification({ message: `${selectedBeverage.icon} Updated to ${formatFluid(amountMl, false)} ${fluidUnit}`, type: 'success' });
+      setTimeout(() => setNotification(null), 3000);
+    } catch (err) {
+      setError('Failed to update');
+    } finally {
+      setIsAdding(false);
+    }
+  };
 
   const handleAdd = async (amount: number, isCustom: boolean = false) => {
     if (isAdding) return;
@@ -474,9 +533,16 @@ const FluidLog: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Add Section */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Quick Add</h3>
+      {/* Quick Add / Edit Section */}
+      <div className={`bg-white dark:bg-slate-800 rounded-3xl p-6 border ${editingLog ? 'border-sky-300 dark:border-sky-500/30' : 'border-slate-100 dark:border-slate-700'}`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+            {editingLog ? 'Edit Entry' : 'Quick Add'}
+          </h3>
+          {editingLog && (
+            <button onClick={cancelEdit} className="text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">Cancel</button>
+          )}
+        </div>
 
         {/* Beverage Selection */}
         <div className="flex flex-wrap gap-2 mb-5">
@@ -540,16 +606,20 @@ const FluidLog: React.FC = () => {
             )}
           </div>
           <button
-            onClick={() => handleAdd(parseFloat(customAmount) || 0, true)}
+            onClick={() => editingLog ? handleUpdate() : handleAdd(parseFloat(customAmount) || 0, true)}
             disabled={!customAmount || isAdding || (customAmountError !== '' && customAmountTouched)}
             className={`px-8 rounded-xl font-black text-white transition-all ${
               customAmountError && customAmountTouched
                 ? 'bg-slate-400 cursor-not-allowed'
-                : `bg-gradient-to-r ${selectedBeverage.gradient} hover:shadow-lg hover:scale-105 active:scale-95`
+                : editingLog
+                  ? 'bg-sky-500 hover:bg-sky-600 hover:shadow-lg hover:scale-105 active:scale-95'
+                  : `bg-gradient-to-r ${selectedBeverage.gradient} hover:shadow-lg hover:scale-105 active:scale-95`
             } disabled:opacity-50 disabled:hover:scale-100`}
           >
             {isAdding ? (
               <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : editingLog ? (
+              <ICONS.Check className="w-6 h-6" />
             ) : (
               <ICONS.Plus className="w-6 h-6" />
             )}
@@ -701,7 +771,14 @@ const FluidLog: React.FC = () => {
                     {bev.icon}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-900 dark:text-white">{bev.name}</p>
+                    <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      {bev.name}
+                      {log.dataSource && dataSourceConfig[log.dataSource] && (
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${dataSourceConfig[log.dataSource].color}`}>
+                          {dataSourceConfig[log.dataSource].label}
+                        </span>
+                      )}
+                    </p>
                     <p className="text-sm text-slate-400">
                       {isToday(log.loggedAt)
                         ? displayTime(log.loggedAt)
@@ -715,6 +792,12 @@ const FluidLog: React.FC = () => {
                     </span>
                     <span className="text-sm text-slate-400 ml-1">{fluidUnit}</span>
                   </div>
+                  <button
+                    onClick={() => openEditForm(log)}
+                    className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-sky-500 hover:bg-sky-500/10 rounded-xl transition-all"
+                  >
+                    <ICONS.Edit className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={() => handleDeleteClick(log)}
                     className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"

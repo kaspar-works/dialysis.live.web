@@ -1,7 +1,7 @@
 
 import { authFetch } from './auth';
 
-export type FluidSource = 'water' | 'tea' | 'coffee' | 'juice' | 'soup' | 'other';
+export type FluidSource = 'water' | 'tea' | 'coffee' | 'juice' | 'milk' | 'soda' | 'soup' | 'ice' | 'other';
 
 export interface FluidLog {
   _id: string;
@@ -10,6 +10,7 @@ export interface FluidLog {
   amountMl: number;
   source: FluidSource;
   notes?: string;
+  dataSource?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -79,6 +80,21 @@ export async function getFluidLogs(params?: {
     logs: result.data?.logs || [],
     pagination: result.meta?.pagination || result.data?.pagination || { total: 0, limit: 10, offset: 0 },
   };
+}
+
+// Update a fluid log
+export interface UpdateFluidLogData {
+  amountMl?: number;
+  source?: FluidSource;
+  notes?: string;
+}
+
+export async function updateFluidLog(logId: string, data: UpdateFluidLogData): Promise<FluidLog> {
+  const result = await authFetch(`/fluids/${logId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return result.data.fluidLog;
 }
 
 // Delete a fluid log
