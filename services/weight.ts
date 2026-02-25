@@ -1,6 +1,6 @@
 import { authFetch } from './auth';
 
-export type WeightContext = 'morning' | 'pre_dialysis' | 'post_dialysis';
+export type WeightContext = 'morning' | 'pre_dialysis' | 'post_dialysis' | 'custom';
 
 export interface WeightLog {
   _id: string;
@@ -10,6 +10,7 @@ export interface WeightLog {
   context: WeightContext;
   sessionId?: string;
   notes?: string;
+  source?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -64,6 +65,21 @@ export async function getWeightLogs(params: GetWeightsParams = {}): Promise<Weig
     logs: result.data?.logs || [],
     pagination: result.meta?.pagination || result.data?.pagination || { total: 0, limit: 10, offset: 0 },
   };
+}
+
+export interface UpdateWeightData {
+  weightKg?: number;
+  context?: WeightContext;
+  loggedAt?: string;
+  notes?: string;
+}
+
+export async function updateWeightLog(logId: string, data: UpdateWeightData): Promise<WeightLog> {
+  const result = await authFetch(`/weights/${logId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return result.data.weightLog;
 }
 
 export async function deleteWeightLog(logId: string): Promise<void> {

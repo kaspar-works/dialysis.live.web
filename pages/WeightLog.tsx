@@ -3,25 +3,34 @@ import { Link } from 'react-router';
 import { useStore } from '../store';
 import { ICONS } from '../constants';
 import { useSettings } from '../contexts/SettingsContext';
-import { createWeightLog, getWeightLogs, deleteWeightLog, deleteAllWeightLogs, analyzeWeightLogs, exportWeightLogs, WeightLog as WeightLogApi, WeightContext, WeightAnalysis } from '../services/weight';
+import { createWeightLog, updateWeightLog, getWeightLogs, deleteWeightLog, deleteAllWeightLogs, analyzeWeightLogs, exportWeightLogs, WeightLog as WeightLogApi, WeightContext, WeightAnalysis } from '../services/weight';
 import { SubscriptionLimitError } from '../services/auth';
 
 const typeToApi: Record<string, WeightContext> = {
   'morning': 'morning',
   'pre-dialysis': 'pre_dialysis',
   'post-dialysis': 'post_dialysis',
+  'custom': 'custom',
 };
 
 const apiToType: Record<WeightContext, string> = {
   'morning': 'morning',
   'pre_dialysis': 'pre-dialysis',
   'post_dialysis': 'post-dialysis',
+  'custom': 'custom',
 };
 
 const contextConfig = {
   'morning': { label: 'Morning', icon: '🌅', color: 'amber', bg: 'bg-amber-500' },
   'pre-dialysis': { label: 'Pre-Dialysis', icon: '🏥', color: 'sky', bg: 'bg-sky-500' },
   'post-dialysis': { label: 'Post-Dialysis', icon: '✅', color: 'emerald', bg: 'bg-emerald-500' },
+  'custom': { label: 'Custom', icon: '⚖️', color: 'violet', bg: 'bg-violet-500' },
+};
+
+const sourceConfig: Record<string, { label: string; color: string }> = {
+  'apple_watch': { label: 'Apple Watch', color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' },
+  'device': { label: 'Device', color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' },
+  'import': { label: 'Imported', color: 'text-teal-500 bg-teal-50 dark:bg-teal-500/10' },
 };
 
 const ITEMS_PER_PAGE = 10;
@@ -34,7 +43,9 @@ const WeightLog: React.FC = () => {
     const goalKg = profile.weightGoal || 75.0;
     return weightUnit === 'lb' ? (goalKg * 2.20462).toFixed(1) : goalKg.toString();
   });
-  const [newType, setNewType] = useState<'morning' | 'pre-dialysis' | 'post-dialysis'>('morning');
+  const [newType, setNewType] = useState<'morning' | 'pre-dialysis' | 'post-dialysis' | 'custom'>('morning');
+  const [editingWeight, setEditingWeight] = useState<WeightLogApi | null>(null);
+  const [editNotes, setEditNotes] = useState('');
   const [timeRange, setTimeRange] = useState<'7' | '30' | '90'>('30');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -209,6 +220,26 @@ const WeightLog: React.FC = () => {
   const weightChange = convertWeightFromKg(currentWeightKg - previousWeightKg);
   const targetDiff = currentWeight - convertWeightFromKg(profile.weightGoal);
 
+  const openEditForm = (w: WeightLogApi) => {
+    const displayType = apiToType[w.context] || 'custom';
+    setEditingWeight(w);
+    setNewValue(convertWeightFromKg(w.weightKg).toFixed(1));
+    setNewType(displayType as typeof newType);
+    setEditNotes(w.notes || '');
+    setWeightError('');
+    setWeightTouched(false);
+  };
+
+  const cancelEdit = () => {
+    setEditingWeight(null);
+    setEditNotes('');
+    const goalKg = profile.weightGoal || 75.0;
+    setNewValue(weightUnit === 'lb' ? (goalKg * 2.20462).toFixed(1) : goalKg.toString());
+    setNewType('morning');
+    setWeightError('');
+    setWeightTouched(false);
+  };
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -229,13 +260,25 @@ const WeightLog: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await createWeightLog({
-        weightKg: weightKg,
-        context: typeToApi[newType],
-        loggedAt: new Date().toISOString(),
-      });
-      await fetchAllData();
-      setSuccessMessage(`${contextConfig[newType].icon} ${inputValue.toFixed(1)} ${weightUnit} logged!`);
+      if (editingWeight) {
+        await updateWeightLog(editingWeight._id, {
+          weightKg,
+          context: typeToApi[newType],
+          notes: editNotes || undefined,
+        });
+        setEditingWeight(null);
+        setEditNotes('');
+        await fetchAllData();
+        setSuccessMessage(`${contextConfig[newType].icon} ${inputValue.toFixed(1)} ${weightUnit} updated!`);
+      } else {
+        await createWeightLog({
+          weightKg: weightKg,
+          context: typeToApi[newType],
+          loggedAt: new Date().toISOString(),
+        });
+        await fetchAllData();
+        setSuccessMessage(`${contextConfig[newType].icon} ${inputValue.toFixed(1)} ${weightUnit} logged!`);
+      }
       // Clear validation state on success
       setWeightError('');
       setWeightTouched(false);
@@ -244,7 +287,7 @@ const WeightLog: React.FC = () => {
       if (err instanceof SubscriptionLimitError) {
         setLimitError({ message: err.message, limit: err.limit });
       } else {
-        setError('Failed to save weight');
+        setError(editingWeight ? 'Failed to update weight' : 'Failed to save weight');
       }
     } finally {
       setIsSubmitting(false);
@@ -383,7 +426,7 @@ const WeightLog: React.FC = () => {
             {/* Weight Input */}
             <div className="flex-1">
               <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3 block">
-                Log Weight ({weightUnit}) <span className="text-rose-400">*</span>
+                {editingWeight ? 'Edit' : 'Log'} Weight ({weightUnit}) <span className="text-rose-400">*</span>
               </label>
               <div className="flex items-center gap-4">
                 <button type="button" onClick={() => {
@@ -417,8 +460,8 @@ const WeightLog: React.FC = () => {
             {/* Context Selection */}
             <div className="lg:w-72">
               <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3 block">Context</label>
-              <div className="flex gap-2">
-                {(['morning', 'pre-dialysis', 'post-dialysis'] as const).map((type) => {
+              <div className="flex gap-2 flex-wrap">
+                {(['morning', 'pre-dialysis', 'post-dialysis', 'custom'] as const).map((type) => {
                   const cfg = contextConfig[type];
                   return (
                     <button
@@ -438,22 +481,34 @@ const WeightLog: React.FC = () => {
             </div>
 
             {/* Submit */}
-            <button
-              type="submit"
-              disabled={isSubmitting || (weightError !== '' && weightTouched)}
-              className={`lg:w-40 py-4 rounded-xl font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2 transition-all ${
-                weightError && weightTouched ? 'bg-slate-500 cursor-not-allowed' : 'bg-pink-500 hover:bg-pink-600'
-              }`}
-            >
-              {isSubmitting ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <ICONS.Plus className="w-5 h-5" />
-                  Log
-                </>
+            <div className="flex gap-2 lg:flex-col">
+              {editingWeight && (
+                <button type="button" onClick={cancelEdit} className="lg:w-40 py-4 px-4 rounded-xl font-bold text-white/60 bg-white/10 hover:bg-white/20 transition-all">
+                  Cancel
+                </button>
               )}
-            </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || (weightError !== '' && weightTouched)}
+                className={`lg:w-40 py-4 rounded-xl font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2 transition-all ${
+                  weightError && weightTouched ? 'bg-slate-500 cursor-not-allowed' : editingWeight ? 'bg-sky-500 hover:bg-sky-600' : 'bg-pink-500 hover:bg-pink-600'
+                }`}
+              >
+                {isSubmitting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : editingWeight ? (
+                  <>
+                    <ICONS.Check className="w-5 h-5" />
+                    Update
+                  </>
+                ) : (
+                  <>
+                    <ICONS.Plus className="w-5 h-5" />
+                    Log
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -677,10 +732,21 @@ const WeightLog: React.FC = () => {
                           {diff > 0 ? '+' : ''}{diff.toFixed(1)}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-400 flex items-center gap-1.5">
                         {cfg?.label} • {displayWeekdayDate(w.loggedAt)} {displayTime(w.loggedAt)}
+                        {w.source && sourceConfig[w.source] && (
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${sourceConfig[w.source].color}`}>
+                            {sourceConfig[w.source].label}
+                          </span>
+                        )}
                       </p>
                     </div>
+                    <button
+                      onClick={() => openEditForm(w)}
+                      className="p-2 rounded-lg text-slate-300 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <ICONS.Edit className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => handleDeleteWeight(w._id)}
                       disabled={deletingId === w._id}
