@@ -146,6 +146,8 @@ export interface ExerciseStats {
   todayCalories: number;
   weeklyAvgSteps: number;
   weeklyAvgActiveMinutes: number;
+  hasWatchData: boolean;
+  lastSyncedAt: string | null;
   history: { date: string; steps: number; activeMinutes: number; calories: number; workouts: number }[];
 }
 

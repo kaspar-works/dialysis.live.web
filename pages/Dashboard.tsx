@@ -1581,14 +1581,35 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* Exercise Activity Card */}
-        {dashboardData?.exercise && (dashboardData.exercise.todaySteps > 0 || dashboardData.exercise.todayActiveMinutes > 0) && (
+        {dashboardData?.exercise && (dashboardData.exercise.todaySteps > 0 || dashboardData.exercise.todayActiveMinutes > 0 || dashboardData.exercise.hasWatchData) && (
           <Link to="/exercise" className="col-span-12 noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl p-5 border border-slate-100 dark:border-white/[0.06] card-lift block">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-emerald-500 text-lg">🏃</span>
                 <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Today's Activity</span>
+                {dashboardData.exercise.hasWatchData && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold">
+                    <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-1v2a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v2h1zm-5-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/></svg>
+                    Watch
+                  </span>
+                )}
               </div>
-              <span className="text-xs text-slate-400 dark:text-slate-500">View all →</span>
+              <div className="flex items-center gap-2">
+                {dashboardData.exercise.lastSyncedAt && (
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                    Synced {(() => {
+                      const diff = Date.now() - new Date(dashboardData.exercise.lastSyncedAt!).getTime();
+                      const mins = Math.floor(diff / 60000);
+                      if (mins < 1) return 'just now';
+                      if (mins < 60) return `${mins}m ago`;
+                      const hrs = Math.floor(mins / 60);
+                      if (hrs < 24) return `${hrs}h ago`;
+                      return `${Math.floor(hrs / 24)}d ago`;
+                    })()}
+                  </span>
+                )}
+                <span className="text-xs text-slate-400 dark:text-slate-500">View all →</span>
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">

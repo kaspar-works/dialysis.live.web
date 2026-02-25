@@ -94,8 +94,31 @@ export default function Exercise() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Exercise</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Track your physical activity</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Exercise</h1>
+            {stats?.hasWatchData && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold">
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-1v2a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v2h1zm-5-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/></svg>
+                Apple Watch
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Track your physical activity
+            {stats?.lastSyncedAt && (
+              <span className="ml-2 text-xs text-emerald-500">
+                · Synced {(() => {
+                  const diff = Date.now() - new Date(stats.lastSyncedAt!).getTime();
+                  const mins = Math.floor(diff / 60000);
+                  if (mins < 1) return 'just now';
+                  if (mins < 60) return `${mins}m ago`;
+                  const hrs = Math.floor(mins / 60);
+                  if (hrs < 24) return `${hrs}h ago`;
+                  return `${Math.floor(hrs / 24)}d ago`;
+                })()}
+              </span>
+            )}
+          </p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
