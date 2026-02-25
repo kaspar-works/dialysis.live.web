@@ -1580,6 +1580,33 @@ const Dashboard: React.FC = () => {
           </Link>
         )}
 
+        {/* Exercise Activity Card */}
+        {dashboardData?.exercise && (dashboardData.exercise.todaySteps > 0 || dashboardData.exercise.todayActiveMinutes > 0) && (
+          <Link to="/exercise" className="col-span-12 noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl p-5 border border-slate-100 dark:border-white/[0.06] card-lift block">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-emerald-500 text-lg">🏃</span>
+                <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Today's Activity</span>
+              </div>
+              <span className="text-xs text-slate-400 dark:text-slate-500">View all →</span>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-xl font-extrabold text-slate-900 dark:text-white">{dashboardData.exercise.todaySteps.toLocaleString()}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500">Steps</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl font-extrabold text-slate-900 dark:text-white">{dashboardData.exercise.todayActiveMinutes}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500">Active Min</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl font-extrabold text-slate-900 dark:text-white">{dashboardData.exercise.todayCalories}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500">Calories</div>
+              </div>
+            </div>
+          </Link>
+        )}
+
         {/* Quick Actions */}
         <div className="col-span-12 grid grid-cols-2 md:grid-cols-4 gap-3">
           {[

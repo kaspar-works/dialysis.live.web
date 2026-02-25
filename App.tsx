@@ -68,6 +68,7 @@ const NotFound = lazyWithRetry(() => import('./pages/NotFound'));
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
 const Sessions = lazyWithRetry(() => import('./pages/Sessions'));
 const WeightLog = lazyWithRetry(() => import('./pages/WeightLog'));
+const Exercise = lazyWithRetry(() => import('./pages/Exercise'));
 const FluidLog = lazyWithRetry(() => import('./pages/FluidLog'));
 const Medications = lazyWithRetry(() => import('./pages/Medications'));
 const Education = lazyWithRetry(() => import('./pages/Education'));
@@ -192,6 +193,14 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <PageGuard><Layout><SEO title="Weight Analytics" noIndex /><WeightLog /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/exercise"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Exercise" noIndex /><Exercise /></Layout></PageGuard>
                   </ProtectedRoute>
                 }
               />

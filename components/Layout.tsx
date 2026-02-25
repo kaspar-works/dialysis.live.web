@@ -58,6 +58,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     )},
     { name: 'Weight', path: '/weight', icon: ICONS.Scale },
     { name: 'Hydration', path: '/fluid', icon: ICONS.Droplet },
+    { name: 'Exercise', path: '/exercise', icon: (props: any) => (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="18.5" cy="3.5" r="2.5"/><path d="M12 7.5 7.5 12 4 8.5"/><path d="m7.5 12 5 5"/><path d="M12 17.5V22"/><path d="m4.5 16.5 3-3"/><path d="m14.5 8.5 5 5"/></svg>
+    )},
     { name: 'Nutri-Scan', path: '/nutri-scan', icon: (props: any) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
     )},

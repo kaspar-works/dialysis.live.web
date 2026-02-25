@@ -140,6 +140,15 @@ export interface HealthOverview {
   lastUpdated: string;
 }
 
+export interface ExerciseStats {
+  todaySteps: number;
+  todayActiveMinutes: number;
+  todayCalories: number;
+  weeklyAvgSteps: number;
+  weeklyAvgActiveMinutes: number;
+  history: { date: string; steps: number; activeMinutes: number; calories: number; workouts: number }[];
+}
+
 export interface DashboardStats {
   overview: OverviewStats;
   sessions: SessionStats;
@@ -148,6 +157,7 @@ export interface DashboardStats {
   medications: MedicationStats;
   symptoms: SymptomStats;
   vitals: VitalStats;
+  exercise?: ExerciseStats;
   recentActivity: RecentActivity[];
 }
 
