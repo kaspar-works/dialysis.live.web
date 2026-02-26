@@ -528,7 +528,18 @@ const Reports: React.FC = () => {
 
           {/* Data Points */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 block">Include Data</label>
+            <div className="flex items-center justify-between mb-4">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Include Data</label>
+              <button
+                onClick={() => {
+                  const allIds = dataPoints.map(dp => dp.id);
+                  setSelectedDataPoints(prev => prev.length === allIds.length ? [] : allIds);
+                }}
+                className="text-xs font-bold text-indigo-500 hover:text-indigo-600 transition-colors"
+              >
+                {selectedDataPoints.length === dataPoints.length ? 'Deselect All' : 'Select All'}
+              </button>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {dataPoints.map(dp => {
                 const isSelected = selectedDataPoints.includes(dp.id);
