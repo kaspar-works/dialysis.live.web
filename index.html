@@ -252,6 +252,14 @@
             .xs\:block { display: block; }
             .xs\:hidden { display: none; }
             .xs\:flex { display: flex; }
+            .xs\:text-base { font-size: 1rem; line-height: 1.5rem; }
+            .xs\:px-4 { padding-left: 1rem; padding-right: 1rem; }
+        }
+
+        /* Ultra-small device fixes (320px) */
+        @media (max-width: 374px) {
+            h1 { word-break: break-word; }
+            .text-3xl { font-size: 1.5rem; line-height: 2rem; }
         }
 
         /* Improve contrast for dark mode */

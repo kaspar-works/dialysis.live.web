@@ -131,38 +131,38 @@ const Landing: React.FC = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 h-20 md:h-24 border-b border-white/5 bg-[#020617]/40 backdrop-blur-3xl flex items-center justify-between px-6 md:px-20 z-[100] safe-pt">
-        <Link to="/" className="flex items-center gap-3 md:gap-4 group">
+      <nav className="fixed top-0 left-0 right-0 h-16 sm:h-20 md:h-24 border-b border-white/5 bg-[#020617]/40 backdrop-blur-3xl flex items-center justify-between px-4 sm:px-6 md:px-20 z-[100] safe-pt">
+        <Link to="/" className="flex items-center gap-2 sm:gap-3 md:gap-4 group">
           <Logo className="w-8 h-8 md:w-12 md:h-12" />
-          <span className="font-black text-lg md:text-2xl tracking-tighter text-white">dialysis.live</span>
+          <span className="font-black text-base sm:text-lg md:text-2xl tracking-tighter text-white">dialysis.live</span>
         </Link>
-        <div className="flex items-center gap-4 md:gap-12">
+        <div className="flex items-center gap-3 sm:gap-4 md:gap-12">
           <Link to="/features" className="hidden sm:block text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Features</Link>
           <Link to="/pricing" className="hidden sm:block text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Pricing</Link>
           <Link to="/login" className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Login</Link>
-          <Link to="/register" className="px-5 md:px-10 py-3 md:py-4 bg-white text-slate-950 rounded-xl md:rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-[0.3em] shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 active:scale-95 transition-all">Join</Link>
+          <Link to="/register" className="px-4 sm:px-5 md:px-10 py-2.5 sm:py-3 md:py-4 bg-white text-slate-950 rounded-xl md:rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 active:scale-95 transition-all">Join</Link>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-28 sm:pt-32 md:pt-32 pb-24 md:pb-40 px-6 md:px-20 max-w-[1440px] mx-auto">
+      <section className="relative pt-24 sm:pt-32 md:pt-32 pb-16 sm:pb-24 md:pb-40 px-4 sm:px-6 md:px-20 max-w-[1440px] mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20 items-center">
           <div className="lg:col-span-7 space-y-8 md:space-y-12 text-center lg:text-left animate-in fade-in slide-in-from-bottom-10 duration-1000">
             <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-[9px] md:text-xs font-black uppercase tracking-[0.3em] md:tracking-[0.4em] backdrop-blur-xl">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
               All-in-One Dialysis Management
             </div>
-            <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-black tracking-tighter leading-[0.9] text-white">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl xl:text-9xl font-black tracking-tighter leading-[0.9] text-white">
               Your<br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-pink-400 to-orange-400">Renal</span><br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-sky-400">Companion.</span>
             </h1>
-            <p className="text-white/40 text-lg md:text-2xl lg:text-3xl font-medium max-w-2xl leading-relaxed mx-auto lg:mx-0">
+            <p className="text-white/40 text-base sm:text-lg md:text-2xl lg:text-3xl font-medium max-w-2xl leading-relaxed mx-auto lg:mx-0">
               Track treatments, vitals, nutrition, and medications in one clinical-grade platform. AI-powered insights for better outcomes.
             </p>
-            <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-8 pt-6 md:pt-8 justify-center lg:justify-start">
-              <Link to="/register" className="w-full sm:w-auto px-10 md:px-16 py-6 md:py-8 bg-gradient-to-r from-sky-500 to-emerald-500 text-white rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.4em] shadow-[0_20px_80px_-20px_rgba(14,165,233,0.5)] hover:shadow-[0_30px_100px_-20px_rgba(14,165,233,0.7)] hover:-translate-y-2 transition-all active:scale-95 text-center">Start Free</Link>
-              <Link to="/features" className="w-full sm:w-auto flex items-center justify-center gap-4 text-white font-black text-xs md:text-sm uppercase tracking-[0.3em] group px-10 py-6 md:py-8 rounded-[2rem] md:rounded-[2.5rem] bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 md:gap-8 pt-4 sm:pt-6 md:pt-8 justify-center lg:justify-start">
+              <Link to="/register" className="w-full sm:w-auto px-8 sm:px-10 md:px-16 py-4 sm:py-6 md:py-8 bg-gradient-to-r from-sky-500 to-emerald-500 text-white rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] sm:tracking-[0.4em] shadow-[0_20px_80px_-20px_rgba(14,165,233,0.5)] hover:shadow-[0_30px_100px_-20px_rgba(14,165,233,0.7)] hover:-translate-y-2 transition-all active:scale-95 text-center">Start Free</Link>
+              <Link to="/features" className="w-full sm:w-auto flex items-center justify-center gap-3 sm:gap-4 text-white font-black text-xs md:text-sm uppercase tracking-[0.3em] group px-8 sm:px-10 py-4 sm:py-6 md:py-8 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
                 Explore Features
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="group-hover:translate-x-2 transition-transform"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </Link>
@@ -216,11 +216,11 @@ const Landing: React.FC = () => {
       </section>
 
       {/* Stats Bar */}
-      <section className="py-12 md:py-20 px-6 md:px-20 border-y border-white/5 bg-white/[0.02]">
-        <div className="max-w-[1440px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-16">
+      <section className="py-10 sm:py-12 md:py-20 px-4 sm:px-6 md:px-20 border-y border-white/5 bg-white/[0.02]">
+        <div className="max-w-[1440px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 md:gap-16">
           {stats.map((stat, i) => (
             <div key={i} className="text-center space-y-2">
-              <h3 className="text-3xl md:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60">{stat.value}</h3>
+              <h3 className="text-2xl sm:text-3xl md:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60">{stat.value}</h3>
               <p className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/30">{stat.label}</p>
             </div>
           ))}
@@ -228,10 +228,10 @@ const Landing: React.FC = () => {
       </section>
 
       {/* All Features Section */}
-      <section className="py-24 md:py-40 px-6 md:px-20 max-w-[1440px] mx-auto relative">
-        <div className="text-center space-y-6 mb-16 md:mb-24">
+      <section className="py-16 sm:py-24 md:py-40 px-4 sm:px-6 md:px-20 max-w-[1440px] mx-auto relative">
+        <div className="text-center space-y-4 sm:space-y-6 mb-12 sm:mb-16 md:mb-24">
           <span className="text-[9px] md:text-[10px] font-black text-sky-400 uppercase tracking-[0.3em] md:tracking-[0.5em]">Complete Toolkit</span>
-          <h2 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter leading-none">
+          <h2 className="text-3xl sm:text-5xl md:text-8xl font-black tracking-tighter leading-none">
             Everything You Need.<br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-white/60 to-white/20">Nothing You Don't.</span>
           </h2>
@@ -241,11 +241,11 @@ const Landing: React.FC = () => {
         </div>
 
         {/* Feature Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
           {allFeatures.map((f, i) => (
             <div
               key={i}
-              className={`group relative bg-white/5 backdrop-blur-xl p-8 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-white/5 overflow-hidden hover:border-white/20 hover:bg-white/[0.08] transition-all duration-500 ${f.highlight ? 'lg:col-span-1 ring-1 ring-white/10' : ''}`}
+              className={`group relative bg-white/5 backdrop-blur-xl p-5 sm:p-8 md:p-10 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] border border-white/5 overflow-hidden hover:border-white/20 hover:bg-white/[0.08] transition-all duration-500 ${f.highlight ? 'lg:col-span-1 ring-1 ring-white/10' : ''}`}
             >
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
                 <div className={`absolute inset-0 bg-gradient-to-br ${f.color} opacity-5`}></div>
@@ -270,11 +270,11 @@ const Landing: React.FC = () => {
       </section>
 
       {/* How It Works */}
-      <section className="py-24 md:py-40 px-6 md:px-20 bg-gradient-to-b from-transparent via-sky-950/20 to-transparent">
+      <section className="py-16 sm:py-24 md:py-40 px-4 sm:px-6 md:px-20 bg-gradient-to-b from-transparent via-sky-950/20 to-transparent">
         <div className="max-w-[1440px] mx-auto">
           <div className="text-center space-y-6 mb-16 md:mb-24">
             <span className="text-[9px] md:text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] md:tracking-[0.5em]">Simple Process</span>
-            <h2 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter leading-none">How It Works.</h2>
+            <h2 className="text-3xl sm:text-5xl md:text-8xl font-black tracking-tighter leading-none">How It Works.</h2>
             <p className="text-white/40 text-lg md:text-xl font-medium max-w-xl mx-auto">
               Get started in minutes. <Link to="/register" className="text-emerald-400 hover:text-emerald-300 underline underline-offset-4">Create your free account</Link> today.
             </p>
@@ -300,18 +300,18 @@ const Landing: React.FC = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="py-24 md:py-40 px-6 md:px-20 max-w-[1440px] mx-auto">
-        <div className="text-center space-y-6 mb-16 md:mb-24">
+      <section className="py-16 sm:py-24 md:py-40 px-4 sm:px-6 md:px-20 max-w-[1440px] mx-auto">
+        <div className="text-center space-y-4 sm:space-y-6 mb-12 sm:mb-16 md:mb-24">
           <span className="text-[9px] md:text-[10px] font-black text-pink-400 uppercase tracking-[0.3em] md:tracking-[0.5em]">Patient Stories</span>
-          <h2 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter leading-none">Trusted by<br/>Patients.</h2>
+          <h2 className="text-3xl sm:text-5xl md:text-8xl font-black tracking-tighter leading-none">Trusted by<br/>Patients.</h2>
           <p className="text-white/40 text-lg md:text-xl font-medium max-w-xl mx-auto">
             See what patients are saying about their experience. <Link to="/pricing" className="text-pink-400 hover:text-pink-300 underline underline-offset-4">View our plans</Link>.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
           {testimonials.map((t, i) => (
-            <div key={i} className="bg-white/5 backdrop-blur-xl p-8 md:p-10 rounded-[2rem] border border-white/5 hover:border-white/10 transition-all space-y-6">
+            <div key={i} className="bg-white/5 backdrop-blur-xl p-5 sm:p-8 md:p-10 rounded-2xl sm:rounded-[2rem] border border-white/5 hover:border-white/10 transition-all space-y-4 sm:space-y-6">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" className="text-white/10">
                 <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/>
               </svg>
@@ -326,21 +326,21 @@ const Landing: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 md:py-40 px-6 md:px-20">
+      <section className="py-16 sm:py-24 md:py-40 px-4 sm:px-6 md:px-20">
         <div className="max-w-[1440px] mx-auto">
-          <div className="relative bg-gradient-to-br from-sky-500/20 via-pink-500/10 to-emerald-500/20 rounded-[3rem] md:rounded-[5rem] p-12 md:p-24 border border-white/10 overflow-hidden">
+          <div className="relative bg-gradient-to-br from-sky-500/20 via-pink-500/10 to-emerald-500/20 rounded-2xl sm:rounded-[3rem] md:rounded-[5rem] p-6 sm:p-12 md:p-24 border border-white/10 overflow-hidden">
             <div className="absolute inset-0 bg-[#020617]/60 backdrop-blur-xl"></div>
             <div className="relative z-10 text-center space-y-8">
-              <h2 className="text-4xl sm:text-6xl md:text-7xl font-black tracking-tighter">
+              <h2 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter">
                 Start Your Journey<br/>
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">Today.</span>
               </h2>
               <p className="text-white/40 text-lg md:text-xl font-medium max-w-xl mx-auto">
                 Join thousands of dialysis patients taking control of their health with clinical-grade tracking. Read our <Link to="/privacy" className="text-sky-400 hover:text-sky-300 underline underline-offset-4">privacy policy</Link> and <Link to="/terms" className="text-sky-400 hover:text-sky-300 underline underline-offset-4">terms of service</Link>.
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6 pt-4">
-                <Link to="/register" className="w-full sm:w-auto px-12 md:px-16 py-6 md:py-8 bg-white text-slate-950 rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] hover:scale-105 active:scale-95 transition-all">Create Free Account</Link>
-                <Link to="/edu" className="w-full sm:w-auto px-12 md:px-16 py-6 md:py-8 bg-white/5 border border-white/10 text-white rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] hover:bg-white/10 transition-all">Learn More</Link>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 md:gap-6 pt-4">
+                <Link to="/register" className="w-full sm:w-auto px-8 sm:px-12 md:px-16 py-4 sm:py-6 md:py-8 bg-white text-slate-950 rounded-2xl sm:rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] hover:scale-105 active:scale-95 transition-all text-center">Create Free Account</Link>
+                <Link to="/edu" className="w-full sm:w-auto px-8 sm:px-12 md:px-16 py-4 sm:py-6 md:py-8 bg-white/5 border border-white/10 text-white rounded-2xl sm:rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] hover:bg-white/10 transition-all text-center">Learn More</Link>
               </div>
             </div>
           </div>
@@ -348,13 +348,13 @@ const Landing: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer className="relative pt-20 pb-12 px-6 md:px-20 overflow-hidden">
+      <footer className="relative pt-16 sm:pt-20 pb-8 sm:pb-12 px-4 sm:px-6 md:px-20 overflow-hidden">
         {/* Gradient accent line */}
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-500/50 to-transparent"></div>
 
         <div className="max-w-[1440px] mx-auto">
           {/* Main footer content */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-8 md:gap-12 pb-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-6 sm:gap-8 md:gap-12 pb-12 sm:pb-16">
             {/* Brand */}
             <div className="col-span-2 space-y-4">
               <Link to="/" className="inline-flex items-center gap-3">

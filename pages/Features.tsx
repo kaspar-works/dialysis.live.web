@@ -147,21 +147,21 @@ const Features: React.FC = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 h-20 md:h-24 border-b border-white/5 bg-[#020617]/40 backdrop-blur-3xl flex items-center justify-between px-6 md:px-20 z-[100] safe-pt">
-        <Link to="/" className="flex items-center gap-3 md:gap-4 group">
+      <nav className="fixed top-0 left-0 right-0 h-16 sm:h-20 md:h-24 border-b border-white/5 bg-[#020617]/40 backdrop-blur-3xl flex items-center justify-between px-4 sm:px-6 md:px-20 z-[100] safe-pt">
+        <Link to="/" className="flex items-center gap-2 sm:gap-3 md:gap-4 group">
           <Logo className="w-8 h-8 md:w-12 md:h-12" />
-          <span className="font-black text-lg md:text-2xl tracking-tighter text-white">dialysis.live</span>
+          <span className="font-black text-base sm:text-lg md:text-2xl tracking-tighter text-white">dialysis.live</span>
         </Link>
-        <div className="flex items-center gap-4 md:gap-12">
+        <div className="flex items-center gap-3 sm:gap-4 md:gap-12">
           <Link to="/" className="hidden sm:block text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Home</Link>
           <Link to="/pricing" className="hidden sm:block text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Pricing</Link>
           <Link to="/login" className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Login</Link>
-          <Link to="/register" className="px-5 md:px-10 py-3 md:py-4 bg-white text-slate-950 rounded-xl md:rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-[0.3em] shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 active:scale-95 transition-all">Join</Link>
+          <Link to="/register" className="px-4 sm:px-5 md:px-10 py-2.5 sm:py-3 md:py-4 bg-white text-slate-950 rounded-xl md:rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 active:scale-95 transition-all">Join</Link>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <header className="pt-40 md:pt-56 pb-20 md:pb-32 px-6 md:px-20 max-w-[1440px] mx-auto text-center space-y-8">
+      <header className="pt-28 sm:pt-40 md:pt-56 pb-12 sm:pb-20 md:pb-32 px-4 sm:px-6 md:px-20 max-w-[1440px] mx-auto text-center space-y-6 sm:space-y-8">
         <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-[9px] md:text-xs font-black uppercase tracking-[0.3em] md:tracking-[0.4em] backdrop-blur-xl">
           <span className="flex h-2 w-2 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
@@ -169,7 +169,7 @@ const Features: React.FC = () => {
           </span>
           Platform Capabilities
         </div>
-        <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.85]">
+        <h1 className="text-3xl sm:text-5xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.85]">
           Complete <br/>
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-pink-400 to-emerald-400">Feature Set.</span>
         </h1>
@@ -179,12 +179,12 @@ const Features: React.FC = () => {
       </header>
 
       {/* Features Grid */}
-      <main className="max-w-[1440px] mx-auto px-6 md:px-20 pb-24 md:pb-40 space-y-32">
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+      <main className="max-w-[1440px] mx-auto px-4 sm:px-6 md:px-20 pb-16 sm:pb-24 md:pb-40 space-y-16 sm:space-y-24 md:space-y-32">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
           {coreFeatures.map((f, i) => (
             <div
               key={i}
-              className="group bg-white/5 backdrop-blur-xl p-8 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-white/5 overflow-hidden hover:border-white/20 hover:bg-white/[0.08] transition-all duration-500 flex flex-col"
+              className="group bg-white/5 backdrop-blur-xl p-5 sm:p-8 md:p-10 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] border border-white/5 overflow-hidden hover:border-white/20 hover:bg-white/[0.08] transition-all duration-500 flex flex-col"
             >
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
                 <div className={`absolute inset-0 bg-gradient-to-br ${f.color} opacity-5`}></div>
@@ -215,7 +215,7 @@ const Features: React.FC = () => {
         </section>
 
         {/* Security & Trust Section */}
-        <section className="relative bg-white/5 backdrop-blur-xl rounded-[3rem] md:rounded-[4rem] p-12 md:p-20 border border-white/10 overflow-hidden">
+        <section className="relative bg-white/5 backdrop-blur-xl rounded-2xl sm:rounded-[3rem] md:rounded-[4rem] p-6 sm:p-10 md:p-20 border border-white/10 overflow-hidden">
           <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2"></div>
           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-pink-500/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2"></div>
 
@@ -223,12 +223,12 @@ const Features: React.FC = () => {
             <div className="space-y-10">
               <div className="space-y-4">
                 <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.4em]">Security & Privacy</span>
-                <h2 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">Built for Trust.<br/>Designed for Care.</h2>
+                <h2 className="text-2xl sm:text-4xl md:text-6xl font-black tracking-tighter leading-none">Built for Trust.<br/>Designed for Care.</h2>
               </div>
               <p className="text-white/40 text-lg md:text-xl font-medium leading-relaxed">
                 Your health data deserves the highest level of protection. We've built dialysis.live with privacy-first architecture and clinical-grade security standards.
               </p>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 {securityFeatures.map((sf, i) => (
                   <div key={i} className="space-y-2">
                     <span className="text-xl md:text-2xl font-black text-white">{sf.title}</span>
@@ -238,7 +238,7 @@ const Features: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-slate-950/50 backdrop-blur-3xl p-10 md:p-12 rounded-[2.5rem] md:rounded-[3rem] border border-white/10 space-y-8">
+            <div className="bg-slate-950/50 backdrop-blur-3xl p-6 sm:p-10 md:p-12 rounded-2xl sm:rounded-[2.5rem] md:rounded-[3rem] border border-white/10 space-y-6 sm:space-y-8">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -267,11 +267,11 @@ const Features: React.FC = () => {
         <section className="text-center space-y-12">
           <div className="space-y-4">
             <span className="text-[10px] font-black text-pink-400 uppercase tracking-[0.4em]">Powered By</span>
-            <h2 className="text-4xl md:text-6xl font-black tracking-tighter">Modern Technology Stack.</h2>
+            <h2 className="text-2xl sm:text-4xl md:text-6xl font-black tracking-tighter">Modern Technology Stack.</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
             {integrations.map((int, i) => (
-              <div key={i} className="bg-white/5 backdrop-blur-xl p-8 rounded-[2rem] border border-white/5 hover:border-white/20 transition-all group">
+              <div key={i} className="bg-white/5 backdrop-blur-xl p-5 sm:p-8 rounded-2xl sm:rounded-[2rem] border border-white/5 hover:border-white/20 transition-all group">
                 <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-white/60 font-black text-sm mb-4 group-hover:bg-white/20 transition-all mx-auto">
                   {int.icon}
                 </div>
@@ -283,25 +283,25 @@ const Features: React.FC = () => {
         </section>
 
         {/* CTA */}
-        <section className="relative bg-gradient-to-br from-sky-500/20 via-pink-500/10 to-emerald-500/20 rounded-[3rem] md:rounded-[5rem] p-12 md:p-24 border border-white/10 overflow-hidden">
+        <section className="relative bg-gradient-to-br from-sky-500/20 via-pink-500/10 to-emerald-500/20 rounded-2xl sm:rounded-[3rem] md:rounded-[5rem] p-6 sm:p-12 md:p-24 border border-white/10 overflow-hidden">
           <div className="absolute inset-0 bg-[#020617]/60 backdrop-blur-xl"></div>
           <div className="relative z-10 text-center space-y-8">
-            <h2 className="text-4xl sm:text-6xl md:text-7xl font-black tracking-tighter">
+            <h2 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter">
               Ready to Take Control?
             </h2>
             <p className="text-white/40 text-lg md:text-xl font-medium max-w-xl mx-auto">
               Join thousands of dialysis patients managing their health with clinical-grade tracking tools.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6 pt-4">
-              <Link to="/register" className="w-full sm:w-auto px-12 md:px-16 py-6 md:py-8 bg-white text-slate-950 rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] hover:scale-105 active:scale-95 transition-all">Start Free Today</Link>
-              <Link to="/pricing" className="w-full sm:w-auto px-12 md:px-16 py-6 md:py-8 bg-white/5 border border-white/10 text-white rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] hover:bg-white/10 transition-all">View Pricing</Link>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 md:gap-6 pt-4">
+              <Link to="/register" className="w-full sm:w-auto px-8 sm:px-12 md:px-16 py-4 sm:py-6 md:py-8 bg-white text-slate-950 rounded-2xl sm:rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] hover:scale-105 active:scale-95 transition-all text-center">Start Free Today</Link>
+              <Link to="/pricing" className="w-full sm:w-auto px-8 sm:px-12 md:px-16 py-4 sm:py-6 md:py-8 bg-white/5 border border-white/10 text-white rounded-2xl sm:rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] hover:bg-white/10 transition-all text-center">View Pricing</Link>
             </div>
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="py-20 md:py-24 px-6 md:px-20 border-t border-white/5 bg-black">
+      <footer className="py-12 sm:py-20 md:py-24 px-4 sm:px-6 md:px-20 border-t border-white/5 bg-black">
         <div className="max-w-[1440px] mx-auto space-y-12">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-4">

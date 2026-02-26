@@ -221,7 +221,7 @@ const Login: React.FC = () => {
         description="Sign in to your dialysis.live account to track sessions, monitor vitals, and manage your renal health journey."
       />
       {/* Visual Branding Side */}
-      <div className="lg:w-1/2 bg-slate-900 p-12 lg:p-24 flex flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 p-12 lg:p-24 flex-col justify-between relative overflow-hidden">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2"></div>
 
         <Link to="/" className="relative z-10">
@@ -245,9 +245,9 @@ const Login: React.FC = () => {
       </div>
 
       {/* Form Side */}
-      <div className="flex-1 p-12 lg:p-24 flex flex-col items-center justify-center relative">
+      <div className="flex-1 p-6 sm:p-8 md:p-12 lg:p-24 flex flex-col items-center justify-center relative">
         {/* Back Home Link */}
-        <div className="absolute top-10 left-10 lg:left-24">
+        <div className="absolute top-6 sm:top-10 left-4 sm:left-10 lg:left-24">
           <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-bold text-xs uppercase tracking-widest group">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="group-hover:-translate-x-1 transition-transform"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             Back to Home

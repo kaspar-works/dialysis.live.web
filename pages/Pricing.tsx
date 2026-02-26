@@ -255,16 +255,16 @@ const Pricing: React.FC = () => {
 
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-2xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <Logo className="w-10 h-10" />
-            <span className="font-black text-xl tracking-tight">dialysis.live</span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3">
+            <Logo className="w-8 h-8 sm:w-10 sm:h-10" />
+            <span className="font-black text-base sm:text-xl tracking-tight">dialysis.live</span>
           </Link>
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3 sm:gap-8">
             <Link to="/" className="hidden md:block text-sm font-semibold text-white/50 hover:text-white transition-colors">Home</Link>
             <Link to="/features" className="hidden md:block text-sm font-semibold text-white/50 hover:text-white transition-colors">Features</Link>
-            <Link to="/login" className="text-sm font-semibold text-white/50 hover:text-white transition-colors">Login</Link>
-            <Link to="/register" className="px-6 py-3 bg-white text-slate-950 rounded-2xl font-bold text-sm hover:scale-105 transition-transform">
+            <Link to="/login" className="text-xs sm:text-sm font-semibold text-white/50 hover:text-white transition-colors">Login</Link>
+            <Link to="/register" className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white text-slate-950 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm hover:scale-105 transition-transform">
               Get Started
             </Link>
           </div>
@@ -272,14 +272,14 @@ const Pricing: React.FC = () => {
       </nav>
 
       {/* Hero */}
-      <section className="pt-40 pb-20 px-6">
+      <section className="pt-28 sm:pt-40 pb-12 sm:pb-20 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto text-center space-y-8">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
             <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
             <span className="text-emerald-400 text-sm font-semibold">Simple, transparent pricing</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-black tracking-tight">
+          <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tight">
             Start free,{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-sky-400 to-violet-400">
               upgrade anytime
@@ -314,14 +314,14 @@ const Pricing: React.FC = () => {
       </section>
 
       {/* Pricing Cards */}
-      <section className="px-6 pb-32">
+      <section className="px-4 sm:px-6 pb-16 sm:pb-32">
         <div className="max-w-6xl mx-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <div className="w-12 h-12 border-4 border-white/20 border-t-emerald-500 rounded-full animate-spin" />
             </div>
           ) : (
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {(plans.length > 0 ? plans : defaultPlans).map((plan, i) => (
               <div
                 key={i}
@@ -406,9 +406,9 @@ const Pricing: React.FC = () => {
       </section>
 
       {/* Trust Badges */}
-      <section className="px-6 pb-32">
+      <section className="px-4 sm:px-6 pb-16 sm:pb-32">
         <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
             {[
               { icon: '🔒', title: '256-bit Encryption', desc: 'Bank-level security' },
               { icon: '🚫', title: 'No Credit Card', desc: 'For free plan' },
@@ -426,10 +426,10 @@ const Pricing: React.FC = () => {
       </section>
 
       {/* FAQs */}
-      <section className="px-6 pb-32">
+      <section className="px-4 sm:px-6 pb-16 sm:pb-32">
         <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-4">
+          <div className="text-center mb-10 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4">
               Questions? Answers.
             </h2>
             <p className="text-white/50">Everything you need to know about our plans</p>
@@ -468,12 +468,12 @@ const Pricing: React.FC = () => {
       </section>
 
       {/* Final CTA */}
-      <section className="px-6 pb-32">
+      <section className="px-4 sm:px-6 pb-16 sm:pb-32">
         <div className="max-w-4xl mx-auto">
-          <div className="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-emerald-500/20 via-sky-500/10 to-violet-500/20 border border-white/10 p-12 md:p-20">
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-[3rem] bg-gradient-to-br from-emerald-500/20 via-sky-500/10 to-violet-500/20 border border-white/10 p-6 sm:p-12 md:p-20">
             <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-xl" />
             <div className="relative z-10 text-center space-y-8">
-              <h2 className="text-4xl md:text-6xl font-black tracking-tight">
+              <h2 className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight">
                 Ready to take control?
               </h2>
               <p className="text-xl text-white/50 max-w-xl mx-auto">
@@ -500,7 +500,7 @@ const Pricing: React.FC = () => {
 
       {/* Footer */}
       <footer className="border-t border-white/10 bg-black">
-        <div className="max-w-7xl mx-auto px-6 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center gap-3">
               <Logo className="w-8 h-8" />
