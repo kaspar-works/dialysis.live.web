@@ -5,6 +5,8 @@ import { getWeightLogs, WeightLog } from '../services/weight';
 import { getFluidLogs, FluidLog } from '../services/fluid';
 import { getVitalRecords, VitalRecord } from '../services/vitals';
 import { getMedications, Medication } from '../services/medications';
+import { getSymptomLogs, SymptomLog } from '../services/symptoms';
+import { getLabReports, LabReport, LAB_TEST_CONFIG } from '../services/labReports';
 import { getCurrentSubscription } from '../services/subscription';
 import { getProfile, UserProfile } from '../services/profile';
 
@@ -14,6 +16,8 @@ interface ReportData {
   fluids: FluidLog[];
   vitals: VitalRecord[];
   medications: Medication[];
+  symptoms: SymptomLog[];
+  labs: LabReport[];
 }
 
 const Reports: React.FC = () => {
@@ -24,6 +28,8 @@ const Reports: React.FC = () => {
     fluids: [],
     vitals: [],
     medications: [],
+    symptoms: [],
+    labs: [],
   });
   const [subscription, setSubscription] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -43,12 +49,14 @@ const Reports: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [sessionsRes, weightsRes, fluidsRes, vitalsRes, medsRes, subRes, profileRes] = await Promise.all([
+      const [sessionsRes, weightsRes, fluidsRes, vitalsRes, medsRes, symptomsRes, labsRes, subRes, profileRes] = await Promise.all([
         listSessions({ limit: 100 }).catch(() => ({ sessions: [] })),
         getWeightLogs({ limit: 100 }).catch(() => ({ logs: [] })),
         getFluidLogs({ limit: 100 }).catch(() => ({ logs: [] })),
         getVitalRecords({ limit: 100 }).catch(() => ({ records: [] })),
         getMedications().catch(() => []),
+        getSymptomLogs({ limit: 100 }).catch(() => ({ logs: [] })),
+        getLabReports({ limit: 100 }).catch(() => ({ reports: [] })),
         getCurrentSubscription().catch(() => null),
         getProfile().catch(() => null),
       ]);
@@ -59,6 +67,8 @@ const Reports: React.FC = () => {
         fluids: fluidsRes.logs || [],
         vitals: (vitalsRes as any).records || [],
         medications: Array.isArray(medsRes) ? medsRes : ((medsRes as any)?.medications || []),
+        symptoms: (symptomsRes as any).logs || [],
+        labs: (labsRes as any).reports || [],
       });
       setSubscription(subRes);
       setUserProfile(profileRes);
@@ -75,6 +85,8 @@ const Reports: React.FC = () => {
     { id: 'vitals', label: 'Vitals', icon: '❤️', desc: 'BP & heart rate', color: 'rose' },
     { id: 'fluids', label: 'Fluids', icon: '💧', desc: 'Intake tracking', color: 'cyan' },
     { id: 'meds', label: 'Medications', icon: '💊', desc: 'Prescriptions', color: 'indigo' },
+    { id: 'symptoms', label: 'Symptoms', icon: '🩺', desc: 'Symptom logs', color: 'amber' },
+    { id: 'labs', label: 'Lab Results', icon: '🧪', desc: 'Lab reports', color: 'emerald' },
   ];
 
   const dateRanges = [
@@ -88,7 +100,7 @@ const Reports: React.FC = () => {
   const quickTemplates = [
     { name: 'Monthly Summary', dataPoints: ['sessions', 'weights', 'vitals'], range: '30', icon: '📊' },
     { name: 'Doctor Visit', dataPoints: ['sessions', 'weights', 'vitals', 'meds'], range: '14', icon: '👨‍⚕️' },
-    { name: 'Full Export', dataPoints: ['sessions', 'weights', 'vitals', 'fluids', 'meds'], range: '30', icon: '📁' },
+    { name: 'Full Export', dataPoints: ['sessions', 'weights', 'vitals', 'fluids', 'meds', 'symptoms', 'labs'], range: '30', icon: '📁' },
   ];
 
   const generationSteps = ["Gathering data...", "Processing records...", "Generating report...", "Finalizing..."];
@@ -104,6 +116,8 @@ const Reports: React.FC = () => {
       fluids: data.fluids.filter(f => new Date(f.loggedAt) > threshold).length,
       vitals: data.vitals.filter(v => new Date(v.loggedAt) > threshold).length,
       meds: data.medications.length,
+      symptoms: data.symptoms.filter(s => new Date(s.loggedAt) > threshold).length,
+      labs: data.labs.filter(l => new Date(l.reportDate) > threshold).length,
     };
   }, [dateRange, data]);
 
@@ -149,6 +163,23 @@ const Reports: React.FC = () => {
     return items.filter(item => new Date(item.loggedAt) > threshold);
   };
 
+  const filterSymptomsByDateRange = (items: SymptomLog[]): SymptomLog[] => {
+    const days = parseInt(dateRange);
+    const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    return items.filter(item => new Date(item.loggedAt) > threshold);
+  };
+
+  const filterLabsByDateRange = (items: LabReport[]): LabReport[] => {
+    const days = parseInt(dateRange);
+    const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    return items.filter(item => new Date(item.reportDate) > threshold);
+  };
+
+  const formatSeverity = (severity: number): string => {
+    const labels = ['', 'Mild', 'Mild-Mod', 'Moderate', 'Mod-Severe', 'Severe'];
+    return labels[severity] || `${severity}/5`;
+  };
+
   const formatVitalType = (v: VitalRecord): string => {
     const types: string[] = [];
     if (v.bloodPressure) types.push('BP');
@@ -190,6 +221,8 @@ const Reports: React.FC = () => {
     if (selectedDataPoints.includes('fluids')) exportData.fluids = filterFluidsByDateRange(data.fluids);
     if (selectedDataPoints.includes('vitals')) exportData.vitals = filterVitalsByDateRange(data.vitals);
     if (selectedDataPoints.includes('meds')) exportData.medications = data.medications;
+    if (selectedDataPoints.includes('symptoms')) exportData.symptoms = filterSymptomsByDateRange(data.symptoms);
+    if (selectedDataPoints.includes('labs')) exportData.labs = filterLabsByDateRange(data.labs);
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -213,6 +246,8 @@ const Reports: React.FC = () => {
     const weights = selectedDataPoints.includes('weights') ? filterWeightsByDateRange(data.weights) : [];
     const vitals = selectedDataPoints.includes('vitals') ? filterVitalsByDateRange(data.vitals) : [];
     const medications = selectedDataPoints.includes('meds') ? data.medications : [];
+    const symptoms = selectedDataPoints.includes('symptoms') ? filterSymptomsByDateRange(data.symptoms) : [];
+    const labs = selectedDataPoints.includes('labs') ? filterLabsByDateRange(data.labs) : [];
 
     const patientName = userProfile?.fullName || 'Patient';
     const patientDob = userProfile?.dob ? new Date(userProfile.dob).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
@@ -316,6 +351,8 @@ const Reports: React.FC = () => {
           ${selectedDataPoints.includes('sessions') ? `<div class="stat-card"><div class="value">${sessions.length}</div><div class="label">Sessions</div></div>` : ''}
           ${selectedDataPoints.includes('weights') ? `<div class="stat-card"><div class="value">${weights.length}</div><div class="label">Weight Logs</div></div>` : ''}
           ${selectedDataPoints.includes('vitals') ? `<div class="stat-card"><div class="value">${vitals.length}</div><div class="label">Vital Records</div></div>` : ''}
+          ${selectedDataPoints.includes('symptoms') ? `<div class="stat-card"><div class="value">${symptoms.length}</div><div class="label">Symptom Logs</div></div>` : ''}
+          ${selectedDataPoints.includes('labs') ? `<div class="stat-card"><div class="value">${labs.length}</div><div class="label">Lab Reports</div></div>` : ''}
         </div>
 
         ${sessions.length > 0 ? `
@@ -373,6 +410,57 @@ const Reports: React.FC = () => {
                 `).join('')}
               </tbody>
             </table>
+          </div>
+        ` : ''}
+
+        ${symptoms.length > 0 ? `
+          <div class="section">
+            <div class="section-title">Symptom Logs</div>
+            <table>
+              <thead><tr><th>Date</th><th>Symptom</th><th>Severity</th><th>Notes</th></tr></thead>
+              <tbody>
+                ${symptoms.slice(0, 20).map(s => `
+                  <tr>
+                    <td>${new Date(s.loggedAt).toLocaleDateString()}</td>
+                    <td>${(s.symptomType || '').replace(/_/g, ' ')}</td>
+                    <td>${formatSeverity(s.severity)}</td>
+                    <td>${s.notes || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        ${labs.length > 0 ? `
+          <div class="section">
+            <div class="section-title">Lab Reports</div>
+            ${labs.slice(0, 10).map(lab => `
+              <div style="margin-bottom: 16px;">
+                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
+                  ${new Date(lab.reportDate).toLocaleDateString()}${lab.labName ? ` — ${lab.labName}` : ''}${lab.orderingProvider ? ` (Dr. ${lab.orderingProvider})` : ''}
+                </div>
+                <table>
+                  <thead><tr><th>Test</th><th>Result</th><th>Reference Range</th><th>Status</th></tr></thead>
+                  <tbody>
+                    ${lab.results.map(r => {
+                      const config = LAB_TEST_CONFIG[r.testCode];
+                      const displayName = config?.name || r.testName;
+                      const statusColor = !r.isAbnormal ? '#16a34a' : '#dc2626';
+                      const statusText = !r.isAbnormal ? 'Normal' : (r.abnormalDirection === 'high' ? 'High' : 'Low');
+                      return `
+                        <tr>
+                          <td><strong>${displayName}</strong></td>
+                          <td>${r.value} ${r.unit}</td>
+                          <td>${r.referenceRange ? `${r.referenceRange.low} - ${r.referenceRange.high}` : '-'}</td>
+                          <td style="color: ${statusColor}; font-weight: 700;">${statusText}</td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `).join('')}
           </div>
         ` : ''}
 
