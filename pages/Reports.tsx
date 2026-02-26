@@ -225,7 +225,9 @@ const Reports: React.FC = () => {
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
           * { box-sizing: border-box; }
-          body { font-family: 'Inter', sans-serif; color: #1e293b; padding: 40px; line-height: 1.6; max-width: 800px; margin: 0 auto; }
+          body { font-family: 'Inter', sans-serif; color: #1e293b; padding: 40px; line-height: 1.6; max-width: 800px; margin: 0 auto; position: relative; }
+          .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.04; pointer-events: none; z-index: 0; }
+          .watermark svg { width: 360px; height: 360px; }
           .header { border-bottom: 3px solid #0ea5e9; padding-bottom: 20px; margin-bottom: 30px; }
           .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
           .header-brand { display: flex; align-items: center; gap: 12px; }
@@ -254,6 +256,15 @@ const Reports: React.FC = () => {
         </style>
       </head>
       <body>
+        <div class="watermark">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+            <path d="M32 8c-8 0-16 6-16 20 0 14 10 28 20 28 4 0 8-4 10-10 2-6 1-12-2-18-3-6 0-12 4-14 2-1 0-6-4-6h-12z" fill="none" stroke="#0d4f6e" stroke-width="3" stroke-linecap="round"/>
+            <path d="M24 32 C20 32 16 36 16 36" stroke="#14b8a6" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+            <path d="M28 38 C24 42 20 46 20 50" stroke="#14b8a6" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+            <path d="M32 38 C32 44 32 50 32 54" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+            <path d="M12 24 L20 24 L24 16 L28 32 L32 20 L36 24 L52 24" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </div>
         <div class="header">
           <div class="header-top">
             <div class="header-brand">
