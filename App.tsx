@@ -63,6 +63,7 @@ const Terms = lazyWithRetry(() => import('./pages/Terms'));
 const Features = lazyWithRetry(() => import('./pages/Features'));
 const Pricing = lazyWithRetry(() => import('./pages/Pricing'));
 const NotFound = lazyWithRetry(() => import('./pages/NotFound'));
+const EmergencyCard = lazyWithRetry(() => import('./pages/EmergencyCard'));
 
 // Protected pages
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
@@ -89,6 +90,7 @@ const AIInsights = lazyWithRetry(() => import('./pages/AIInsights'));
 const SymptomAnalysis = lazyWithRetry(() => import('./pages/SymptomAnalysis'));
 const Alerts = lazyWithRetry(() => import('./pages/Alerts'));
 const Achievements = lazyWithRetry(() => import('./pages/Achievements'));
+const AccessSite = lazyWithRetry(() => import('./pages/AccessSite'));
 const Admin = lazyWithRetry(() => import('./pages/Admin'));
 
 // Community pages
@@ -133,6 +135,7 @@ const App: React.FC = () => {
               <Route path="/terms" element={<Terms />} />
               <Route path="/features" element={<Features />} />
               <Route path="/pricing" element={<Pricing />} />
+              <Route path="/emergency/:token" element={<EmergencyCard />} />
 
               {/* Development: Health Check (disabled in production via env) */}
               {ENABLE_HEALTH_CHECK && (
@@ -313,6 +316,14 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <PageGuard><Layout><SEO title="Alerts" noIndex /><Alerts /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/access-site"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Access Site Tracking" noIndex /><AccessSite /></Layout></PageGuard>
                   </ProtectedRoute>
                 }
               />

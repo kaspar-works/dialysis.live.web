@@ -43,6 +43,11 @@ import {
   SessionAnalysis,
   quickLogSession,
   QuickLogSessionData,
+  PDSolutionType,
+  PDEffluentAppearance,
+  isPDType,
+  AdequacyTrendResponse,
+  getAdequacyTrend,
 } from '../services/dialysis';
 import { createVitalRecord, getVitalRecords, VitalRecord } from '../services/vitals';
 
@@ -70,6 +75,16 @@ const Sessions: React.FC = () => {
     plannedDurationMin: 240,
     locationName: '',
     machineName: '',
+    // PD fields
+    pdExchangeVolumeMl: '',
+    pdDwellTimeMin: '',
+    pdSolutionType: '' as PDSolutionType | '',
+    pdNumberOfExchanges: '',
+    pdCyclerTotalVolumeMl: '',
+    pdCyclerNumberOfCycles: '',
+    pdCyclerLastFillMl: '',
+    // BUN
+    preDialysisBUN: '',
   });
 
   // Form states for pre-session data
@@ -91,6 +106,13 @@ const Sessions: React.FC = () => {
     sessionRating: '' as SessionRating | '',
     notes: '',
     complications: [] as string[],
+    // PD end fields
+    pdDrainVolumeMl: '',
+    pdUltrafiltrationMl: '',
+    pdEffluentAppearance: '' as PDEffluentAppearance | '',
+    // BUN
+    preDialysisBUN: '',
+    postDialysisBUN: '',
   });
 
   // Quick Log mode state
@@ -136,6 +158,10 @@ const Sessions: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [showAnalysisDropdown, setShowAnalysisDropdown] = useState(false);
+
+  // Adequacy trend state
+  const [adequacyData, setAdequacyData] = useState<AdequacyTrendResponse | null>(null);
+  const [isLoadingAdequacy, setIsLoadingAdequacy] = useState(false);
 
   // Delete state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -255,6 +281,17 @@ const Sessions: React.FC = () => {
       };
       if (newSession.locationName?.trim()) createData.locationName = newSession.locationName.trim();
       if (newSession.machineName?.trim()) createData.machineName = newSession.machineName.trim();
+      // PD fields
+      if (isPDType(newSession.type)) {
+        if (newSession.pdExchangeVolumeMl) createData.pdExchangeVolumeMl = parseInt(newSession.pdExchangeVolumeMl);
+        if (newSession.pdDwellTimeMin) createData.pdDwellTimeMin = parseInt(newSession.pdDwellTimeMin);
+        if (newSession.pdSolutionType) createData.pdSolutionType = newSession.pdSolutionType;
+        if (newSession.pdNumberOfExchanges) createData.pdNumberOfExchanges = parseInt(newSession.pdNumberOfExchanges);
+        if (newSession.pdCyclerTotalVolumeMl) createData.pdCyclerTotalVolumeMl = parseInt(newSession.pdCyclerTotalVolumeMl);
+        if (newSession.pdCyclerNumberOfCycles) createData.pdCyclerNumberOfCycles = parseInt(newSession.pdCyclerNumberOfCycles);
+        if (newSession.pdCyclerLastFillMl) createData.pdCyclerLastFillMl = parseInt(newSession.pdCyclerLastFillMl);
+      }
+      if (newSession.preDialysisBUN) createData.preDialysisBUN = parseFloat(newSession.preDialysisBUN);
 
       const session = await createSession(createData);
 
@@ -408,6 +445,22 @@ const Sessions: React.FC = () => {
       if (postData.sessionRating) data.sessionRating = postData.sessionRating as SessionRating;
       if (postData.notes) data.notes = postData.notes;
       if (postData.complications.length > 0) data.complications = postData.complications;
+      // PD fields
+      if (isPDType(newSession.type)) {
+        if (newSession.pdExchangeVolumeMl) data.pdExchangeVolumeMl = parseInt(newSession.pdExchangeVolumeMl);
+        if (newSession.pdDwellTimeMin) data.pdDwellTimeMin = parseInt(newSession.pdDwellTimeMin);
+        if (newSession.pdSolutionType) data.pdSolutionType = newSession.pdSolutionType;
+        if (newSession.pdNumberOfExchanges) data.pdNumberOfExchanges = parseInt(newSession.pdNumberOfExchanges);
+        if (postData.pdDrainVolumeMl) data.pdDrainVolumeMl = parseInt(postData.pdDrainVolumeMl);
+        if (postData.pdUltrafiltrationMl) data.pdUltrafiltrationMl = parseInt(postData.pdUltrafiltrationMl);
+        if (postData.pdEffluentAppearance) data.pdEffluentAppearance = postData.pdEffluentAppearance;
+        if (newSession.pdCyclerTotalVolumeMl) data.pdCyclerTotalVolumeMl = parseInt(newSession.pdCyclerTotalVolumeMl);
+        if (newSession.pdCyclerNumberOfCycles) data.pdCyclerNumberOfCycles = parseInt(newSession.pdCyclerNumberOfCycles);
+        if (newSession.pdCyclerLastFillMl) data.pdCyclerLastFillMl = parseInt(newSession.pdCyclerLastFillMl);
+      }
+      // BUN
+      if (postData.preDialysisBUN) data.preDialysisBUN = parseFloat(postData.preDialysisBUN);
+      if (postData.postDialysisBUN) data.postDialysisBUN = parseFloat(postData.postDialysisBUN);
 
       await quickLogSession(data);
 
@@ -454,6 +507,15 @@ const Sessions: React.FC = () => {
       if (postData.sessionRating) endData.sessionRating = postData.sessionRating;
       if (postData.notes) endData.notes = postData.notes;
       if (postData.complications.length > 0) endData.complications = postData.complications;
+      // PD end fields
+      if (activeSession.type && isPDType(activeSession.type)) {
+        if (postData.pdDrainVolumeMl) endData.pdDrainVolumeMl = parseInt(postData.pdDrainVolumeMl);
+        if (postData.pdUltrafiltrationMl) endData.pdUltrafiltrationMl = parseInt(postData.pdUltrafiltrationMl);
+        if (postData.pdEffluentAppearance) endData.pdEffluentAppearance = postData.pdEffluentAppearance;
+      }
+      // BUN
+      if (postData.preDialysisBUN) endData.preDialysisBUN = parseFloat(postData.preDialysisBUN);
+      if (postData.postDialysisBUN) endData.postDialysisBUN = parseFloat(postData.postDialysisBUN);
 
       await endSession(activeSession._id, endData);
 
@@ -548,9 +610,17 @@ const Sessions: React.FC = () => {
       plannedDurationMin: 240,
       locationName: '',
       machineName: '',
+      pdExchangeVolumeMl: '',
+      pdDwellTimeMin: '',
+      pdSolutionType: '',
+      pdNumberOfExchanges: '',
+      pdCyclerTotalVolumeMl: '',
+      pdCyclerNumberOfCycles: '',
+      pdCyclerLastFillMl: '',
+      preDialysisBUN: '',
     });
     setPreData({ preWeightKg: '', targetUfMl: '', preBpSystolic: '', preBpDiastolic: '', preHeartRate: '' });
-    setPostData({ postWeightKg: '', actualUfMl: '', postBpSystolic: '', postBpDiastolic: '', postHeartRate: '', sessionRating: '', notes: '', complications: [] });
+    setPostData({ postWeightKg: '', actualUfMl: '', postBpSystolic: '', postBpDiastolic: '', postHeartRate: '', sessionRating: '', notes: '', complications: [], pdDrainVolumeMl: '', pdUltrafiltrationMl: '', pdEffluentAppearance: '', preDialysisBUN: '', postDialysisBUN: '' });
     setIsQuickLog(false);
     setQuickLogData({
       sessionDate: new Date().toISOString().split('T')[0],
@@ -1768,6 +1838,64 @@ const Sessions: React.FC = () => {
               )}
             </div>
 
+            {/* PD Settings (conditional) */}
+            {isPDType(newSession.type) && (
+              <>
+                <div className="md:col-span-2 pt-4 border-t border-slate-200 dark:border-slate-600">
+                  <h3 className="text-sm font-bold text-indigo-500 uppercase tracking-wider">PD Settings</h3>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Solution Type</label>
+                  <select
+                    value={newSession.pdSolutionType}
+                    onChange={e => setNewSession({ ...newSession, pdSolutionType: e.target.value as PDSolutionType })}
+                    className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none"
+                  >
+                    <option value="">Select...</option>
+                    <option value={PDSolutionType.DEXTROSE_1_5}>Dextrose 1.5%</option>
+                    <option value={PDSolutionType.DEXTROSE_2_5}>Dextrose 2.5%</option>
+                    <option value={PDSolutionType.DEXTROSE_4_25}>Dextrose 4.25%</option>
+                    <option value={PDSolutionType.ICODEXTRIN}>Icodextrin</option>
+                    <option value={PDSolutionType.AMINO_ACID}>Amino Acid</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Exchange Volume (mL)</label>
+                  <input type="number" value={newSession.pdExchangeVolumeMl} onChange={e => setNewSession({ ...newSession, pdExchangeVolumeMl: e.target.value })} placeholder="e.g. 2000" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Dwell Time (min)</label>
+                  <input type="number" value={newSession.pdDwellTimeMin} onChange={e => setNewSession({ ...newSession, pdDwellTimeMin: e.target.value })} placeholder="e.g. 240" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Number of Exchanges</label>
+                  <input type="number" value={newSession.pdNumberOfExchanges} onChange={e => setNewSession({ ...newSession, pdNumberOfExchanges: e.target.value })} placeholder="e.g. 4" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+                </div>
+                {newSession.type === DialysisType.PD_APD && (
+                  <>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Cycler Total Volume (mL)</label>
+                      <input type="number" value={newSession.pdCyclerTotalVolumeMl} onChange={e => setNewSession({ ...newSession, pdCyclerTotalVolumeMl: e.target.value })} placeholder="e.g. 10000" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Cycler Cycles</label>
+                      <input type="number" value={newSession.pdCyclerNumberOfCycles} onChange={e => setNewSession({ ...newSession, pdCyclerNumberOfCycles: e.target.value })} placeholder="e.g. 5" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Last Fill Volume (mL)</label>
+                      <input type="number" value={newSession.pdCyclerLastFillMl} onChange={e => setNewSession({ ...newSession, pdCyclerLastFillMl: e.target.value })} placeholder="e.g. 1500" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
+            {/* Pre-Dialysis BUN */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Pre-Dialysis BUN (mg/dL)</label>
+              <input type="number" value={newSession.preDialysisBUN} onChange={e => setNewSession({ ...newSession, preDialysisBUN: e.target.value })} placeholder="e.g. 60" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+            </div>
+
             {/* Post-session fields (Quick Log only) */}
             {isQuickLog && (
               <>
@@ -1901,6 +2029,47 @@ const Sessions: React.FC = () => {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* PD End Fields (Quick Log) */}
+                {isPDType(newSession.type) && (
+                  <>
+                    <div className="md:col-span-2 pt-4 border-t border-slate-200 dark:border-slate-600">
+                      <h3 className="text-sm font-bold text-indigo-500 uppercase tracking-wider">PD Results</h3>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Drain Volume (mL)</label>
+                      <input type="number" value={postData.pdDrainVolumeMl} onChange={e => setPostData({ ...postData, pdDrainVolumeMl: e.target.value })} placeholder="e.g. 2200" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">PD Ultrafiltration (mL)</label>
+                      <input type="number" value={postData.pdUltrafiltrationMl} onChange={e => setPostData({ ...postData, pdUltrafiltrationMl: e.target.value })} placeholder="e.g. 200" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Effluent Appearance</label>
+                      <select value={postData.pdEffluentAppearance} onChange={e => setPostData({ ...postData, pdEffluentAppearance: e.target.value as PDEffluentAppearance })} className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none">
+                        <option value="">Select...</option>
+                        <option value={PDEffluentAppearance.CLEAR}>Clear</option>
+                        <option value={PDEffluentAppearance.SLIGHTLY_CLOUDY}>Slightly Cloudy</option>
+                        <option value={PDEffluentAppearance.CLOUDY}>Cloudy</option>
+                        <option value={PDEffluentAppearance.BLOODY}>Bloody</option>
+                        <option value={PDEffluentAppearance.FIBRIN}>Fibrin</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {/* BUN (Quick Log) */}
+                <div className="md:col-span-2 pt-4 border-t border-slate-200 dark:border-slate-600">
+                  <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Dialysis Adequacy (Optional)</h3>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Pre-Dialysis BUN (mg/dL)</label>
+                  <input type="number" value={postData.preDialysisBUN} onChange={e => setPostData({ ...postData, preDialysisBUN: e.target.value })} placeholder="e.g. 60" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post-Dialysis BUN (mg/dL)</label>
+                  <input type="number" value={postData.postDialysisBUN} onChange={e => setPostData({ ...postData, postDialysisBUN: e.target.value })} placeholder="e.g. 20" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
                 </div>
 
                 {/* Notes */}
@@ -2457,6 +2626,47 @@ const Sessions: React.FC = () => {
               </div>
             </div>
 
+            {/* PD End Fields */}
+            {activeSession?.type && isPDType(activeSession.type) && (
+              <>
+                <div className="md:col-span-2 pt-4 border-t border-slate-200 dark:border-slate-600">
+                  <h3 className="text-sm font-bold text-indigo-500 uppercase tracking-wider">PD Results</h3>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Drain Volume (mL)</label>
+                  <input type="number" value={postData.pdDrainVolumeMl} onChange={e => setPostData({ ...postData, pdDrainVolumeMl: e.target.value })} placeholder="e.g. 2200" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">PD Ultrafiltration (mL)</label>
+                  <input type="number" value={postData.pdUltrafiltrationMl} onChange={e => setPostData({ ...postData, pdUltrafiltrationMl: e.target.value })} placeholder="e.g. 200" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Effluent Appearance</label>
+                  <select value={postData.pdEffluentAppearance} onChange={e => setPostData({ ...postData, pdEffluentAppearance: e.target.value as PDEffluentAppearance })} className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none">
+                    <option value="">Select...</option>
+                    <option value={PDEffluentAppearance.CLEAR}>Clear</option>
+                    <option value={PDEffluentAppearance.SLIGHTLY_CLOUDY}>Slightly Cloudy</option>
+                    <option value={PDEffluentAppearance.CLOUDY}>Cloudy</option>
+                    <option value={PDEffluentAppearance.BLOODY}>Bloody</option>
+                    <option value={PDEffluentAppearance.FIBRIN}>Fibrin</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            {/* BUN / Adequacy */}
+            <div className="md:col-span-2 pt-4 border-t border-slate-200 dark:border-slate-600">
+              <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Dialysis Adequacy (Optional)</h3>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Pre-Dialysis BUN (mg/dL)</label>
+              <input type="number" value={postData.preDialysisBUN} onChange={e => setPostData({ ...postData, preDialysisBUN: e.target.value })} placeholder="e.g. 60" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Post-Dialysis BUN (mg/dL)</label>
+              <input type="number" value={postData.postDialysisBUN} onChange={e => setPostData({ ...postData, postDialysisBUN: e.target.value })} placeholder="e.g. 20" className="w-full bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 font-semibold text-slate-900 dark:text-white outline-none" />
+            </div>
+
             {/* Notes */}
             <div className="md:col-span-2">
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Notes</label>
@@ -2585,6 +2795,92 @@ const Sessions: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* PD Details */}
+          {selectedSession.type && isPDType(selectedSession.type) && (selectedSession.pdExchangeVolumeMl || selectedSession.pdDrainVolumeMl || selectedSession.pdSolutionType) && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-indigo-500 uppercase">PD Details</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {selectedSession.pdSolutionType && (
+                  <div className="bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl p-4">
+                    <p className="text-indigo-500 text-xs uppercase">Solution</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">{selectedSession.pdSolutionType.replace(/_/g, ' ')}</p>
+                  </div>
+                )}
+                {selectedSession.pdExchangeVolumeMl != null && (
+                  <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
+                    <p className="text-slate-400 text-xs uppercase">Exchange Vol</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">{selectedSession.pdExchangeVolumeMl} mL</p>
+                  </div>
+                )}
+                {selectedSession.pdDwellTimeMin != null && (
+                  <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
+                    <p className="text-slate-400 text-xs uppercase">Dwell Time</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">{selectedSession.pdDwellTimeMin} min</p>
+                  </div>
+                )}
+                {selectedSession.pdDrainVolumeMl != null && (
+                  <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
+                    <p className="text-slate-400 text-xs uppercase">Drain Vol</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">{selectedSession.pdDrainVolumeMl} mL</p>
+                  </div>
+                )}
+                {selectedSession.pdUltrafiltrationMl != null && (
+                  <div className="bg-sky-50 dark:bg-sky-500/10 rounded-2xl p-4">
+                    <p className="text-sky-500 text-xs uppercase">PD UF</p>
+                    <p className="text-lg font-bold text-sky-600">{selectedSession.pdUltrafiltrationMl} mL</p>
+                  </div>
+                )}
+                {selectedSession.pdEffluentAppearance && (
+                  <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
+                    <p className="text-slate-400 text-xs uppercase">Effluent</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">{selectedSession.pdEffluentAppearance.replace(/_/g, ' ')}</p>
+                  </div>
+                )}
+                {selectedSession.pdNumberOfExchanges != null && (
+                  <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
+                    <p className="text-slate-400 text-xs uppercase">Exchanges</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">{selectedSession.pdNumberOfExchanges}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Kt/V & Adequacy */}
+          {(selectedSession.ktV != null || selectedSession.urr != null) && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-emerald-500 uppercase">Dialysis Adequacy</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {selectedSession.ktV != null && (
+                  <div className={`rounded-2xl p-4 ${selectedSession.ktV >= 1.2 ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-amber-50 dark:bg-amber-500/10'}`}>
+                    <p className={`text-xs uppercase ${selectedSession.ktV >= 1.2 ? 'text-emerald-500' : 'text-amber-500'}`}>Kt/V</p>
+                    <p className={`text-2xl font-black ${selectedSession.ktV >= 1.2 ? 'text-emerald-600' : 'text-amber-600'}`}>{selectedSession.ktV.toFixed(2)}</p>
+                    <p className="text-[10px] text-slate-400">Target: {'\u2265'}1.2</p>
+                  </div>
+                )}
+                {selectedSession.urr != null && (
+                  <div className={`rounded-2xl p-4 ${selectedSession.urr >= 65 ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-amber-50 dark:bg-amber-500/10'}`}>
+                    <p className={`text-xs uppercase ${selectedSession.urr >= 65 ? 'text-emerald-500' : 'text-amber-500'}`}>URR</p>
+                    <p className={`text-2xl font-black ${selectedSession.urr >= 65 ? 'text-emerald-600' : 'text-amber-600'}`}>{selectedSession.urr.toFixed(1)}%</p>
+                    <p className="text-[10px] text-slate-400">Target: {'\u2265'}65%</p>
+                  </div>
+                )}
+                {selectedSession.preDialysisBUN != null && (
+                  <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
+                    <p className="text-slate-400 text-xs uppercase">Pre BUN</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">{selectedSession.preDialysisBUN} mg/dL</p>
+                  </div>
+                )}
+                {selectedSession.postDialysisBUN != null && (
+                  <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
+                    <p className="text-slate-400 text-xs uppercase">Post BUN</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">{selectedSession.postDialysisBUN} mg/dL</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Session Vitals */}
           {(selectedSessionVitals.length > 0 || isLoadingSelectedVitals) && (

@@ -41,6 +41,22 @@ export enum EventType {
   CUSTOM = 'custom',
 }
 
+export enum PDSolutionType {
+  DEXTROSE_1_5 = 'dextrose_1.5',
+  DEXTROSE_2_5 = 'dextrose_2.5',
+  DEXTROSE_4_25 = 'dextrose_4.25',
+  ICODEXTRIN = 'icodextrin',
+  AMINO_ACID = 'amino_acid',
+}
+
+export enum PDEffluentAppearance {
+  CLEAR = 'clear',
+  SLIGHTLY_CLOUDY = 'slightly_cloudy',
+  CLOUDY = 'cloudy',
+  BLOODY = 'bloody',
+  FIBRIN = 'fibrin',
+}
+
 export interface DialysisSession {
   _id: string;
   userId: string;
@@ -63,6 +79,22 @@ export interface DialysisSession {
   postBpDiastolic?: number;
   preHeartRate?: number;
   postHeartRate?: number;
+  // PD fields
+  pdExchangeVolumeMl?: number;
+  pdDwellTimeMin?: number;
+  pdDrainVolumeMl?: number;
+  pdUltrafiltrationMl?: number;
+  pdSolutionType?: PDSolutionType;
+  pdEffluentAppearance?: PDEffluentAppearance;
+  pdNumberOfExchanges?: number;
+  pdCyclerTotalVolumeMl?: number;
+  pdCyclerNumberOfCycles?: number;
+  pdCyclerLastFillMl?: number;
+  // Kt/V
+  preDialysisBUN?: number;
+  postDialysisBUN?: number;
+  ktV?: number;
+  urr?: number;
   sessionRating?: SessionRating;
   notes?: string;
   complications?: string[];
@@ -89,6 +121,15 @@ export interface CreateSessionData {
   plannedDurationMin?: number;
   locationName?: string;
   machineName?: string;
+  // PD
+  pdExchangeVolumeMl?: number;
+  pdDwellTimeMin?: number;
+  pdSolutionType?: PDSolutionType;
+  pdNumberOfExchanges?: number;
+  pdCyclerTotalVolumeMl?: number;
+  pdCyclerNumberOfCycles?: number;
+  pdCyclerLastFillMl?: number;
+  preDialysisBUN?: number;
 }
 
 export interface UpdateSessionData {
@@ -111,6 +152,13 @@ export interface EndSessionData {
   sessionRating?: SessionRating;
   notes?: string;
   complications?: string[];
+  // PD end fields
+  pdDrainVolumeMl?: number;
+  pdUltrafiltrationMl?: number;
+  pdEffluentAppearance?: PDEffluentAppearance;
+  // BUN
+  preDialysisBUN?: number;
+  postDialysisBUN?: number;
 }
 
 export interface AddEventData {
@@ -139,6 +187,37 @@ export interface QuickLogSessionData {
   complications?: string[];
   locationName?: string;
   machineName?: string;
+  // PD fields
+  pdExchangeVolumeMl?: number;
+  pdDwellTimeMin?: number;
+  pdDrainVolumeMl?: number;
+  pdUltrafiltrationMl?: number;
+  pdSolutionType?: PDSolutionType;
+  pdEffluentAppearance?: PDEffluentAppearance;
+  pdNumberOfExchanges?: number;
+  pdCyclerTotalVolumeMl?: number;
+  pdCyclerNumberOfCycles?: number;
+  pdCyclerLastFillMl?: number;
+  // BUN
+  preDialysisBUN?: number;
+  postDialysisBUN?: number;
+}
+
+// Adequacy trend types
+export interface AdequacyTrendResponse {
+  period: string;
+  sessionsWithKtV: number;
+  trend: {
+    date: string;
+    type: DialysisType;
+    ktV: number | null;
+    urr: number | null;
+    preDialysisBUN: number | null;
+    postDialysisBUN: number | null;
+  }[];
+  averages: { ktV: number | null; urr: number | null };
+  targets: { ktV: number; urr: number };
+  meetsTargets: { ktV: boolean | null; urr: boolean | null };
 }
 
 export interface SessionsListResponse {
@@ -360,4 +439,15 @@ export interface SessionAnalysis {
 export async function analyzeSessions(days: number = 30): Promise<SessionAnalysis> {
   const result = await authFetch(`/dialysis/sessions/analyze?days=${days}`);
   return result.data;
+}
+
+// Get adequacy trend (Kt/V)
+export async function getAdequacyTrend(days: number = 90): Promise<AdequacyTrendResponse> {
+  const result = await authFetch(`/dialysis/sessions/adequacy?days=${days}`);
+  return result.data;
+}
+
+// Helper to check if type is PD
+export function isPDType(type: DialysisType): boolean {
+  return type === DialysisType.PD_CAPD || type === DialysisType.PD_APD;
 }
