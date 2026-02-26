@@ -15,38 +15,6 @@ export const exportDataAsJSON = (data: any, fileName: string = 'renal-health-exp
   URL.revokeObjectURL(url);
 };
 
-export const exportSessionsAsCSV = (sessions: any[]) => {
-  if (!sessions || sessions.length === 0) return;
-  
-  const headers = ['ID', 'Type', 'Date', 'Start Time', 'End Time', 'Duration (min)', 'Pre-Weight', 'Post-Weight', 'Fluid Removed', 'Status'];
-  const rows = sessions.map(s => [
-    s.id,
-    s.type,
-    new Date(s.startTime).toLocaleDateString(),
-    new Date(s.startTime).toLocaleTimeString(),
-    s.endTime ? new Date(s.endTime).toLocaleTimeString() : 'N/A',
-    s.actualDuration || 0,
-    s.preWeight,
-    s.postWeight || 'N/A',
-    s.fluidRemoved || 0,
-    s.status
-  ]);
-
-  const csvContent = [
-    headers.join(','),
-    ...rows.map(e => e.join(','))
-  ].join('\n');
-
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', `dialysis-sessions-${new Date().toISOString().split('T')[0]}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
 export const exportAsPDF = (data: any) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;

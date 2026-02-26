@@ -416,6 +416,17 @@ export async function seedTestData(userId: string, daysBack: number = 60): Promi
   return response.data;
 }
 
+// Update user password (admin only)
+export async function updateUserPassword(userId: string, password: string): Promise<void> {
+  const response = await authFetch(`/admin/users/${userId}/password`, {
+    method: 'PUT',
+    body: JSON.stringify({ password }),
+  });
+  if (!response.success) {
+    throw new Error(response.error?.message || 'Failed to update user password');
+  }
+}
+
 // Update user subscription (admin only)
 export async function updateUserSubscription(
   userId: string,

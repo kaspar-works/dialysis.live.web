@@ -18,6 +18,7 @@ import {
   getPageSettings,
   togglePageSetting,
   updateUserSubscription,
+  updateUserPassword,
   getAllAlerts,
   getActivityLogs,
   seedTestData,
@@ -113,6 +114,12 @@ const Admin: React.FC = () => {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [updatingSubscription, setUpdatingSubscription] = useState(false);
 
+  // Password management states
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordUser, setPasswordUser] = useState<AdminUser | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+
   const hasFetched = useRef(false);
 
   // Verify admin and load initial data
@@ -190,6 +197,23 @@ const Admin: React.FC = () => {
       showError('Update Failed', 'Failed to update subscription');
     } finally {
       setUpdatingSubscription(false);
+    }
+  };
+
+  // Update user password
+  const handleUpdatePassword = async () => {
+    if (!passwordUser || !newPassword) return;
+    setUpdatingPassword(true);
+    try {
+      await updateUserPassword(passwordUser._id, newPassword);
+      showSuccess('Password Updated', `Password updated for ${passwordUser.email}`);
+      setShowPasswordModal(false);
+      setPasswordUser(null);
+      setNewPassword('');
+    } catch (err: any) {
+      showError('Update Failed', err.message || 'Failed to update password');
+    } finally {
+      setUpdatingPassword(false);
     }
   };
 
@@ -2103,6 +2127,17 @@ const Admin: React.FC = () => {
               >
                 Change Subscription
               </button>
+              <button
+                onClick={() => {
+                  setShowUserDetails(false);
+                  setPasswordUser(selectedUserDetails);
+                  setNewPassword('');
+                  setShowPasswordModal(true);
+                }}
+                className="flex-1 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors"
+              >
+                Change Password
+              </button>
             </div>
           </div>
         </div>
@@ -2169,6 +2204,47 @@ const Admin: React.FC = () => {
                 className="flex-1 px-4 py-3 bg-slate-700 text-slate-300 rounded-xl font-bold hover:bg-slate-600 transition-colors disabled:opacity-50"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Password Update Modal */}
+      {showPasswordModal && passwordUser && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => { setShowPasswordModal(false); setPasswordUser(null); setNewPassword(''); }}>
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-white mb-2">Update Password</h3>
+            <p className="text-slate-400 text-sm mb-6">{passwordUser.email}</p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">New Password</label>
+                <input
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-amber-500"
+                  onKeyDown={(e) => e.key === 'Enter' && handleUpdatePassword()}
+                />
+                <p className="text-xs text-slate-500 mt-2">Min 8 chars, uppercase, lowercase, and number required</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setShowPasswordModal(false); setPasswordUser(null); setNewPassword(''); }}
+                disabled={updatingPassword}
+                className="flex-1 px-4 py-3 bg-slate-700 text-slate-300 rounded-xl font-bold hover:bg-slate-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdatePassword}
+                disabled={updatingPassword || !newPassword}
+                className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors disabled:opacity-50"
+              >
+                {updatingPassword ? 'Updating...' : 'Update Password'}
               </button>
             </div>
           </div>

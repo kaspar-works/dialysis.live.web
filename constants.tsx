@@ -18,55 +18,6 @@ export const COLORS = {
   },
 };
 
-// Standardized Tailwind class strings for consistency
-export const STYLES = {
-  // Page backgrounds
-  pageBg: 'bg-slate-50 dark:bg-[#020617]',
-  marketingPageBg: 'bg-[#020617]', // Dark only for landing/pricing
-
-  // Cards
-  card: 'bg-white dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm dark:shadow-none',
-  cardHover: 'hover:shadow-lg dark:hover:border-white/10 transition-all',
-  cardGlass: 'bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10',
-
-  // Buttons
-  btnPrimary: 'px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-2xl font-bold hover:opacity-90 transition-all',
-  btnSecondary: 'px-8 py-4 bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white rounded-2xl font-bold border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all',
-  btnGradient: 'px-8 py-4 bg-gradient-to-r from-sky-500 to-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-sky-500/20 hover:shadow-xl hover:shadow-sky-500/30 transition-all',
-  btnDanger: 'px-8 py-4 bg-rose-500 text-white rounded-2xl font-bold hover:bg-rose-600 transition-all',
-  btnGhost: 'px-8 py-4 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl font-bold transition-all',
-
-  // Form inputs
-  input: 'w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all',
-  inputLabel: 'block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2',
-
-  // Typography
-  heading1: 'text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white',
-  heading2: 'text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white',
-  heading3: 'text-xl md:text-2xl font-bold text-slate-900 dark:text-white',
-  bodyText: 'text-base text-slate-600 dark:text-slate-400',
-  smallText: 'text-sm text-slate-500 dark:text-slate-500',
-  label: 'text-xs font-bold uppercase tracking-wider text-slate-400',
-
-  // Navigation
-  navLink: 'text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors',
-  navLinkActive: 'text-xs font-bold uppercase tracking-wider text-sky-500',
-
-  // Gradients (for text or backgrounds)
-  gradientPrimary: 'from-sky-500 to-emerald-500',
-  gradientAccent: 'from-sky-400 via-pink-400 to-orange-400',
-  gradientText: 'text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400',
-
-  // Shadows
-  shadowCard: 'shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none',
-  shadowCardHover: 'shadow-[0_20px_50px_rgba(14,165,233,0.1)]',
-  shadowGlow: 'shadow-[0_0_40px_rgba(14,165,233,0.15)]',
-
-  // Background effects (blurs)
-  bgBlur1: 'absolute top-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-sky-500/10 rounded-full blur-[150px]',
-  bgBlur2: 'absolute bottom-[-20%] left-[-10%] w-[50vw] h-[50vw] bg-pink-500/5 rounded-full blur-[120px]',
-};
-
 export const ICONS = {
   Dashboard: (props: any) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
@@ -152,9 +103,6 @@ export const ICONS = {
   FileText: (props: any) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
   ),
-  ExternalLink: (props: any) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
-  ),
   Download: (props: any) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
   ),
@@ -193,9 +141,6 @@ export const ICONS = {
   ),
   Bot: (props: any) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-  ),
-  Lightbulb: (props: any) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
   ),
   Stethoscope: (props: any) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>

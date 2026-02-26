@@ -9,7 +9,6 @@ import {
   canAddResource,
   hasFeature,
   resourceDisplayNames,
-  featureDisplayNames,
   PlanType,
 } from '../services/subscription';
 
@@ -124,42 +123,6 @@ export function useSubscription(): UseSubscriptionReturn {
     isNearLimit,
     getUpgradeMessage,
     plan: subscription?.plan || null,
-  };
-}
-
-// Hook for checking a specific feature
-export function useFeatureGate(feature: keyof SubscriptionFeatures): {
-  isLocked: boolean;
-  isLoading: boolean;
-  featureName: string;
-} {
-  const { hasFeature, isLoading } = useSubscription();
-
-  return {
-    isLocked: !hasFeature(feature),
-    isLoading,
-    featureName: featureDisplayNames[feature] || feature,
-  };
-}
-
-// Hook for checking a specific resource limit
-export function useResourceLimit(resource: keyof UsageData['usage']): {
-  canAdd: boolean;
-  isAtLimit: boolean;
-  isNearLimit: boolean;
-  usage: UsageItem | null;
-  isLoading: boolean;
-  upgradeMessage: string;
-} {
-  const { canAdd, isAtLimit, isNearLimit, getUsage, getUpgradeMessage, isLoading } = useSubscription();
-
-  return {
-    canAdd: canAdd(resource),
-    isAtLimit: isAtLimit(resource),
-    isNearLimit: isNearLimit(resource),
-    usage: getUsage(resource),
-    isLoading,
-    upgradeMessage: getUpgradeMessage(resource),
   };
 }
 
