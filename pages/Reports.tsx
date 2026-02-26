@@ -3,7 +3,7 @@ import { ICONS } from '../constants';
 import { listSessions, DialysisSession } from '../services/dialysis';
 import { getWeightLogs, WeightLog } from '../services/weight';
 import { getFluidLogs, FluidLog } from '../services/fluid';
-import { getVitalLogs, VitalLog } from '../services/vitals';
+import { getVitalRecords, VitalRecord } from '../services/vitals';
 import { getMedications, Medication } from '../services/medications';
 import { getCurrentSubscription } from '../services/subscription';
 
@@ -11,7 +11,7 @@ interface ReportData {
   sessions: DialysisSession[];
   weights: WeightLog[];
   fluids: FluidLog[];
-  vitals: VitalLog[];
+  vitals: VitalRecord[];
   medications: Medication[];
 }
 
@@ -45,7 +45,7 @@ const Reports: React.FC = () => {
         listSessions({ limit: 100 }).catch(() => ({ sessions: [] })),
         getWeightLogs({ limit: 100 }).catch(() => ({ logs: [] })),
         getFluidLogs({ limit: 100 }).catch(() => ({ logs: [] })),
-        getVitalLogs({ limit: 100 }).catch(() => ({ logs: [] })),
+        getVitalRecords({ limit: 100 }).catch(() => ({ records: [] })),
         getMedications().catch(() => []),
         getCurrentSubscription().catch(() => null),
       ]);
@@ -54,7 +54,7 @@ const Reports: React.FC = () => {
         sessions: sessionsRes.sessions || [],
         weights: weightsRes.logs || [],
         fluids: fluidsRes.logs || [],
-        vitals: vitalsRes.logs || [],
+        vitals: (vitalsRes as any).records || [],
         medications: Array.isArray(medsRes) ? medsRes : ((medsRes as any)?.medications || []),
       });
       setSubscription(subRes);
@@ -139,10 +139,33 @@ const Reports: React.FC = () => {
     return items.filter(item => new Date(item.loggedAt) > threshold);
   };
 
-  const filterVitalsByDateRange = (items: VitalLog[]): VitalLog[] => {
+  const filterVitalsByDateRange = (items: VitalRecord[]): VitalRecord[] => {
     const days = parseInt(dateRange);
     const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     return items.filter(item => new Date(item.loggedAt) > threshold);
+  };
+
+  const formatVitalType = (v: VitalRecord): string => {
+    const types: string[] = [];
+    if (v.bloodPressure) types.push('BP');
+    if (v.heartRate) types.push('HR');
+    if (v.spo2 != null) types.push('SpO2');
+    if (v.temperature) types.push('Temp');
+    if (v.bloodSugar) types.push('Blood Sugar');
+    if (v.weight) types.push('Weight');
+    if (v.respiratoryRate) types.push('RR');
+    return types.join(', ') || 'Vitals';
+  };
+
+  const formatVitalReading = (v: VitalRecord): string => {
+    const parts: string[] = [];
+    if (v.bloodPressure) parts.push(`${v.bloodPressure.systolic}/${v.bloodPressure.diastolic} mmHg`);
+    if (v.heartRate) parts.push(`${v.heartRate} bpm`);
+    if (v.spo2 != null) parts.push(`SpO2 ${v.spo2}%`);
+    if (v.temperature) parts.push(`${v.temperature.value}°${v.temperature.unit === 'celsius' ? 'C' : 'F'}`);
+    if (v.bloodSugar) parts.push(`${v.bloodSugar.value} ${v.bloodSugar.unit}`);
+    if (v.respiratoryRate) parts.push(`RR ${v.respiratoryRate}`);
+    return parts.join(' | ') || '--';
   };
 
   const exportAsJSON = () => {
@@ -248,8 +271,8 @@ const Reports: React.FC = () => {
                 ${vitals.slice(0, 10).map(v => `
                   <tr>
                     <td>${new Date(v.loggedAt).toLocaleDateString()}</td>
-                    <td>${v.type?.replace(/_/g, ' ')}</td>
-                    <td>${v.value1}${v.value2 ? '/' + v.value2 : ''} ${v.unit}</td>
+                    <td>${formatVitalType(v)}</td>
+                    <td>${formatVitalReading(v)}</td>
                     <td>${v.notes || '-'}</td>
                   </tr>
                 `).join('')}
