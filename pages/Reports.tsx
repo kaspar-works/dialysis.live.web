@@ -6,6 +6,7 @@ import { getFluidLogs, FluidLog } from '../services/fluid';
 import { getVitalRecords, VitalRecord } from '../services/vitals';
 import { getMedications, Medication } from '../services/medications';
 import { getCurrentSubscription } from '../services/subscription';
+import { getProfile, UserProfile } from '../services/profile';
 
 interface ReportData {
   sessions: DialysisSession[];
@@ -25,6 +26,7 @@ const Reports: React.FC = () => {
     medications: [],
   });
   const [subscription, setSubscription] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [reportName, setReportName] = useState('');
@@ -41,13 +43,14 @@ const Reports: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [sessionsRes, weightsRes, fluidsRes, vitalsRes, medsRes, subRes] = await Promise.all([
+      const [sessionsRes, weightsRes, fluidsRes, vitalsRes, medsRes, subRes, profileRes] = await Promise.all([
         listSessions({ limit: 100 }).catch(() => ({ sessions: [] })),
         getWeightLogs({ limit: 100 }).catch(() => ({ logs: [] })),
         getFluidLogs({ limit: 100 }).catch(() => ({ logs: [] })),
         getVitalRecords({ limit: 100 }).catch(() => ({ records: [] })),
         getMedications().catch(() => []),
         getCurrentSubscription().catch(() => null),
+        getProfile().catch(() => null),
       ]);
 
       setData({
@@ -58,6 +61,7 @@ const Reports: React.FC = () => {
         medications: Array.isArray(medsRes) ? medsRes : ((medsRes as any)?.medications || []),
       });
       setSubscription(subRes);
+      setUserProfile(profileRes);
     } catch (err: any) {
       setError(err.message || 'Failed to load data');
     } finally {
@@ -173,6 +177,12 @@ const Reports: React.FC = () => {
       reportName: reportName || 'Health Report',
       generatedAt: new Date().toISOString(),
       dateRange: `${dateRange} days`,
+      patient: {
+        name: userProfile?.fullName || undefined,
+        dateOfBirth: userProfile?.dob || undefined,
+        clinic: userProfile?.clinicName || undefined,
+        modality: userProfile?.dialysisTypeDefault || undefined,
+      },
     };
 
     if (selectedDataPoints.includes('sessions')) exportData.sessions = filterSessionsByDateRange(data.sessions);
@@ -204,6 +214,9 @@ const Reports: React.FC = () => {
     const vitals = selectedDataPoints.includes('vitals') ? filterVitalsByDateRange(data.vitals) : [];
     const medications = selectedDataPoints.includes('meds') ? data.medications : [];
 
+    const patientName = userProfile?.fullName || 'Patient';
+    const patientDob = userProfile?.dob ? new Date(userProfile.dob).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -214,8 +227,16 @@ const Reports: React.FC = () => {
           * { box-sizing: border-box; }
           body { font-family: 'Inter', sans-serif; color: #1e293b; padding: 40px; line-height: 1.6; max-width: 800px; margin: 0 auto; }
           .header { border-bottom: 3px solid #0ea5e9; padding-bottom: 20px; margin-bottom: 30px; }
+          .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+          .header-brand { display: flex; align-items: center; gap: 12px; }
+          .header-logo { width: 48px; height: 48px; }
+          .header-brand-text { font-size: 20px; font-weight: 900; color: #0d4f6e; letter-spacing: -0.5px; }
           .header h1 { margin: 0 0 8px; font-size: 28px; font-weight: 900; color: #0f172a; }
           .header p { margin: 0; color: #64748b; font-size: 14px; }
+          .patient-info { display: flex; gap: 32px; margin-top: 12px; padding: 12px 16px; background: #f0f9ff; border-radius: 10px; border: 1px solid #bae6fd; }
+          .patient-info .info-item { }
+          .patient-info .info-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 2px; }
+          .patient-info .info-value { font-size: 15px; font-weight: 700; color: #0f172a; }
           .section { margin-bottom: 30px; }
           .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #0ea5e9; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px; }
           .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
@@ -227,13 +248,57 @@ const Reports: React.FC = () => {
           td { padding: 10px 8px; border-bottom: 1px solid #f1f5f9; }
           tr:nth-child(even) { background: #f8fafc; }
           .footer { margin-top: 40px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+          .footer-logo { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; }
+          .footer-logo svg { width: 20px; height: 20px; }
           @media print { body { padding: 20px; } }
         </style>
       </head>
       <body>
         <div class="header">
-          <h1>${reportName || 'Health Report'}</h1>
-          <p>Generated on ${new Date().toLocaleString()} | Period: Last ${dateRange} days</p>
+          <div class="header-top">
+            <div class="header-brand">
+              <svg class="header-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+                <defs><linearGradient id="kg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0d4f6e"/><stop offset="100%" style="stop-color:#14b8a6"/></linearGradient></defs>
+                <rect width="64" height="64" rx="14" fill="#f8fafc"/>
+                <path d="M32 8c-8 0-16 6-16 20 0 14 10 28 20 28 4 0 8-4 10-10 2-6 1-12-2-18-3-6 0-12 4-14 2-1 0-6-4-6h-12z" fill="none" stroke="#0d4f6e" stroke-width="3.5" stroke-linecap="round"/>
+                <path d="M24 32 C20 32 16 36 16 36" stroke="#14b8a6" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                <path d="M28 38 C24 42 20 46 20 50" stroke="#14b8a6" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                <path d="M32 38 C32 44 32 50 32 54" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                <path d="M12 24 L20 24 L24 16 L28 32 L32 20 L36 24 L52 24" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+              <span class="header-brand-text">dialysis.live</span>
+            </div>
+            <div style="text-align: right;">
+              <p style="margin: 0; font-size: 11px; color: #94a3b8;">Generated on</p>
+              <p style="margin: 0; font-size: 13px; font-weight: 600; color: #475569;">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            </div>
+          </div>
+          <h1>${reportName || 'Clinical Health Report'}</h1>
+          <p>Period: Last ${dateRange} days</p>
+          <div class="patient-info">
+            <div class="info-item">
+              <div class="info-label">Patient Name</div>
+              <div class="info-value">${patientName}</div>
+            </div>
+            ${patientDob ? `
+            <div class="info-item">
+              <div class="info-label">Date of Birth</div>
+              <div class="info-value">${patientDob}</div>
+            </div>
+            ` : ''}
+            ${userProfile?.dialysisTypeDefault ? `
+            <div class="info-item">
+              <div class="info-label">Modality</div>
+              <div class="info-value">${userProfile.dialysisTypeDefault.replace(/_/g, ' ').toUpperCase()}</div>
+            </div>
+            ` : ''}
+            ${userProfile?.clinicName ? `
+            <div class="info-item">
+              <div class="info-label">Clinic</div>
+              <div class="info-value">${userProfile.clinicName}</div>
+            </div>
+            ` : ''}
+          </div>
         </div>
 
         <div class="stat-grid">
@@ -301,7 +366,15 @@ const Reports: React.FC = () => {
         ` : ''}
 
         <div class="footer">
-          <p>This report was generated by dialysis.live for informational purposes only.</p>
+          <div class="footer-logo">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+              <rect width="64" height="64" rx="14" fill="#f8fafc"/>
+              <path d="M32 8c-8 0-16 6-16 20 0 14 10 28 20 28 4 0 8-4 10-10 2-6 1-12-2-18-3-6 0-12 4-14 2-1 0-6-4-6h-12z" fill="none" stroke="#0d4f6e" stroke-width="3.5" stroke-linecap="round"/>
+              <path d="M12 24 L20 24 L24 16 L28 32 L32 20 L36 24 L52 24" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+            <span style="font-weight: 700; color: #64748b;">dialysis.live</span>
+          </div>
+          <p>This report was generated for informational purposes only.</p>
           <p>Always consult your healthcare provider for medical advice.</p>
         </div>
 
@@ -513,6 +586,18 @@ const Reports: React.FC = () => {
                   <p className="text-white/40 text-xs">Report Name</p>
                   <p className="font-bold text-lg truncate">{reportName || 'Untitled Report'}</p>
                 </div>
+                {userProfile?.fullName && (
+                  <div>
+                    <p className="text-white/40 text-xs">Patient</p>
+                    <p className="font-bold truncate">{userProfile.fullName}</p>
+                  </div>
+                )}
+                {userProfile?.dob && (
+                  <div>
+                    <p className="text-white/40 text-xs">Date of Birth</p>
+                    <p className="font-bold">{new Date(userProfile.dob).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                  </div>
+                )}
                 <div className="flex gap-4">
                   <div>
                     <p className="text-white/40 text-xs">Date Range</p>
