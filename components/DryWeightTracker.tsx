@@ -1,5 +1,6 @@
 import React from 'react';
 import { ICONS } from '../constants';
+import { useSettings } from '../contexts/SettingsContext';
 
 interface DryWeightTrackerProps {
   currentWeight: number;
@@ -26,9 +27,16 @@ const DryWeightTracker: React.FC<DryWeightTrackerProps> = ({
   className = '',
   compact = false,
 }) => {
-  // Calculate difference from dry weight
+  const { weightUnit, convertWeightFromKg } = useSettings();
+
+  // Calculate difference from dry weight (in kg for threshold logic)
   const difference = currentWeight - dryWeight;
   const differencePercent = Math.abs((difference / dryWeight) * 100);
+
+  // Convert values from kg to user's preferred unit for display
+  const displayCurrent = convertWeightFromKg(currentWeight);
+  const displayDry = convertWeightFromKg(dryWeight);
+  const displayDifference = convertWeightFromKg(difference);
 
   // Determine status based on difference
   const getStatus = () => {
@@ -136,9 +144,9 @@ const DryWeightTracker: React.FC<DryWeightTrackerProps> = ({
               <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Dry Weight</p>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-                  {currentWeight.toFixed(1)}
+                  {displayCurrent.toFixed(1)}
                 </span>
-                <span className="text-slate-400 text-sm">/ {dryWeight.toFixed(1)} kg</span>
+                <span className="text-slate-400 text-sm">/ {displayDry.toFixed(1)} {weightUnit}</span>
               </div>
             </div>
           </div>
@@ -153,7 +161,7 @@ const DryWeightTracker: React.FC<DryWeightTrackerProps> = ({
               </span>
             </span>
             <p className={`text-sm font-bold tabular-nums mt-1 ${config.text}`}>
-              {difference > 0 ? '+' : ''}{difference.toFixed(1)} kg
+              {displayDifference > 0 ? '+' : ''}{displayDifference.toFixed(1)} {weightUnit}
             </p>
           </div>
         </div>
@@ -185,22 +193,22 @@ const DryWeightTracker: React.FC<DryWeightTrackerProps> = ({
         <div className="text-center p-3 bg-slate-50 dark:bg-slate-700/50 rounded-2xl">
           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Current</p>
           <p className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-            {currentWeight.toFixed(1)}
-            <span className="text-sm text-slate-400 ml-1">kg</span>
+            {displayCurrent.toFixed(1)}
+            <span className="text-sm text-slate-400 ml-1">{weightUnit}</span>
           </p>
         </div>
         <div className={`text-center p-3 rounded-2xl ${config.bgLight}`}>
           <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${config.text}`}>Difference</p>
           <p className={`text-2xl font-black tabular-nums ${config.text}`}>
-            {difference > 0 ? '+' : ''}{difference.toFixed(1)}
-            <span className="text-sm ml-1">kg</span>
+            {displayDifference > 0 ? '+' : ''}{displayDifference.toFixed(1)}
+            <span className="text-sm ml-1">{weightUnit}</span>
           </p>
         </div>
         <div className="text-center p-3 bg-slate-50 dark:bg-slate-700/50 rounded-2xl">
           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Target</p>
           <p className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">
-            {dryWeight.toFixed(1)}
-            <span className="text-sm text-slate-400 ml-1">kg</span>
+            {displayDry.toFixed(1)}
+            <span className="text-sm text-slate-400 ml-1">{weightUnit}</span>
           </p>
         </div>
       </div>
@@ -210,9 +218,9 @@ const DryWeightTracker: React.FC<DryWeightTrackerProps> = ({
         <div className="relative h-8 bg-gradient-to-r from-purple-100 via-emerald-100 to-rose-100 dark:from-purple-900/30 dark:via-emerald-900/30 dark:to-rose-900/30 rounded-full overflow-hidden">
           {/* Scale markers */}
           <div className="absolute inset-0 flex justify-between px-2 items-center">
-            <span className="text-[9px] font-bold text-purple-400">-3kg</span>
+            <span className="text-[9px] font-bold text-purple-400">-{convertWeightFromKg(3).toFixed(0)}{weightUnit}</span>
             <span className="text-[9px] font-bold text-emerald-500">Target</span>
-            <span className="text-[9px] font-bold text-rose-400">+3kg</span>
+            <span className="text-[9px] font-bold text-rose-400">+{convertWeightFromKg(3).toFixed(0)}{weightUnit}</span>
           </div>
 
           {/* Target line */}
@@ -261,7 +269,7 @@ const DryWeightTracker: React.FC<DryWeightTrackerProps> = ({
             trendDirection === 'down' ? 'text-emerald-500' : 'text-slate-400'
           }`}>
             <span className="text-lg">{trendArrow}</span>
-            {Math.abs(currentWeight - previousWeight).toFixed(1)} kg
+            {convertWeightFromKg(Math.abs(currentWeight - previousWeight)).toFixed(1)} {weightUnit}
           </span>
         </div>
       )}

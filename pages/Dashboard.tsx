@@ -1031,7 +1031,7 @@ const Dashboard: React.FC = () => {
                       <div>
                         <p className="font-bold text-rose-700 dark:text-rose-300 text-xs">Critical Fluid Overload</p>
                         <p className="text-rose-600 dark:text-rose-400 text-xs mt-1 leading-relaxed">
-                          You are {(currentWeight - dryWeight).toFixed(1)}kg above your dry weight. Contact your dialysis team about increasing ultrafiltration or adjusting your fluid restriction.
+                          You are {convertWeightFromKg(currentWeight - dryWeight).toFixed(1)}{weightUnit} above your dry weight. Contact your dialysis team about increasing ultrafiltration or adjusting your fluid restriction.
                         </p>
                       </div>
                     </div>
