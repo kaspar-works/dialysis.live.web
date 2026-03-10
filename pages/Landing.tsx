@@ -138,6 +138,7 @@ const Landing: React.FC = () => {
         </Link>
         <div className="flex items-center gap-3 sm:gap-4 md:gap-12">
           <Link to="/features" className="hidden sm:block text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Features</Link>
+          <Link to="/demo" className="hidden sm:block text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Demo</Link>
           <Link to="/pricing" className="hidden sm:block text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Pricing</Link>
           <Link to="/login" className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Login</Link>
           <Link to="/register" className="px-4 sm:px-5 md:px-10 py-2.5 sm:py-3 md:py-4 bg-white text-slate-950 rounded-xl md:rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 active:scale-95 transition-all">Join</Link>
@@ -162,8 +163,8 @@ const Landing: React.FC = () => {
             </p>
             <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 md:gap-8 pt-4 sm:pt-6 md:pt-8 justify-center lg:justify-start">
               <Link to="/register" className="w-full sm:w-auto px-8 sm:px-10 md:px-16 py-4 sm:py-6 md:py-8 bg-gradient-to-r from-sky-500 to-emerald-500 text-white rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] font-black text-xs md:text-sm uppercase tracking-[0.3em] sm:tracking-[0.4em] shadow-[0_20px_80px_-20px_rgba(14,165,233,0.5)] hover:shadow-[0_30px_100px_-20px_rgba(14,165,233,0.7)] hover:-translate-y-2 transition-all active:scale-95 text-center">Start Free</Link>
-              <Link to="/features" className="w-full sm:w-auto flex items-center justify-center gap-3 sm:gap-4 text-white font-black text-xs md:text-sm uppercase tracking-[0.3em] group px-8 sm:px-10 py-4 sm:py-6 md:py-8 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
-                Explore Features
+              <Link to="/demo" className="w-full sm:w-auto flex items-center justify-center gap-3 sm:gap-4 text-white font-black text-xs md:text-sm uppercase tracking-[0.3em] group px-8 sm:px-10 py-4 sm:py-6 md:py-8 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+                See How It Works
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="group-hover:translate-x-2 transition-transform"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </Link>
             </div>
@@ -371,6 +372,7 @@ const Landing: React.FC = () => {
               <h5 className="text-xs font-bold text-white/60 uppercase tracking-wider">Features</h5>
               <div className="flex flex-col gap-2.5 text-sm text-white/40">
                 <Link to="/features" className="hover:text-white transition-colors">Overview</Link>
+                <Link to="/demo" className="hover:text-white transition-colors">Interactive Demo</Link>
                 <Link to="/sessions" className="hover:text-white transition-colors">Sessions</Link>
                 <Link to="/nutri-scan" className="hover:text-white transition-colors">Nutri-Scan</Link>
               </div>
