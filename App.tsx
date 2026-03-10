@@ -64,6 +64,7 @@ const Features = lazyWithRetry(() => import('./pages/Features'));
 const Pricing = lazyWithRetry(() => import('./pages/Pricing'));
 const NotFound = lazyWithRetry(() => import('./pages/NotFound'));
 const EmergencyCard = lazyWithRetry(() => import('./pages/EmergencyCard'));
+const Demo = lazyWithRetry(() => import('./pages/Demo'));
 
 // Protected pages
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
@@ -136,6 +137,7 @@ const App: React.FC = () => {
               <Route path="/features" element={<Features />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/emergency/:token" element={<EmergencyCard />} />
+              <Route path="/demo" element={<Demo />} />
 
               {/* Development: Health Check (disabled in production via env) */}
               {ENABLE_HEALTH_CHECK && (
