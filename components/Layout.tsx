@@ -56,10 +56,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Symptoms', path: '/symptoms', icon: (props: any) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
     )},
+    { name: 'Access Site', path: '/access-site', icon: (props: any) => (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+    )},
     { name: 'Weight', path: '/weight', icon: ICONS.Scale },
     { name: 'Hydration', path: '/fluid', icon: ICONS.Droplet },
     { name: 'Exercise', path: '/exercise', icon: (props: any) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="18.5" cy="3.5" r="2.5"/><path d="M12 7.5 7.5 12 4 8.5"/><path d="m7.5 12 5 5"/><path d="M12 17.5V22"/><path d="m4.5 16.5 3-3"/><path d="m14.5 8.5 5 5"/></svg>
+    )},
+    { name: 'Nutrition', path: '/nutrition', icon: (props: any) => (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
     )},
     { name: 'Nutri-Scan', path: '/nutri-scan', icon: (props: any) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -77,6 +83,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     )},
     { name: 'AI Insights', path: '/ai-insights', icon: ICONS.Sparkles },
+    { name: 'Fatigue AI', path: '/fatigue-prediction', icon: (props: any) => (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+    )},
+    { name: 'Messages', path: '/messages', icon: (props: any) => (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+    )},
     { name: 'Achievements', path: '/achievements', icon: (props: any) => (
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
     )},
@@ -126,6 +138,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </nav>
 
         <div className="p-6 space-y-4">
+          <Link to="/help" className={`flex items-center gap-4 px-4 py-3 rounded-2xl text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all ${location.pathname === '/help' ? 'text-slate-900 dark:text-white bg-slate-50 dark:bg-white/5' : ''}`}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {isSidebarOpen && <span className="font-bold text-sm">Help</span>}
+          </Link>
           <Link to="/settings" className={`flex items-center gap-4 px-4 py-3 rounded-2xl text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all ${location.pathname === '/settings' ? 'text-slate-900 dark:text-white bg-slate-50 dark:bg-white/5' : ''}`}>
             <ICONS.Settings className="w-5 h-5" />
             {isSidebarOpen && <span className="font-bold text-sm">Settings</span>}
@@ -243,7 +259,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
-                   <p className="text-xs font-bold text-slate-400 dark:text-slate-600">© 2025 dialysis.live · v{version}</p>
+                   <p className="text-xs font-bold text-slate-400 dark:text-slate-600">© 2026 dialysis.live · v{version}</p>
                    <p className="text-xs text-slate-400 dark:text-slate-600">
                      Website developed by <a href="https://kaspar.works/" target="_blank" rel="noopener noreferrer" className="font-bold text-sky-500 hover:text-pink-500 transition-colors">kaspar.works</a>
                    </p>
@@ -383,6 +399,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Drawer Footer */}
             <div className="p-4 border-t border-slate-100 dark:border-white/10 space-y-2">
+              <Link
+                to="/help"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
+                  location.pathname === '/help'
+                    ? 'bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10'
+                }`}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span className="font-semibold text-sm">Help</span>
+              </Link>
               <Link
                 to="/settings"
                 onClick={() => setIsMobileMenuOpen(false)}

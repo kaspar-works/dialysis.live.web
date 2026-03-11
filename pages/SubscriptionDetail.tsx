@@ -81,8 +81,10 @@ const SubscriptionDetail: React.FC = () => {
             <h2 className="text-5xl lg:text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">Billing Center</h2>
             <p className="text-slate-500 dark:text-slate-400 max-w-xl font-medium text-lg lg:text-xl">Governance for your clinical tier and inter-dialytic telemetry storage.</p>
          </div>
-         <div className="flex gap-4 w-full md:w-auto">
+         <div className="flex flex-wrap gap-3 w-full md:w-auto">
             <Link to="/subscription/pricing" className="flex-1 md:flex-none px-12 py-5 bg-slate-950 dark:bg-white text-white dark:text-slate-950 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-2xl transform active:scale-95 transition-all text-center">Change Tier</Link>
+            <Link to="/payment-history" className="flex-1 md:flex-none px-8 py-5 bg-white/10 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white rounded-[2rem] font-black text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/10 transition-all text-center">Payment History</Link>
+            <Link to="/payment-methods" className="flex-1 md:flex-none px-8 py-5 bg-white/10 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white rounded-[2rem] font-black text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/10 transition-all text-center">Payment Methods</Link>
          </div>
       </header>
 
