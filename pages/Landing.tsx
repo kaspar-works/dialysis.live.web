@@ -51,6 +51,28 @@ const Landing: React.FC = () => {
       tag: 'Medications'
     },
     {
+      title: 'AI Health Assistant',
+      desc: 'Chat with AI about your health, analyze symptoms, interpret lab results, and get personalized recommendations.',
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+      color: 'from-indigo-500 to-violet-500',
+      tag: 'AI Chat',
+      highlight: true
+    },
+    {
+      title: 'Lab Reports',
+      desc: 'Store and track lab results with AI-powered interpretation. Trend analysis and reference range alerts.',
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/></svg>,
+      color: 'from-fuchsia-500 to-pink-500',
+      tag: 'Diagnostics'
+    },
+    {
+      title: 'Symptom Tracker',
+      desc: 'Log symptoms with severity levels and link them to dialysis sessions. Identify patterns and triggers.',
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
+      color: 'from-red-500 to-rose-500',
+      tag: 'Symptoms'
+    },
+    {
       title: 'Clinical Reports',
       desc: 'Generate provider-ready reports. Export to PDF or JSON with customizable date ranges.',
       icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>,
@@ -58,23 +80,44 @@ const Landing: React.FC = () => {
       tag: 'Reports'
     },
     {
+      title: 'Appointments',
+      desc: 'Schedule and manage dialysis sessions, doctor visits, and lab work with calendar view and reminders.',
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+      color: 'from-teal-500 to-cyan-500',
+      tag: 'Scheduling'
+    },
+    {
+      title: 'Community',
+      desc: 'Connect with dialysis patients, share success stories, and get support from healthcare providers.',
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+      color: 'from-blue-500 to-indigo-500',
+      tag: 'Social'
+    },
+    {
+      title: 'Emergency Card',
+      desc: 'Digital medical ID with your dialysis info, access site, allergies, and one-tap emergency calling.',
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+      color: 'from-red-600 to-red-500',
+      tag: 'Safety'
+    },
+    {
+      title: 'Apple Watch',
+      desc: 'Full companion app with session tracking, vitals monitoring, fluid logging, and medication management.',
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><rect x="5" y="2" width="14" height="20" rx="7"/><rect x="7" y="6" width="10" height="12" rx="2"/></svg>,
+      color: 'from-gray-500 to-zinc-600',
+      tag: 'Wearable'
+    },
+    {
       title: 'Education Hub',
       desc: 'Expert-reviewed articles on diet, care guides, and mental wellness for dialysis patients.',
       icon: ICONS.Book,
       color: 'from-cyan-500 to-sky-500',
       tag: 'Learning'
-    },
-    {
-      title: 'Wellness Tracking',
-      desc: 'Log your daily mood and energy levels. Correlate wellness with treatment outcomes.',
-      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>,
-      color: 'from-green-500 to-emerald-500',
-      tag: 'Wellness'
     }
   ];
 
   const stats = [
-    { value: '9+', label: 'Core Features' },
+    { value: '15+', label: 'Core Features' },
     { value: '256-bit', label: 'Encryption' },
     { value: '24/7', label: 'Access' },
     { value: '100%', label: 'Private' }
@@ -237,7 +280,7 @@ const Landing: React.FC = () => {
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-white/60 to-white/20">Nothing You Don't.</span>
           </h2>
           <p className="text-white/40 text-lg md:text-xl font-medium max-w-2xl mx-auto leading-relaxed">
-            Nine powerful modules designed specifically for dialysis patients. Track, analyze, and optimize your renal health journey. <Link to="/features" className="text-sky-400 hover:text-sky-300 underline underline-offset-4">Explore all features</Link>.
+            Fifteen powerful modules designed specifically for dialysis patients. Track, analyze, and optimize your renal health journey. <Link to="/features" className="text-sky-400 hover:text-sky-300 underline underline-offset-4">Explore all features</Link>.
           </p>
         </div>
 
@@ -409,7 +452,7 @@ const Landing: React.FC = () => {
 
           {/* Bottom bar */}
           <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <p className="text-xs text-white/30">© 2025 dialysis.live</p>
+            <p className="text-xs text-white/30">© 2026 dialysis.live</p>
             <p className="text-xs text-white/30">Made with care for the dialysis community</p>
           </div>
         </div>

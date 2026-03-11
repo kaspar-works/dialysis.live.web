@@ -34,11 +34,12 @@ const Pricing: React.FC = () => {
       description: "Limited tracking to get started",
       features: [
         { text: "5 entries per category", included: true },
-        { text: "Basic vitals monitoring", included: true },
-        { text: "Session tracking", included: true },
+        { text: "Session & vitals tracking", included: true },
         { text: "Medication reminders", included: true },
+        { text: "Community forums", included: true },
+        { text: "Education hub", included: true },
+        { text: "Emergency card", included: true },
         { text: "90 days data retention", included: true },
-        { text: "Community support", included: true },
         { text: "AI Features", included: false },
         { text: "Data Export", included: false },
       ],
@@ -51,11 +52,12 @@ const Pricing: React.FC = () => {
       yearlyPrice: 49.99,
       description: "Unlimited tracking for all health data",
       features: [
-        { text: "Unlimited sessions", included: true },
-        { text: "Unlimited medications", included: true },
-        { text: "Unlimited vitals & weight", included: true },
-        { text: "Unlimited fluid logs", included: true },
-        { text: "Advanced analytics", included: true },
+        { text: "Unlimited sessions & vitals", included: true },
+        { text: "Unlimited medications & fluids", included: true },
+        { text: "Advanced analytics & trends", included: true },
+        { text: "Symptom & exercise tracking", included: true },
+        { text: "Appointment scheduling", included: true },
+        { text: "Apple Watch companion", included: true },
         { text: "1 year data retention", included: true },
         { text: "Email support", included: true },
         { text: "AI Features", included: false },
@@ -71,11 +73,12 @@ const Pricing: React.FC = () => {
       description: "Full features with AI & exports",
       features: [
         { text: "Everything in Basic", included: true },
-        { text: "30 AI requests/month", included: true },
-        { text: "Nutri-Scan AI", included: true },
-        { text: "Lab Analysis AI", included: true },
-        { text: "PDF Reports & Export", included: true },
-        { text: "Buy more AI credits", included: true },
+        { text: "AI Health Assistant (30/month)", included: true },
+        { text: "Nutri-Scan AI food analysis", included: true },
+        { text: "AI Lab Report interpretation", included: true },
+        { text: "AI Symptom analysis", included: true },
+        { text: "PDF Reports & data export", included: true },
+        { text: "Buy additional AI credits", included: true },
         { text: "Priority support", included: true },
         { text: "Unlimited data retention", included: true },
       ],
@@ -170,6 +173,10 @@ const Pricing: React.FC = () => {
     {
       q: "Do you offer refunds?",
       a: "We offer a 14-day money-back guarantee for all paid plans. No questions asked."
+    },
+    {
+      q: "What AI features are included?",
+      a: "Premium includes AI Health Chat, Nutri-Scan food analysis, Lab Report interpretation, Symptom analysis, and medication interaction checks. You get 30 AI requests per month with the option to purchase more."
     }
   ];
 
@@ -515,7 +522,7 @@ const Pricing: React.FC = () => {
             </div>
           </div>
           <div className="mt-12 pt-8 border-t border-white/10 text-center">
-            <p className="text-white/30 text-sm">© 2025 dialysis.live. All rights reserved.</p>
+            <p className="text-white/30 text-sm">© 2026 dialysis.live. All rights reserved.</p>
             <p className="text-white/20 text-xs mt-2 max-w-2xl mx-auto">
               Medical Disclaimer: This platform is for tracking purposes only and does not provide medical advice.
             </p>

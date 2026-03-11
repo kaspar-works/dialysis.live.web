@@ -20,7 +20,7 @@ const Features: React.FC = () => {
       desc: "Snap a photo of any meal and get instant analysis. Our Gemini-powered AI evaluates sodium, potassium, and phosphorus levels for kidney safety.",
       icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
       color: "from-emerald-500 to-teal-500",
-      details: ["Visual food recognition", "Renal safety scoring", "Nutrient breakdown", "Meal history logging", "Common foods database"]
+      details: ["Visual food recognition", "Renal safety scoring", "Nutrient breakdown", "Meal history logging", "Kidney-friendly food database"]
     },
     {
       title: "Vitals Hub",
@@ -55,12 +55,68 @@ const Features: React.FC = () => {
       details: ["Dialysis day logic", "Binder reminders", "Adherence metrics", "Medication cabinet", "Dose scheduling"]
     },
     {
+      title: "AI Health Assistant",
+      subtitle: "Chat & Insights",
+      desc: "Ask health questions, get personalized insights, and receive AI-powered recommendations tailored to your dialysis journey.",
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+      color: "from-indigo-500 to-violet-500",
+      details: ["AI health chat", "Symptom analysis", "Lab report interpretation", "Medication interaction checks", "Personalized recommendations"]
+    },
+    {
+      title: "Lab Reports",
+      subtitle: "Diagnostics",
+      desc: "Store, track, and analyze your lab results over time. AI-powered interpretation highlights trends and flags results outside reference ranges.",
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/></svg>,
+      color: "from-fuchsia-500 to-pink-500",
+      details: ["Lab result logging", "Reference range alerts", "AI-powered interpretation", "Trend visualization", "Dialysis-specific markers"]
+    },
+    {
+      title: "Symptom Tracker",
+      subtitle: "Health Logging",
+      desc: "Log symptoms with severity levels, link them to dialysis sessions, and identify patterns with your care team.",
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
+      color: "from-red-500 to-rose-500",
+      details: ["Severity scale (1-5)", "Common dialysis symptoms", "Session-linked logging", "Trigger tracking", "Pattern identification"]
+    },
+    {
       title: "Clinical Reports",
       subtitle: "Provider-Ready",
       desc: "Generate professional PDF summaries for your healthcare team. Customize date ranges and include all synchronized vitals and outcomes.",
       icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>,
       color: "from-slate-500 to-gray-600",
-      details: ["PDF export", "JSON data export", "Custom date ranges", "Provider-ready layouts", "Saved report templates"]
+      details: ["PDF export", "JSON data export", "Custom date ranges", "Provider-ready layouts", "Comprehensive health summaries"]
+    },
+    {
+      title: "Appointments",
+      subtitle: "Scheduling",
+      desc: "Manage dialysis appointments, doctor visits, and lab work schedules. Calendar view with reminders and status tracking.",
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+      color: "from-teal-500 to-cyan-500",
+      details: ["Calendar view", "Appointment reminders", "Status tracking", "Multiple appointment types", "Upcoming & history views"]
+    },
+    {
+      title: "Community & Forums",
+      subtitle: "Patient Network",
+      desc: "Connect with other dialysis patients, share experiences, and learn from the community. Healthcare provider verified badges.",
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+      color: "from-blue-500 to-indigo-500",
+      details: ["Discussion forums", "Success stories", "HCP verified badges", "Topic categories", "Helpful reply system"]
+    },
+    {
+      title: "Emergency Card",
+      subtitle: "Safety First",
+      desc: "Digital emergency card with your dialysis type, access site, allergies, and emergency contacts. One-tap emergency calling.",
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+      color: "from-red-600 to-red-500",
+      details: ["Medical ID card", "One-tap emergency call", "Access site info", "Allergy list", "Emergency contacts"]
+    },
+    {
+      title: "Apple Watch",
+      subtitle: "Companion App",
+      desc: "Full companion app for Apple Watch. Track sessions, log vitals, monitor fluids, and manage medications right from your wrist.",
+      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><rect x="5" y="2" width="14" height="20" rx="7"/><rect x="7" y="6" width="10" height="12" rx="2"/></svg>,
+      color: "from-gray-500 to-zinc-600",
+      details: ["Session timer & tracking", "Vitals monitoring", "Fluid intake logging", "Medication reminders", "HealthKit integration"]
     },
     {
       title: "Education Hub",
@@ -68,30 +124,22 @@ const Features: React.FC = () => {
       desc: "Expert-reviewed educational content on diet, care guides, and mental wellness specifically for dialysis patients.",
       icon: ICONS.Book,
       color: "from-cyan-500 to-sky-500",
-      details: ["Diet & nutrition guides", "Care best practices", "Mental wellness support", "Video tutorials", "Expert Q&A"]
+      details: ["Diet & nutrition guides", "Care best practices", "Mental wellness support", "Searchable articles", "Bookmark favorites"]
     },
-    {
-      title: "Wellness Tracking",
-      subtitle: "Mood & Energy",
-      desc: "Log your daily mood and energy levels. Correlate wellness patterns with treatment outcomes for holistic health insights.",
-      icon: (props: any) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>,
-      color: "from-green-500 to-emerald-500",
-      details: ["Daily mood logging", "Energy level tracking", "Treatment correlation", "Wellness patterns", "Mental health insights"]
-    }
   ];
 
   const securityFeatures = [
     { title: "256-bit Encryption", desc: "End-to-end encryption for all health data" },
     { title: "Privacy First", desc: "Your data stays private and secure" },
-    { title: "Local-First", desc: "Your data stays on your device first" },
-    { title: "Secure Sync", desc: "Encrypted cloud backup with Firebase" }
+    { title: "JWT Auth", desc: "Secure token-based authentication" },
+    { title: "Secure Sync", desc: "Encrypted cloud sync via HTTPS" }
   ];
 
   const integrations = [
-    { name: "Google Gemini", desc: "AI-powered nutrition analysis", icon: "AI" },
-    { name: "Firebase", desc: "Secure authentication & storage", icon: "DB" },
+    { name: "Google Gemini", desc: "AI-powered nutrition & health analysis", icon: "AI" },
+    { name: "Apple HealthKit", desc: "Sync vitals, weight & activity", icon: "HK" },
     { name: "PDF Export", desc: "Provider-ready report generation", icon: "PDF" },
-    { name: "JSON Export", desc: "Full data portability", icon: "API" }
+    { name: "REST API", desc: "Full data portability & export", icon: "API" }
   ];
 
   // Inject Breadcrumb structured data
@@ -174,7 +222,7 @@ const Features: React.FC = () => {
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-pink-400 to-emerald-400">Feature Set.</span>
         </h1>
         <p className="text-white/40 text-lg md:text-2xl font-medium max-w-3xl mx-auto leading-relaxed">
-          Nine powerful modules designed specifically for dialysis patients. Everything you need to track, analyze, and optimize your renal health journey.
+          Fifteen powerful modules designed specifically for dialysis patients. Everything you need to track, analyze, and optimize your renal health journey.
         </p>
       </header>
 
@@ -317,7 +365,7 @@ const Features: React.FC = () => {
             </div>
           </div>
           <div className="text-center space-y-4 pt-8 border-t border-white/5">
-            <p className="text-white/20 text-[10px] font-black uppercase tracking-widest">© 2025 dialysis.live. All rights reserved.</p>
+            <p className="text-white/20 text-[10px] font-black uppercase tracking-widest">© 2026 dialysis.live. All rights reserved.</p>
             <p className="text-white/20 text-[10px] font-bold max-w-3xl mx-auto uppercase tracking-widest leading-relaxed">
               Medical Disclaimer: This platform is for tracking purposes only and does not provide medical advice.
               Please consult your healthcare provider for all medical decisions.
