@@ -1951,11 +1951,11 @@ const Admin: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Total Users</span>
-                  <span className="text-white font-bold">{stats?.totalUsers || 0}</span>
+                  <span className="text-white font-bold">{stats?.users?.total || 0}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Active Users (24h)</span>
-                  <span className="text-white font-bold">{stats?.activeUsers || 0}</span>
+                  <span className="text-white font-bold">{stats?.users?.active || 0}</span>
                 </div>
               </div>
             </div>

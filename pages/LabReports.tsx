@@ -1626,10 +1626,10 @@ const LabReports: React.FC = () => {
                           <li key={i} className="text-sm text-slate-600 dark:text-slate-400">
                             <div className="flex items-center gap-2">
                               <span className={`text-xs ${
-                                t.direction === 'up' ? 'text-rose-500' :
-                                t.direction === 'down' ? 'text-emerald-500' : 'text-slate-400'
+                                t.direction === 'worsening' ? 'text-rose-500' :
+                                t.direction === 'improving' ? 'text-emerald-500' : 'text-slate-400'
                               }`}>
-                                {t.direction === 'up' ? '↑' : t.direction === 'down' ? '↓' : '→'}
+                                {t.direction === 'worsening' ? '↑' : t.direction === 'improving' ? '↓' : '→'}
                               </span>
                               <span className="font-medium text-slate-900 dark:text-white">{t.testName}</span>
                             </div>
