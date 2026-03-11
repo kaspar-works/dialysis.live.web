@@ -93,6 +93,14 @@ const Alerts = lazyWithRetry(() => import('./pages/Alerts'));
 const Achievements = lazyWithRetry(() => import('./pages/Achievements'));
 const AccessSite = lazyWithRetry(() => import('./pages/AccessSite'));
 const Admin = lazyWithRetry(() => import('./pages/Admin'));
+const Nutrition = lazyWithRetry(() => import('./pages/Nutrition'));
+const Help = lazyWithRetry(() => import('./pages/Help'));
+const TwoFactorSettings = lazyWithRetry(() => import('./pages/TwoFactorSettings'));
+const PaymentHistory = lazyWithRetry(() => import('./pages/PaymentHistory'));
+const PaymentMethods = lazyWithRetry(() => import('./pages/PaymentMethods'));
+const ChangePassword = lazyWithRetry(() => import('./pages/ChangePassword'));
+const Messages = lazyWithRetry(() => import('./pages/Messages'));
+const FatiguePrediction = lazyWithRetry(() => import('./pages/FatiguePrediction'));
 
 // Community pages
 const Community = lazyWithRetry(() => import('./pages/Community'));
@@ -334,6 +342,71 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <PageGuard><Layout><SEO title="Achievements" noIndex /><Achievements /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/nutrition"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Nutrition Tracker" noIndex /><Nutrition /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/help"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Help & Support" noIndex /><Help /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/two-factor"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Two-Factor Authentication" noIndex /><TwoFactorSettings /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment-history"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Payment History" noIndex /><PaymentHistory /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment-methods"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Payment Methods" noIndex /><PaymentMethods /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/change-password"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Change Password" noIndex /><ChangePassword /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/messages"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Messages" noIndex /><Messages /></Layout></PageGuard>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/fatigue-prediction"
+                element={
+                  <ProtectedRoute>
+                    <PageGuard><Layout><SEO title="Fatigue Prediction" noIndex /><FatiguePrediction /></Layout></PageGuard>
                   </ProtectedRoute>
                 }
               />

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router';
 import { ICONS } from '../constants';
-import Logo from '../components/Logo';
 import SEO from '../components/SEO';
+import PublicNav from '../components/PublicNav';
+import PublicFooter from '../components/PublicFooter';
 
 interface DemoScreen {
   id: string;
@@ -657,18 +658,7 @@ const Demo: React.FC = () => {
         <div className="absolute bottom-[-10%] left-[-10%] w-[80vw] h-[80vw] bg-pink-900/10 rounded-full blur-[140px]"></div>
       </div>
 
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 h-16 sm:h-20 md:h-24 border-b border-white/5 bg-[#020617]/40 backdrop-blur-3xl flex items-center justify-between px-4 sm:px-6 md:px-20 z-[100] safe-pt">
-        <Link to="/" className="flex items-center gap-2 sm:gap-3 md:gap-4 group">
-          <Logo className="w-8 h-8 md:w-12 md:h-12" />
-          <span className="font-black text-base sm:text-lg md:text-2xl tracking-tighter text-white">dialysis.live</span>
-        </Link>
-        <div className="flex items-center gap-3 sm:gap-4 md:gap-12">
-          <Link to="/features" className="hidden sm:block text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Features</Link>
-          <Link to="/pricing" className="hidden sm:block text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-white/40 hover:text-white transition-colors">Pricing</Link>
-          <Link to="/register" className="px-4 sm:px-5 md:px-10 py-2.5 sm:py-3 md:py-4 bg-white text-slate-950 rounded-xl md:rounded-2xl font-black text-[9px] md:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 active:scale-95 transition-all">Start Free</Link>
-        </div>
-      </nav>
+      <PublicNav />
 
       {/* Hero */}
       <section className="pt-28 sm:pt-36 md:pt-40 pb-10 sm:pb-16 px-4 sm:px-6 md:px-20 max-w-[1440px] mx-auto text-center">
@@ -856,16 +846,7 @@ const Demo: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative pt-16 pb-8 px-4 sm:px-6 md:px-20 overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-500/50 to-transparent"></div>
-        <div className="max-w-[1440px] mx-auto">
-          <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <p className="text-xs text-white/30">© 2025 dialysis.live</p>
-            <p className="text-xs text-white/30">Made with care for the dialysis community</p>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 };

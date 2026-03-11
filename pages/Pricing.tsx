@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router';
-import Logo from '../components/Logo';
 import SEO from '../components/SEO';
+import PublicNav from '../components/PublicNav';
+import PublicFooter from '../components/PublicFooter';
 
 interface PlanFeature {
   text: string;
@@ -260,23 +261,7 @@ const Pricing: React.FC = () => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-violet-500/5 rounded-full blur-[200px]" />
       </div>
 
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-2xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 sm:gap-3">
-            <Logo className="w-8 h-8 sm:w-10 sm:h-10" />
-            <span className="font-black text-base sm:text-xl tracking-tight">dialysis.live</span>
-          </Link>
-          <div className="flex items-center gap-3 sm:gap-8">
-            <Link to="/" className="hidden md:block text-sm font-semibold text-white/50 hover:text-white transition-colors">Home</Link>
-            <Link to="/features" className="hidden md:block text-sm font-semibold text-white/50 hover:text-white transition-colors">Features</Link>
-            <Link to="/login" className="text-xs sm:text-sm font-semibold text-white/50 hover:text-white transition-colors">Login</Link>
-            <Link to="/register" className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white text-slate-950 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm hover:scale-105 transition-transform">
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <PublicNav />
 
       {/* Hero */}
       <section className="pt-28 sm:pt-40 pb-12 sm:pb-20 px-4 sm:px-6">
@@ -505,30 +490,7 @@ const Pricing: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10 bg-black">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="flex items-center gap-3">
-              <Logo className="w-8 h-8" />
-              <span className="font-bold">dialysis.live</span>
-            </div>
-            <div className="flex flex-wrap justify-center gap-8 text-sm text-white/40">
-              <Link to="/" className="hover:text-white transition-colors">Home</Link>
-              <Link to="/features" className="hover:text-white transition-colors">Features</Link>
-              <Link to="/edu" className="hover:text-white transition-colors">Education</Link>
-              <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
-              <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
-            </div>
-          </div>
-          <div className="mt-12 pt-8 border-t border-white/10 text-center">
-            <p className="text-white/30 text-sm">© 2026 dialysis.live. All rights reserved.</p>
-            <p className="text-white/20 text-xs mt-2 max-w-2xl mx-auto">
-              Medical Disclaimer: This platform is for tracking purposes only and does not provide medical advice.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 };
