@@ -15,10 +15,24 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('sidebar-collapsed');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const { profile, setTheme } = useStore();
   const { authProfile, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const toggleSection = (section: string) => {
+    setCollapsedSections(prev => {
+      const next = { ...prev, [section]: !prev[section] };
+      localStorage.setItem('sidebar-collapsed', JSON.stringify(next));
+      return next;
+    });
+  };
 
   // Use AuthContext profile (shared state) with fallback to local store
   const displayName = authProfile?.fullName || profile.name || 'User';
@@ -49,53 +63,70 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setTheme(profile.settings.display.theme === 'dark' ? 'light' : 'dark');
   };
 
-  const menuItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: ICONS.Dashboard },
-    { name: 'Sessions', path: '/sessions', icon: ICONS.Activity },
-    { name: 'Vitals Hub', path: '/vitals', icon: ICONS.Vitals },
-    { name: 'Symptoms', path: '/symptoms', icon: (props: any) => (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-    )},
-    { name: 'Access Site', path: '/access-site', icon: (props: any) => (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
-    )},
-    { name: 'Weight', path: '/weight', icon: ICONS.Scale },
-    { name: 'Hydration', path: '/fluid', icon: ICONS.Droplet },
-    { name: 'Exercise', path: '/exercise', icon: (props: any) => (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="18.5" cy="3.5" r="2.5"/><path d="M12 7.5 7.5 12 4 8.5"/><path d="m7.5 12 5 5"/><path d="M12 17.5V22"/><path d="m4.5 16.5 3-3"/><path d="m14.5 8.5 5 5"/></svg>
-    )},
-    { name: 'Nutrition', path: '/nutrition', icon: (props: any) => (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
-    )},
-    { name: 'Nutri-Scan', path: '/nutri-scan', icon: (props: any) => (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-    )},
-    { name: 'Labs', path: '/labs', icon: (props: any) => (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>
-    )},
-    { name: 'Meds', path: '/meds', icon: ICONS.Pill },
-    { name: 'Reminders', path: '/reminders', icon: ICONS.Bell },
-    { name: 'Appointments', path: '/appointments', icon: ICONS.Calendar },
-    { name: 'Reports', path: '/reports', icon: (props: any) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
-    )},
-    { name: 'AI Chat', path: '/ai-chat', icon: (props: any) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    )},
-    { name: 'AI Insights', path: '/ai-insights', icon: ICONS.Sparkles },
-    { name: 'Fatigue AI', path: '/fatigue-prediction', icon: (props: any) => (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-    )},
-    { name: 'Messages', path: '/messages', icon: (props: any) => (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-    )},
-    { name: 'Achievements', path: '/achievements', icon: (props: any) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-    )},
-    { name: 'Symptom Check', path: '/symptom-analysis', icon: (props: any) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>
-    )},
+  const menuSections = [
+    { label: null, items: [
+      { name: 'Dashboard', path: '/dashboard', icon: ICONS.Dashboard },
+    ]},
+    { label: 'Dialysis', items: [
+      { name: 'Sessions', path: '/sessions', icon: ICONS.Activity },
+      { name: 'Access Site', path: '/access-site', icon: (props: any) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+      )},
+    ]},
+    { label: 'Tracking', items: [
+      { name: 'Vitals Hub', path: '/vitals', icon: ICONS.Vitals },
+      { name: 'Weight', path: '/weight', icon: ICONS.Scale },
+      { name: 'Hydration', path: '/fluid', icon: ICONS.Droplet },
+      { name: 'Exercise', path: '/exercise', icon: (props: any) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="18.5" cy="3.5" r="2.5"/><path d="M12 7.5 7.5 12 4 8.5"/><path d="m7.5 12 5 5"/><path d="M12 17.5V22"/><path d="m4.5 16.5 3-3"/><path d="m14.5 8.5 5 5"/></svg>
+      )},
+      { name: 'Nutrition', path: '/nutrition', icon: (props: any) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+      )},
+      { name: 'Nutri-Scan', path: '/nutri-scan', icon: (props: any) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      )},
+    ]},
+    { label: 'Clinical', items: [
+      { name: 'Symptoms', path: '/symptoms', icon: (props: any) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      )},
+      { name: 'Labs', path: '/labs', icon: (props: any) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg>
+      )},
+      { name: 'Meds', path: '/meds', icon: ICONS.Pill },
+      { name: 'Symptom Check', path: '/symptom-analysis', icon: (props: any) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>
+      )},
+    ]},
+    { label: 'Planning', items: [
+      { name: 'Reminders', path: '/reminders', icon: ICONS.Bell },
+      { name: 'Appointments', path: '/appointments', icon: ICONS.Calendar },
+    ]},
+    { label: 'AI & Analytics', items: [
+      { name: 'AI Chat', path: '/ai-chat', icon: (props: any) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      )},
+      { name: 'AI Insights', path: '/ai-insights', icon: ICONS.Sparkles },
+      { name: 'Fatigue AI', path: '/fatigue-prediction', icon: (props: any) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+      )},
+      { name: 'Reports', path: '/reports', icon: (props: any) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+      )},
+    ]},
+    { label: 'Social', items: [
+      { name: 'Messages', path: '/messages', icon: (props: any) => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      )},
+      { name: 'Achievements', path: '/achievements', icon: (props: any) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+      )},
+    ]},
   ];
+
+  // Flat list for header title lookup and mobile drawer
+  const menuItems = menuSections.flatMap(s => s.items);
 
   const defaultAvatar = "https://ui-avatars.com/api/?name=" + encodeURIComponent(displayName) + "&background=0ea5e9&color=fff&bold=true";
 
@@ -113,26 +144,55 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </Link>
         </div>
 
-        <nav className="flex-1 mt-4 px-4 space-y-2 overflow-y-auto custom-scrollbar" aria-label="Main navigation">
-          {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
+        <nav className="flex-1 mt-4 px-4 space-y-1 overflow-y-auto custom-scrollbar" aria-label="Main navigation">
+          {menuSections.map((section) => {
+            const isCollapsed = section.label ? collapsedSections[section.label] : false;
+            const hasActiveItem = section.items.some(item => location.pathname === item.path);
             return (
-              <Link
-                key={item.name}
-                to={item.path}
-                aria-label={`Navigate to ${item.name}`}
-                aria-current={isActive ? 'page' : undefined}
-                className={`flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-300 group ${
-                  isActive
-                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 shadow-xl dark:shadow-white/5'
-                    : 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <Icon className={`w-5 h-5 transition-colors ${isActive ? 'text-sky-400 dark:text-sky-500' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-900 dark:group-hover:text-white'}`} />
-                {isSidebarOpen && <span className="font-bold text-sm tracking-tight">{item.name}</span>}
-                {isActive && isSidebarOpen && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sky-400 shadow-[0_0_8px_#0EA5E9]"></div>}
-              </Link>
+              <div key={section.label || 'top'}>
+                {section.label && isSidebarOpen && (
+                  <button
+                    onClick={() => toggleSection(section.label!)}
+                    className="w-full flex items-center justify-between px-4 pt-5 pb-2 group"
+                  >
+                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] transition-colors ${hasActiveItem ? 'text-sky-500 dark:text-sky-400' : 'text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-500'}`}>
+                      {section.label}
+                    </span>
+                    <svg
+                      width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                      className={`text-slate-300 dark:text-slate-600 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
+                    >
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                )}
+                {section.label && !isSidebarOpen && (
+                  <div className="mx-auto w-6 border-t border-slate-100 dark:border-white/5 mt-4 mb-2" />
+                )}
+                <div className={`space-y-1 overflow-hidden transition-all duration-200 ${isCollapsed && isSidebarOpen ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'}`}>
+                  {section.items.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.path}
+                        aria-label={`Navigate to ${item.name}`}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={`flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group ${
+                          isActive
+                            ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 shadow-xl dark:shadow-white/5'
+                            : 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <Icon className={`w-5 h-5 transition-colors ${isActive ? 'text-sky-400 dark:text-sky-500' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-900 dark:group-hover:text-white'}`} />
+                        {isSidebarOpen && <span className="font-bold text-sm tracking-tight">{item.name}</span>}
+                        {isActive && isSidebarOpen && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sky-400 shadow-[0_0_8px_#0EA5E9]"></div>}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </nav>
@@ -371,30 +431,54 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Scrollable Menu Items */}
             <nav className="flex-1 overflow-y-auto py-4 px-3">
-              <div className="space-y-1">
-                {menuItems.map((item) => {
-                  const isActive = location.pathname === item.path;
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.path}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all ${
-                        isActive
-                          ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/25'
-                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 active:bg-slate-200 dark:active:bg-white/15'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
-                      <span className="font-semibold text-sm">{item.name}</span>
-                      {isActive && (
-                        <div className="ml-auto w-2 h-2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.5)]"></div>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
+              {menuSections.map((section) => {
+                const isCollapsed = section.label ? collapsedSections[section.label] : false;
+                const hasActiveItem = section.items.some(item => location.pathname === item.path);
+                return (
+                  <div key={section.label || 'top'}>
+                    {section.label && (
+                      <button
+                        onClick={() => toggleSection(section.label!)}
+                        className="w-full flex items-center justify-between px-4 pt-4 pb-2 group"
+                      >
+                        <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${hasActiveItem ? 'text-sky-500' : 'text-slate-400 dark:text-slate-500'}`}>
+                          {section.label}
+                        </span>
+                        <svg
+                          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                          className={`text-slate-400 dark:text-slate-500 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
+                        >
+                          <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                      </button>
+                    )}
+                    <div className={`space-y-1 overflow-hidden transition-all duration-200 ${isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'}`}>
+                      {section.items.map((item) => {
+                        const isActive = location.pathname === item.path;
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.name}
+                            to={item.path}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
+                              isActive
+                                ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/25'
+                                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 active:bg-slate-200 dark:active:bg-white/15'
+                            }`}
+                          >
+                            <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+                            <span className="font-semibold text-sm">{item.name}</span>
+                            {isActive && (
+                              <div className="ml-auto w-2 h-2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.5)]"></div>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </nav>
 
             {/* Drawer Footer */}
