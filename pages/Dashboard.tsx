@@ -62,7 +62,34 @@ const Dashboard: React.FC = () => {
     const saved = localStorage.getItem('dismissedAnnouncements');
     return saved ? JSON.parse(saved) : [];
   });
+  const [showIntelligenceCustomize, setShowIntelligenceCustomize] = useState(false);
+  const [intelligenceCards, setIntelligenceCards] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('intelligence-cards');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const hasFetched = useRef(false);
+
+  const INTELLIGENCE_CARD_DEFS = [
+    { id: 'dryWeight', label: 'Dry Weight Tracker', emoji: '⚖️' },
+    { id: 'potassium', label: 'Potassium Risk', emoji: '🍌' },
+    { id: 'phosphorus', label: 'Phosphorus Risk', emoji: '🦴' },
+    { id: 'sodium', label: 'Sodium Risk', emoji: '🧂' },
+    { id: 'bpTrend', label: 'BP Trend', emoji: '🫀' },
+    { id: 'medAdherence', label: 'Medication Adherence', emoji: '💊' },
+    { id: 'sessionCompliance', label: 'Session Compliance', emoji: '🩺' },
+  ];
+
+  const isCardVisible = (id: string) => intelligenceCards[id] !== false; // default: visible
+
+  const toggleCard = (id: string) => {
+    setIntelligenceCards(prev => {
+      const next = { ...prev, [id]: prev[id] === false ? true : false };
+      localStorage.setItem('intelligence-cards', JSON.stringify(next));
+      return next;
+    });
+  };
 
   // Function to fetch/refresh alerts - can be called anytime
   const fetchAlerts = async () => {
@@ -1082,15 +1109,53 @@ const Dashboard: React.FC = () => {
       {/* Dialysis Intelligence */}
       {(currentWeight !== null && dryWeight !== null) || nutritionTotals.potassium > 0 || latestPotassium || nutritionTotals.phosphorus > 0 || latestPhosphorus || nutritionTotals.sodium > 0 || latestSodium || latestBP || (dashboardData?.medications?.totalActive ?? 0) > 0 || (sessionStats?.totalCompleted ?? 0) > 0 ? (
         <div className="anim-fade-up" style={{ animationDelay: '0.18s' }}>
-          <div className="flex items-center gap-2.5 mb-4">
-            <span className="text-xl">🧠</span>
-            <div>
-              <h2 className="font-display font-extrabold text-slate-900 dark:text-white text-base">Dialysis Intelligence</h2>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">Clinical insights from your data</p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">🧠</span>
+              <div>
+                <h2 className="font-display font-extrabold text-slate-900 dark:text-white text-base">Dialysis Intelligence</h2>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">Clinical insights from your data</p>
+              </div>
+            </div>
+            <div className="relative">
+              <button
+                onClick={() => setShowIntelligenceCustomize(!showIntelligenceCustomize)}
+                className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+                title="Customize cards"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+              </button>
+              {showIntelligenceCustomize && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowIntelligenceCustomize(false)} />
+                  <div className="absolute right-0 top-10 z-50 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-3 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 pb-2">Show/Hide Cards</p>
+                    {INTELLIGENCE_CARD_DEFS.map(card => (
+                      <button
+                        key={card.id}
+                        onClick={() => toggleCard(card.id)}
+                        className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                      >
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${
+                          isCardVisible(card.id)
+                            ? 'bg-teal-500 border-teal-500'
+                            : 'border-slate-300 dark:border-slate-600'
+                        }`}>
+                          {isCardVisible(card.id) && (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          )}
+                        </div>
+                        <span className="text-sm">{card.emoji}</span>
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{card.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
-            {currentWeight !== null && dryWeight !== null && (
+            {isCardVisible('dryWeight') && currentWeight !== null && dryWeight !== null && (
               <div>
                 <DryWeightTracker
                   currentWeight={currentWeight}
@@ -1114,7 +1179,7 @@ const Dashboard: React.FC = () => {
               </div>
             )}
 
-            {(nutritionTotals.potassium > 0 || latestPotassium) && (
+            {isCardVisible('potassium') && (nutritionTotals.potassium > 0 || latestPotassium) && (
               <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 border border-slate-100 dark:border-white/[0.06]">
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4">
@@ -1222,7 +1287,7 @@ const Dashboard: React.FC = () => {
             )}
 
             {/* Phosphorus Risk Card */}
-            {(nutritionTotals.phosphorus > 0 || latestPhosphorus) && (
+            {isCardVisible('phosphorus') && (nutritionTotals.phosphorus > 0 || latestPhosphorus) && (
               <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 border border-slate-100 dark:border-white/[0.06]">
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4">
@@ -1317,7 +1382,7 @@ const Dashboard: React.FC = () => {
             )}
 
             {/* Sodium Risk Card */}
-            {(nutritionTotals.sodium > 0 || latestSodium) && (
+            {isCardVisible('sodium') && (nutritionTotals.sodium > 0 || latestSodium) && (
               <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 border border-slate-100 dark:border-white/[0.06]">
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4">
@@ -1411,7 +1476,7 @@ const Dashboard: React.FC = () => {
             )}
 
             {/* BP Trend Card */}
-            {latestBP && (
+            {isCardVisible('bpTrend') && latestBP && (
               <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 border border-slate-100 dark:border-white/[0.06]">
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4">
@@ -1508,7 +1573,7 @@ const Dashboard: React.FC = () => {
             )}
 
             {/* Medication Adherence Card */}
-            {(dashboardData?.medications?.totalActive ?? 0) > 0 && (
+            {isCardVisible('medAdherence') && (dashboardData?.medications?.totalActive ?? 0) > 0 && (
               <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 border border-slate-100 dark:border-white/[0.06]">
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4">
@@ -1596,7 +1661,7 @@ const Dashboard: React.FC = () => {
             )}
 
             {/* Session Compliance Card */}
-            {(sessionStats?.totalCompleted ?? 0) > 0 && (
+            {isCardVisible('sessionCompliance') && (sessionStats?.totalCompleted ?? 0) > 0 && (
               <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 border border-slate-100 dark:border-white/[0.06]">
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4">
