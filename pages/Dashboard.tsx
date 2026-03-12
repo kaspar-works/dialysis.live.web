@@ -410,6 +410,67 @@ const Dashboard: React.FC = () => {
     return 'low';
   }, [nutritionTotals.potassium, nutritionLimits.potassium, latestPotassium, dashboardData?.symptoms]);
 
+  // Latest phosphorus lab result
+  const latestPhosphorus = useMemo(() => {
+    return latestLabResults.find(r => r.testCode === 'PHOSPHORUS') ?? null;
+  }, [latestLabResults]);
+
+  // Phosphorus risk level
+  const phosphorusRisk = useMemo(() => {
+    const intake = nutritionTotals.phosphorus;
+    const limit = nutritionLimits.phosphorus || 1000;
+    const dietRatio = limit > 0 ? intake / limit : 0;
+    const labValue = latestPhosphorus?.latestValue ?? null;
+
+    if (dietRatio > 1 && (labValue !== null && labValue > 5.5)) return 'high';
+    if (dietRatio > 0.9 || (labValue !== null && labValue > 5.5)) return 'elevated';
+    if (dietRatio > 0.6 || (labValue !== null && labValue >= 4.5 && labValue <= 5.5)) return 'moderate';
+    return 'low';
+  }, [nutritionTotals.phosphorus, nutritionLimits.phosphorus, latestPhosphorus]);
+
+  // Latest sodium lab result
+  const latestSodium = useMemo(() => {
+    return latestLabResults.find(r => r.testCode === 'SODIUM') ?? null;
+  }, [latestLabResults]);
+
+  // Sodium risk level
+  const sodiumRisk = useMemo(() => {
+    const intake = nutritionTotals.sodium;
+    const limit = nutritionLimits.sodium || 2000;
+    const dietRatio = limit > 0 ? intake / limit : 0;
+
+    if (dietRatio > 1) return 'high';
+    if (dietRatio > 0.9) return 'elevated';
+    if (dietRatio > 0.6) return 'moderate';
+    return 'low';
+  }, [nutritionTotals.sodium, nutritionLimits.sodium]);
+
+  // BP category
+  const bpCategory = useMemo(() => {
+    if (!latestBP) return null;
+    if (latestBP.systolic < 90) return 'hypotensive';
+    if (latestBP.systolic < 120 && latestBP.diastolic < 90) return 'normal';
+    if (latestBP.systolic >= 140 || latestBP.diastolic >= 90) return 'hypertensive';
+    return 'elevated';
+  }, [latestBP]);
+
+  // Medication adherence category
+  const medAdherenceCategory = useMemo(() => {
+    const rate = dashboardData?.medications?.adherenceRate ?? 0;
+    if (rate >= 90) return 'excellent';
+    if (rate >= 75) return 'good';
+    if (rate >= 50) return 'fair';
+    return 'poor';
+  }, [dashboardData?.medications?.adherenceRate]);
+
+  // Session compliance category
+  const sessionComplianceCategory = useMemo(() => {
+    const thisWeek = sessionStats?.thisWeek ?? 0;
+    if (thisWeek >= 3) return 'on_track';
+    if (thisWeek === 2) return 'needs_attention';
+    return 'at_risk';
+  }, [sessionStats?.thisWeek]);
+
   // Display alerts from API only (no local fallback)
   const displayAlerts = useMemo(() => {
     // If we've fetched from API, use API alerts only (even if empty)
@@ -506,6 +567,19 @@ const Dashboard: React.FC = () => {
       .slice(-7)
       .map(v => v.value1);
   }, [dashboardData]);
+
+  // BP trend direction
+  const bpTrendDirection = useMemo(() => {
+    if (bpSparkline.length < 2) return 'stable';
+    const recent = bpSparkline.slice(-3);
+    const avg = recent.reduce((a, b) => a + b, 0) / recent.length;
+    const older = bpSparkline.slice(0, -3);
+    if (older.length === 0) return 'stable';
+    const olderAvg = older.reduce((a, b) => a + b, 0) / older.length;
+    if (avg > olderAvg + 5) return 'rising';
+    if (avg < olderAvg - 5) return 'falling';
+    return 'stable';
+  }, [bpSparkline]);
 
   const weightSparkline = useMemo(() => {
     return weightData.map(d => d.weight);
@@ -1006,7 +1080,7 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* Dialysis Intelligence */}
-      {(currentWeight !== null && dryWeight !== null) || nutritionTotals.potassium > 0 || latestPotassium ? (
+      {(currentWeight !== null && dryWeight !== null) || nutritionTotals.potassium > 0 || latestPotassium || nutritionTotals.phosphorus > 0 || latestPhosphorus || nutritionTotals.sodium > 0 || latestSodium || latestBP || (dashboardData?.medications?.totalActive ?? 0) > 0 || (sessionStats?.totalCompleted ?? 0) > 0 ? (
         <div className="anim-fade-up" style={{ animationDelay: '0.18s' }}>
           <div className="flex items-center gap-2.5 mb-4">
             <span className="text-xl">🧠</span>
@@ -1141,6 +1215,464 @@ const Dashboard: React.FC = () => {
                       {potassiumRisk === 'elevated' && 'Watch your potassium intake closely. Avoid high-potassium foods for the rest of the day.'}
                       {potassiumRisk === 'moderate' && 'On track — keep balancing your meals. Choose lower-potassium alternatives when possible.'}
                       {potassiumRisk === 'low' && 'Great potassium management! Keep following your renal diet plan.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Phosphorus Risk Card */}
+            {(nutritionTotals.phosphorus > 0 || latestPhosphorus) && (
+              <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 border border-slate-100 dark:border-white/[0.06]">
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">🦴</span>
+                      <div>
+                        <h3 className="font-display font-extrabold text-sm text-slate-900 dark:text-white">Phosphorus Risk</h3>
+                        <p className="text-slate-400 dark:text-slate-500 text-[10px]">Bone & mineral monitoring</p>
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                      phosphorusRisk === 'high' ? 'bg-rose-500/10 text-rose-500' :
+                      phosphorusRisk === 'elevated' ? 'bg-orange-500/10 text-orange-500' :
+                      phosphorusRisk === 'moderate' ? 'bg-amber-500/10 text-amber-500' :
+                      'bg-emerald-500/10 text-emerald-500'
+                    }`}>
+                      {phosphorusRisk === 'high' ? '⚠️ High' :
+                       phosphorusRisk === 'elevated' ? '🔼 Elevated' :
+                       phosphorusRisk === 'moderate' ? '📊 Moderate' : '✓ Low'}
+                    </span>
+                  </div>
+
+                  {nutritionTotals.phosphorus > 0 && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs text-slate-400 dark:text-slate-500">Diet Intake</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-white tabular-nums">
+                          {Math.round(nutritionTotals.phosphorus)} / {nutritionLimits.phosphorus || 1000} mg
+                        </span>
+                      </div>
+                      <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            nutritionTotals.phosphorus / (nutritionLimits.phosphorus || 1000) > 0.9 ? 'bg-rose-500' :
+                            nutritionTotals.phosphorus / (nutritionLimits.phosphorus || 1000) > 0.6 ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(100, (nutritionTotals.phosphorus / (nutritionLimits.phosphorus || 1000)) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-2.5 bg-slate-50 dark:bg-white/[0.03] rounded-lg mb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs">🔬</span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">Latest Lab</span>
+                      </div>
+                      {latestPhosphorus ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-sm font-extrabold tabular-nums font-display ${
+                            latestPhosphorus.latestValue > 5.5 ? 'text-rose-500' :
+                            latestPhosphorus.latestValue >= 4.5 ? 'text-amber-500' :
+                            latestPhosphorus.latestValue < 2.5 ? 'text-cyan-500' : 'text-emerald-500'
+                          }`}>
+                            {latestPhosphorus.latestValue.toFixed(1)}
+                          </span>
+                          <span className="text-[10px] text-slate-400">{latestPhosphorus.unit}</span>
+                          <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold ${
+                            latestPhosphorus.isAbnormal ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'
+                          }`}>
+                            {latestPhosphorus.isAbnormal ? 'Abnormal' : 'Normal'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">No recent labs</span>
+                      )}
+                    </div>
+                    {latestPhosphorus && (
+                      <p className="text-[9px] text-slate-400 mt-0.5">
+                        Normal: {latestPhosphorus.referenceRange.low}–{latestPhosphorus.referenceRange.high} {latestPhosphorus.unit}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className={`p-2.5 rounded-lg ${
+                    phosphorusRisk === 'high' || phosphorusRisk === 'elevated' ? 'bg-rose-500/5' :
+                    phosphorusRisk === 'moderate' ? 'bg-amber-500/5' : 'bg-emerald-500/5'
+                  }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      phosphorusRisk === 'high' || phosphorusRisk === 'elevated' ? 'text-rose-600 dark:text-rose-400' :
+                      phosphorusRisk === 'moderate' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      {phosphorusRisk === 'high' && 'Your phosphorus is critically high. Avoid dairy, nuts, processed foods, and dark colas. Contact your care team about phosphate binders.'}
+                      {phosphorusRisk === 'elevated' && 'Watch your phosphorus intake. Limit dairy, processed meats, and packaged foods for the rest of the day.'}
+                      {phosphorusRisk === 'moderate' && 'Phosphorus levels are moderate. Keep choosing fresh foods over processed ones and take binders as prescribed.'}
+                      {phosphorusRisk === 'low' && 'Great phosphorus management! Keep following your renal diet and taking phosphate binders as directed.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sodium Risk Card */}
+            {(nutritionTotals.sodium > 0 || latestSodium) && (
+              <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 border border-slate-100 dark:border-white/[0.06]">
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">🧂</span>
+                      <div>
+                        <h3 className="font-display font-extrabold text-sm text-slate-900 dark:text-white">Sodium Risk</h3>
+                        <p className="text-slate-400 dark:text-slate-500 text-[10px]">Fluid & blood pressure control</p>
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                      sodiumRisk === 'high' ? 'bg-rose-500/10 text-rose-500' :
+                      sodiumRisk === 'elevated' ? 'bg-orange-500/10 text-orange-500' :
+                      sodiumRisk === 'moderate' ? 'bg-amber-500/10 text-amber-500' :
+                      'bg-emerald-500/10 text-emerald-500'
+                    }`}>
+                      {sodiumRisk === 'high' ? '⚠️ High' :
+                       sodiumRisk === 'elevated' ? '🔼 Elevated' :
+                       sodiumRisk === 'moderate' ? '📊 Moderate' : '✓ Low'}
+                    </span>
+                  </div>
+
+                  {nutritionTotals.sodium > 0 && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs text-slate-400 dark:text-slate-500">Diet Intake</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-white tabular-nums">
+                          {Math.round(nutritionTotals.sodium)} / {nutritionLimits.sodium || 2000} mg
+                        </span>
+                      </div>
+                      <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            nutritionTotals.sodium / (nutritionLimits.sodium || 2000) > 0.9 ? 'bg-rose-500' :
+                            nutritionTotals.sodium / (nutritionLimits.sodium || 2000) > 0.6 ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(100, (nutritionTotals.sodium / (nutritionLimits.sodium || 2000)) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-2.5 bg-slate-50 dark:bg-white/[0.03] rounded-lg mb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs">🔬</span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">Latest Lab</span>
+                      </div>
+                      {latestSodium ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-sm font-extrabold tabular-nums font-display ${
+                            latestSodium.latestValue > 145 ? 'text-rose-500' :
+                            latestSodium.latestValue < 135 ? 'text-cyan-500' : 'text-emerald-500'
+                          }`}>
+                            {latestSodium.latestValue.toFixed(1)}
+                          </span>
+                          <span className="text-[10px] text-slate-400">{latestSodium.unit}</span>
+                          <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold ${
+                            latestSodium.isAbnormal ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'
+                          }`}>
+                            {latestSodium.isAbnormal ? 'Abnormal' : 'Normal'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">No recent labs</span>
+                      )}
+                    </div>
+                    {latestSodium && (
+                      <p className="text-[9px] text-slate-400 mt-0.5">
+                        Normal: {latestSodium.referenceRange.low}–{latestSodium.referenceRange.high} {latestSodium.unit}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className={`p-2.5 rounded-lg ${
+                    sodiumRisk === 'high' || sodiumRisk === 'elevated' ? 'bg-rose-500/5' :
+                    sodiumRisk === 'moderate' ? 'bg-amber-500/5' : 'bg-emerald-500/5'
+                  }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      sodiumRisk === 'high' || sodiumRisk === 'elevated' ? 'text-rose-600 dark:text-rose-400' :
+                      sodiumRisk === 'moderate' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      {sodiumRisk === 'high' && 'Sodium intake is over your limit. This causes thirst and fluid retention. Avoid processed foods, canned soups, and salty snacks.'}
+                      {sodiumRisk === 'elevated' && 'Approaching your sodium limit. Choose fresh foods and skip adding salt for the rest of the day.'}
+                      {sodiumRisk === 'moderate' && 'Sodium intake is moderate. Keep seasoning with herbs and spices instead of salt.'}
+                      {sodiumRisk === 'low' && 'Excellent sodium management! Your fluid balance will thank you.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* BP Trend Card */}
+            {latestBP && (
+              <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 border border-slate-100 dark:border-white/[0.06]">
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">🫀</span>
+                      <div>
+                        <h3 className="font-display font-extrabold text-sm text-slate-900 dark:text-white">Blood Pressure Trend</h3>
+                        <p className="text-slate-400 dark:text-slate-500 text-[10px]">Cardiovascular monitoring</p>
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                      bpCategory === 'hypertensive' ? 'bg-rose-500/10 text-rose-500' :
+                      bpCategory === 'elevated' ? 'bg-amber-500/10 text-amber-500' :
+                      bpCategory === 'hypotensive' ? 'bg-cyan-500/10 text-cyan-500' :
+                      'bg-emerald-500/10 text-emerald-500'
+                    }`}>
+                      {bpCategory === 'hypertensive' ? '⚠️ Hypertensive' :
+                       bpCategory === 'elevated' ? '🔼 Elevated' :
+                       bpCategory === 'hypotensive' ? '🔽 Hypotensive' : '✓ Normal'}
+                    </span>
+                  </div>
+
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-slate-400 dark:text-slate-500">Latest Reading</span>
+                      <div className="flex items-baseline gap-0.5">
+                        <span className={`text-lg font-extrabold tabular-nums font-display ${
+                          bpCategory === 'hypertensive' ? 'text-rose-500' :
+                          bpCategory === 'elevated' ? 'text-amber-500' :
+                          bpCategory === 'hypotensive' ? 'text-cyan-500' : 'text-emerald-500'
+                        }`}>{latestBP.systolic}</span>
+                        <span className="text-slate-300 dark:text-slate-600 text-sm">/</span>
+                        <span className="text-sm font-bold text-slate-500 dark:text-slate-400 tabular-nums">{latestBP.diastolic}</span>
+                        <span className="text-[10px] text-slate-400 ml-1">mmHg</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-slate-50 dark:bg-white/[0.03] rounded-lg mb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs">📈</span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">7-Day Trend</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-xs font-bold ${
+                          bpTrendDirection === 'rising' ? 'text-rose-500' :
+                          bpTrendDirection === 'falling' ? 'text-cyan-500' : 'text-slate-400'
+                        }`}>
+                          {bpTrendDirection === 'rising' ? '↑ Rising' :
+                           bpTrendDirection === 'falling' ? '↓ Falling' : '→ Stable'}
+                        </span>
+                      </div>
+                    </div>
+                    {bpSparkline.length >= 2 && (
+                      <div className="mt-2 flex items-end gap-0.5 h-8">
+                        {bpSparkline.map((v, i) => {
+                          const max = Math.max(...bpSparkline);
+                          const min = Math.min(...bpSparkline);
+                          const range = max - min || 1;
+                          const height = Math.max(((v - min) / range) * 100, 10);
+                          return (
+                            <div
+                              key={i}
+                              className={`flex-1 rounded-sm ${
+                                v >= 140 ? 'bg-rose-400' : v >= 120 ? 'bg-amber-400' : v < 90 ? 'bg-cyan-400' : 'bg-emerald-400'
+                              }`}
+                              style={{ height: `${height}%` }}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={`p-2.5 rounded-lg ${
+                    bpCategory === 'hypertensive' ? 'bg-rose-500/5' :
+                    bpCategory === 'elevated' ? 'bg-amber-500/5' :
+                    bpCategory === 'hypotensive' ? 'bg-cyan-500/5' : 'bg-emerald-500/5'
+                  }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      bpCategory === 'hypertensive' ? 'text-rose-600 dark:text-rose-400' :
+                      bpCategory === 'elevated' ? 'text-amber-600 dark:text-amber-400' :
+                      bpCategory === 'hypotensive' ? 'text-cyan-600 dark:text-cyan-400' : 'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      {bpCategory === 'hypertensive' && 'Blood pressure is high. Limit sodium, manage fluid intake, take medications as prescribed, and contact your care team if persistent.'}
+                      {bpCategory === 'elevated' && 'Blood pressure is slightly elevated. Monitor closely, reduce sodium, and ensure you are taking your medications on schedule.'}
+                      {bpCategory === 'hypotensive' && 'Blood pressure is low. Stay hydrated within your fluid limits, rise slowly from sitting, and report dizziness to your care team.'}
+                      {bpCategory === 'normal' && 'Blood pressure is in the normal range. Keep up with your current medication and diet regimen.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Medication Adherence Card */}
+            {(dashboardData?.medications?.totalActive ?? 0) > 0 && (
+              <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 border border-slate-100 dark:border-white/[0.06]">
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">💊</span>
+                      <div>
+                        <h3 className="font-display font-extrabold text-sm text-slate-900 dark:text-white">Medication Adherence</h3>
+                        <p className="text-slate-400 dark:text-slate-500 text-[10px]">Compliance tracking</p>
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                      medAdherenceCategory === 'excellent' ? 'bg-emerald-500/10 text-emerald-500' :
+                      medAdherenceCategory === 'good' ? 'bg-sky-500/10 text-sky-500' :
+                      medAdherenceCategory === 'fair' ? 'bg-amber-500/10 text-amber-500' :
+                      'bg-rose-500/10 text-rose-500'
+                    }`}>
+                      {medAdherenceCategory === 'excellent' ? '✓ Excellent' :
+                       medAdherenceCategory === 'good' ? '👍 Good' :
+                       medAdherenceCategory === 'fair' ? '📊 Fair' : '⚠️ Poor'}
+                    </span>
+                  </div>
+
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-slate-400 dark:text-slate-500">Adherence Rate</span>
+                      <span className={`text-lg font-extrabold tabular-nums font-display ${
+                        medAdherenceCategory === 'excellent' ? 'text-emerald-500' :
+                        medAdherenceCategory === 'good' ? 'text-sky-500' :
+                        medAdherenceCategory === 'fair' ? 'text-amber-500' : 'text-rose-500'
+                      }`}>
+                        {Math.round(dashboardData?.medications?.adherenceRate ?? 0)}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          medAdherenceCategory === 'excellent' ? 'bg-emerald-500' :
+                          medAdherenceCategory === 'good' ? 'bg-sky-500' :
+                          medAdherenceCategory === 'fair' ? 'bg-amber-500' : 'bg-rose-500'
+                        }`}
+                        style={{ width: `${Math.min(100, dashboardData?.medications?.adherenceRate ?? 0)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-slate-50 dark:bg-white/[0.03] rounded-lg mb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs">📋</span>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">Today's Progress</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-extrabold tabular-nums font-display text-slate-900 dark:text-white">
+                          {dashboardData?.medications?.takenToday ?? 0} / {dashboardData?.medications?.todayDoses ?? 0}
+                        </span>
+                        <span className="text-[10px] text-slate-400">doses</span>
+                      </div>
+                    </div>
+                    {(dashboardData?.medications?.todayDoses ?? 0) > 0 && (
+                      <div className="mt-2 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-violet-500 transition-all duration-500"
+                          style={{ width: `${Math.min(100, ((dashboardData?.medications?.takenToday ?? 0) / (dashboardData?.medications?.todayDoses ?? 1)) * 100)}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={`p-2.5 rounded-lg ${
+                    medAdherenceCategory === 'excellent' || medAdherenceCategory === 'good' ? 'bg-emerald-500/5' :
+                    medAdherenceCategory === 'fair' ? 'bg-amber-500/5' : 'bg-rose-500/5'
+                  }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      medAdherenceCategory === 'excellent' || medAdherenceCategory === 'good' ? 'text-emerald-600 dark:text-emerald-400' :
+                      medAdherenceCategory === 'fair' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
+                    }`}>
+                      {medAdherenceCategory === 'excellent' && 'Outstanding medication adherence! Consistent dosing is key to managing your condition.'}
+                      {medAdherenceCategory === 'good' && 'Good adherence — keep it up. Try setting reminders for any missed doses.'}
+                      {medAdherenceCategory === 'fair' && 'Medication adherence needs improvement. Missing doses can affect your treatment. Set alarms or use a pill organizer.'}
+                      {medAdherenceCategory === 'poor' && 'Many doses are being missed. This seriously impacts your treatment. Talk to your care team about simplifying your regimen.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Session Compliance Card */}
+            {(sessionStats?.totalCompleted ?? 0) > 0 && (
+              <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 border border-slate-100 dark:border-white/[0.06]">
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">🩺</span>
+                      <div>
+                        <h3 className="font-display font-extrabold text-sm text-slate-900 dark:text-white">Session Compliance</h3>
+                        <p className="text-slate-400 dark:text-slate-500 text-[10px]">Dialysis session tracking</p>
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                      sessionComplianceCategory === 'on_track' ? 'bg-emerald-500/10 text-emerald-500' :
+                      sessionComplianceCategory === 'needs_attention' ? 'bg-amber-500/10 text-amber-500' :
+                      'bg-rose-500/10 text-rose-500'
+                    }`}>
+                      {sessionComplianceCategory === 'on_track' ? '✓ On Track' :
+                       sessionComplianceCategory === 'needs_attention' ? '📊 Needs Attention' : '⚠️ At Risk'}
+                    </span>
+                  </div>
+
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-slate-400 dark:text-slate-500">This Week</span>
+                      <div className="flex items-baseline gap-1">
+                        <span className={`text-lg font-extrabold tabular-nums font-display ${
+                          sessionComplianceCategory === 'on_track' ? 'text-emerald-500' :
+                          sessionComplianceCategory === 'needs_attention' ? 'text-amber-500' : 'text-rose-500'
+                        }`}>{sessionStats?.thisWeek ?? 0}</span>
+                        <span className="text-xs text-slate-400">/ 3 sessions</span>
+                      </div>
+                    </div>
+                    <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          sessionComplianceCategory === 'on_track' ? 'bg-emerald-500' :
+                          sessionComplianceCategory === 'needs_attention' ? 'bg-amber-500' : 'bg-rose-500'
+                        }`}
+                        style={{ width: `${Math.min(100, ((sessionStats?.thisWeek ?? 0) / 3) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-slate-50 dark:bg-white/[0.03] rounded-lg mb-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs">📆</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500">This Month</span>
+                        </div>
+                        <p className="text-sm font-extrabold tabular-nums font-display text-slate-900 dark:text-white mt-0.5">
+                          {sessionStats?.thisMonth ?? 0} <span className="text-[10px] text-slate-400 font-normal">sessions</span>
+                        </p>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs">⏱️</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500">Avg Duration</span>
+                        </div>
+                        <p className="text-sm font-extrabold tabular-nums font-display text-slate-900 dark:text-white mt-0.5">
+                          {sessionStats?.averageDuration ? `${Math.floor(sessionStats.averageDuration / 60)}h ${sessionStats.averageDuration % 60}m` : '--'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`p-2.5 rounded-lg ${
+                    sessionComplianceCategory === 'on_track' ? 'bg-emerald-500/5' :
+                    sessionComplianceCategory === 'needs_attention' ? 'bg-amber-500/5' : 'bg-rose-500/5'
+                  }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      sessionComplianceCategory === 'on_track' ? 'text-emerald-600 dark:text-emerald-400' :
+                      sessionComplianceCategory === 'needs_attention' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
+                    }`}>
+                      {sessionComplianceCategory === 'on_track' && 'You are meeting your weekly dialysis target. Consistent attendance is crucial for optimal outcomes.'}
+                      {sessionComplianceCategory === 'needs_attention' && 'You have completed 2 of 3 sessions this week. Try to schedule your remaining session soon.'}
+                      {sessionComplianceCategory === 'at_risk' && 'You are behind on dialysis sessions this week. Missing sessions increases health risks. Contact your clinic to reschedule.'}
                     </p>
                   </div>
                 </div>
