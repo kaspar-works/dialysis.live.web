@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { authFetch } from '../services/auth';
+import { Link } from 'react-router';
+import { authFetch, FeatureRestrictedError, SubscriptionLimitError } from '../services/auth';
 import { getInsights, MEDICAL_DISCLAIMER } from '../services/ai';
 
 // Local interfaces
@@ -24,34 +25,6 @@ interface FatiguePrediction {
   factors: FatigueFactors;
   weeklyTrend: { day: string; level: number }[];
 }
-
-// Mock/fallback data
-
-const MOCK_PREDICTION: FatiguePrediction = {
-  currentLevel: 5,
-  factors: {
-    sleepQuality: 6,
-    hydrationStatus: 7,
-    hoursSinceDialysis: 18,
-    medicationAdherence: 9,
-    recentExercise: 4,
-  },
-  weeklyTrend: [
-    { day: 'Mon', level: 6 },
-    { day: 'Tue', level: 4 },
-    { day: 'Wed', level: 7 },
-    { day: 'Thu', level: 5 },
-    { day: 'Fri', level: 3 },
-    { day: 'Sat', level: 6 },
-    { day: 'Sun', level: 5 },
-  ],
-};
-
-const MOCK_LOGS: FatigueLog[] = [
-  { _id: '1', energyLevel: 6, notes: 'Felt decent after morning walk', createdAt: new Date(Date.now() - 86400000).toISOString() },
-  { _id: '2', energyLevel: 3, notes: 'Very tired after dialysis session', createdAt: new Date(Date.now() - 172800000).toISOString() },
-  { _id: '3', energyLevel: 7, notes: 'Good rest day, slept well', createdAt: new Date(Date.now() - 259200000).toISOString() },
-];
 
 // Helpers
 
@@ -107,6 +80,9 @@ export default function FatiguePrediction() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [featureError, setFeatureError] = useState<{ message: string } | null>(null);
+  const [limitError, setLimitError] = useState<{ message: string; limit?: number } | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const hasFetched = useRef(false);
 
   useEffect(() => {
@@ -115,26 +91,31 @@ export default function FatiguePrediction() {
 
     async function fetchData() {
       setIsLoading(true);
+      setError(null);
+      setFeatureError(null);
+      setLimitError(null);
+
       try {
         const [predictionRes, logsRes] = await Promise.all([
-          authFetch('/fatigue-prediction').catch(() => null),
-          authFetch('/fatigue-logs').catch(() => null),
+          authFetch('/fatigue-prediction'),
+          authFetch('/fatigue-logs'),
         ]);
 
         if (predictionRes?.data) {
           setPrediction(predictionRes.data);
-        } else {
-          setPrediction(MOCK_PREDICTION);
         }
 
         if (logsRes?.data && Array.isArray(logsRes.data)) {
           setLogs(logsRes.data);
-        } else {
-          setLogs(MOCK_LOGS);
         }
-      } catch {
-        setPrediction(MOCK_PREDICTION);
-        setLogs(MOCK_LOGS);
+      } catch (err) {
+        if (err instanceof FeatureRestrictedError) {
+          setFeatureError({ message: err.message });
+        } else if (err instanceof SubscriptionLimitError) {
+          setLimitError({ message: err.message, limit: err.limit });
+        } else {
+          setError('Failed to load fatigue data. Please try again.');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -145,13 +126,18 @@ export default function FatiguePrediction() {
 
   const fetchInsights = async () => {
     setAiLoading(true);
+    setAiError(null);
     try {
       const insights = await getInsights();
       setAiRecommendations(insights.response);
-    } catch {
-      setAiRecommendations(
-        'Based on your recent data, consider prioritizing rest on dialysis days, staying hydrated between sessions, and maintaining a consistent sleep schedule. Light activity like walking can help manage fatigue levels over time.'
-      );
+    } catch (err) {
+      if (err instanceof FeatureRestrictedError) {
+        setAiError('AI recommendations require a Premium plan.');
+      } else if (err instanceof SubscriptionLimitError) {
+        setAiError('You have reached your monthly AI usage limit.');
+      } else {
+        setAiError('Failed to generate recommendations. Please try again.');
+      }
     } finally {
       setAiLoading(false);
     }
@@ -171,16 +157,6 @@ export default function FatiguePrediction() {
 
       if (result?.data) {
         setLogs((prev) => [result.data, ...prev]);
-      } else {
-        setLogs((prev) => [
-          {
-            _id: Date.now().toString(),
-            energyLevel,
-            notes,
-            createdAt: new Date().toISOString(),
-          },
-          ...prev,
-        ]);
       }
 
       setSubmitSuccess(true);
@@ -202,9 +178,140 @@ export default function FatiguePrediction() {
     );
   }
 
-  const current = prediction ?? MOCK_PREDICTION;
+  // Feature restricted — show upgrade prompt
+  if (featureError) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            Fatigue Prediction
+          </h1>
+        </div>
+        <div className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 rounded-2xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-slate-800 dark:text-white">Premium Feature</h3>
+              <p className="text-slate-600 dark:text-slate-300 text-sm mt-1">{featureError.message}</p>
+              <Link
+                to="/subscription/pricing"
+                className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-purple-500 text-white rounded-xl text-sm font-medium hover:bg-purple-600 transition-colors"
+              >
+                View Plans &rarr;
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Limit reached — show upgrade prompt
+  if (limitError) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            Fatigue Prediction
+          </h1>
+        </div>
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-slate-800 dark:text-white">Plan Limit Reached</h3>
+              <p className="text-slate-600 dark:text-slate-300 text-sm mt-1">{limitError.message}</p>
+              <Link
+                to="/subscription/pricing"
+                className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors"
+              >
+                Upgrade Plan &rarr;
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No prediction data and generic error
+  if (!prediction && error) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            Fatigue Prediction
+          </h1>
+        </div>
+        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-slate-800 dark:text-white">Unable to Load</h3>
+              <p className="text-slate-600 dark:text-slate-300 text-sm mt-1">{error}</p>
+              <button
+                onClick={() => { hasFetched.current = false; window.location.reload(); }}
+                className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No prediction data loaded (shouldn't happen but safe fallback)
+  if (!prediction) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            Fatigue Prediction
+          </h1>
+        </div>
+        <div className="bg-slate-100 dark:bg-slate-900 rounded-2xl p-8 text-center">
+          <p className="text-slate-500 dark:text-slate-400">No fatigue prediction data available yet. Log some dialysis sessions and come back.</p>
+        </div>
+      </div>
+    );
+  }
+
   const circumference = 2 * Math.PI * 54;
-  const gaugeOffset = circumference - (current.currentLevel / 10) * circumference;
+  const gaugeOffset = circumference - (prediction.currentLevel / 10) * circumference;
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 space-y-6">
@@ -252,7 +359,7 @@ export default function FatiguePrediction() {
                 cy="60"
                 r="54"
                 fill="none"
-                stroke={getRingStroke(current.currentLevel)}
+                stroke={getRingStroke(prediction.currentLevel)}
                 strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={circumference}
@@ -261,14 +368,14 @@ export default function FatiguePrediction() {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={`text-4xl font-bold ${getFatigueColor(current.currentLevel)}`}>
-                {current.currentLevel}
+              <span className={`text-4xl font-bold ${getFatigueColor(prediction.currentLevel)}`}>
+                {prediction.currentLevel}
               </span>
               <span className="text-xs text-slate-500 dark:text-slate-400">/10</span>
             </div>
           </div>
-          <p className={`mt-3 text-sm font-semibold ${getFatigueColor(current.currentLevel)}`}>
-            {getFatigueLabel(current.currentLevel)} Fatigue
+          <p className={`mt-3 text-sm font-semibold ${getFatigueColor(prediction.currentLevel)}`}>
+            {getFatigueLabel(prediction.currentLevel)} Fatigue
           </p>
         </div>
 
@@ -276,110 +383,63 @@ export default function FatiguePrediction() {
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
           <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Contributing Factors</h2>
           <div className="space-y-4">
-            {/* Sleep Quality */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">&#x1F4A4;</span>
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Sleep Quality</span>
+            {[
+              { label: 'Sleep Quality', emoji: '\u{1F4A4}', value: prediction.factors.sleepQuality, suffix: '/10', bar: getFactorBarColor(prediction.factors.sleepQuality), width: prediction.factors.sleepQuality * 10 },
+              { label: 'Hydration Status', emoji: '\u{1F4A7}', value: prediction.factors.hydrationStatus, suffix: '/10', bar: getFactorBarColor(prediction.factors.hydrationStatus), width: prediction.factors.hydrationStatus * 10 },
+              { label: 'Last Dialysis Session', emoji: '\u{23F1}', value: prediction.factors.hoursSinceDialysis, suffix: 'h ago', bar: prediction.factors.hoursSinceDialysis <= 12 ? 'bg-amber-500' : prediction.factors.hoursSinceDialysis <= 24 ? 'bg-emerald-500' : 'bg-red-500', width: Math.min((prediction.factors.hoursSinceDialysis / 48) * 100, 100) },
+              { label: 'Medication Adherence', emoji: '\u{1F48A}', value: prediction.factors.medicationAdherence, suffix: '/10', bar: getFactorBarColor(prediction.factors.medicationAdherence), width: prediction.factors.medicationAdherence * 10 },
+              { label: 'Recent Exercise', emoji: '\u{1F3C3}', value: prediction.factors.recentExercise, suffix: '/10', bar: getFactorBarColor(prediction.factors.recentExercise), width: prediction.factors.recentExercise * 10 },
+            ].map((factor) => (
+              <div key={factor.label}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{factor.emoji}</span>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{factor.label}</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">{factor.value}{factor.suffix}</span>
                 </div>
-                <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">{current.factors.sleepQuality}/10</span>
-              </div>
-              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${getFactorBarColor(current.factors.sleepQuality)}`} style={{ width: `${current.factors.sleepQuality * 10}%`, transition: 'width 0.5s ease' }} />
-              </div>
-            </div>
-
-            {/* Hydration Status */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">&#x1F4A7;</span>
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Hydration Status</span>
+                <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${factor.bar}`} style={{ width: `${factor.width}%`, transition: 'width 0.5s ease' }} />
                 </div>
-                <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">{current.factors.hydrationStatus}/10</span>
               </div>
-              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${getFactorBarColor(current.factors.hydrationStatus)}`} style={{ width: `${current.factors.hydrationStatus * 10}%`, transition: 'width 0.5s ease' }} />
-              </div>
-            </div>
-
-            {/* Last Dialysis Session */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">&#x23F1;</span>
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Last Dialysis Session</span>
-                </div>
-                <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">{current.factors.hoursSinceDialysis}h ago</span>
-              </div>
-              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${current.factors.hoursSinceDialysis <= 12 ? 'bg-amber-500' : current.factors.hoursSinceDialysis <= 24 ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ width: `${Math.min((current.factors.hoursSinceDialysis / 48) * 100, 100)}%`, transition: 'width 0.5s ease' }} />
-              </div>
-            </div>
-
-            {/* Medication Adherence */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">&#x1F48A;</span>
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Medication Adherence</span>
-                </div>
-                <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">{current.factors.medicationAdherence}/10</span>
-              </div>
-              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${getFactorBarColor(current.factors.medicationAdherence)}`} style={{ width: `${current.factors.medicationAdherence * 10}%`, transition: 'width 0.5s ease' }} />
-              </div>
-            </div>
-
-            {/* Recent Exercise */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">&#x1F3C3;</span>
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Recent Exercise</span>
-                </div>
-                <span className="text-sm font-semibold text-slate-600 dark:text-slate-400">{current.factors.recentExercise}/10</span>
-              </div>
-              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${getFactorBarColor(current.factors.recentExercise)}`} style={{ width: `${current.factors.recentExercise * 10}%`, transition: 'width 0.5s ease' }} />
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Weekly Trend */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
-        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Weekly Fatigue Trend</h2>
-        <div className="flex items-end gap-2 h-40">
-          {current.weeklyTrend.map((entry) => (
-            <div key={entry.day} className="flex-1 flex flex-col items-center gap-1">
-              <span className={`text-xs font-bold ${getFatigueColor(entry.level)}`}>{entry.level}</span>
-              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-t-lg overflow-hidden" style={{ height: '120px' }}>
-                <div
-                  className={`w-full rounded-t-lg ${getBarColor(entry.level)}`}
-                  style={{
-                    height: `${(entry.level / 10) * 100}%`,
-                    marginTop: `${100 - (entry.level / 10) * 100}%`,
-                    transition: 'height 0.4s ease, margin-top 0.4s ease',
-                  }}
-                />
+      {prediction.weeklyTrend && prediction.weeklyTrend.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
+          <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Weekly Fatigue Trend</h2>
+          <div className="flex items-end gap-2 h-40">
+            {prediction.weeklyTrend.map((entry) => (
+              <div key={entry.day} className="flex-1 flex flex-col items-center gap-1">
+                <span className={`text-xs font-bold ${getFatigueColor(entry.level)}`}>{entry.level}</span>
+                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-t-lg overflow-hidden" style={{ height: '120px' }}>
+                  <div
+                    className={`w-full rounded-t-lg ${getBarColor(entry.level)}`}
+                    style={{
+                      height: `${(entry.level / 10) * 100}%`,
+                      marginTop: `${100 - (entry.level / 10) * 100}%`,
+                      transition: 'height 0.4s ease, margin-top 0.4s ease',
+                    }}
+                  />
+                </div>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{entry.day}</span>
               </div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{entry.day}</span>
+            ))}
+          </div>
+          <div className="flex items-center justify-between mt-3 text-xs text-slate-400 dark:text-slate-500">
+            <span>Lower is better</span>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> 1-3</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> 4-5</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500" /> 6-7</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> 8-10</span>
             </div>
-          ))}
-        </div>
-        <div className="flex items-center justify-between mt-3 text-xs text-slate-400 dark:text-slate-500">
-          <span>Lower is better</span>
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> 1-3</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> 4-5</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500" /> 6-7</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> 8-10</span>
           </div>
         </div>
-      </div>
+      )}
 
       {/* AI Recommendations */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
@@ -390,7 +450,7 @@ export default function FatiguePrediction() {
             </svg>
             AI Recommendations
           </h2>
-          {!aiRecommendations && !aiLoading && (
+          {!aiRecommendations && !aiLoading && !aiError && (
             <button
               onClick={fetchInsights}
               className="px-4 py-1.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-lg text-xs font-medium hover:opacity-90 transition-opacity"
@@ -405,12 +465,18 @@ export default function FatiguePrediction() {
             <span className="text-sm text-slate-500 dark:text-slate-400">Generating personalized recommendations...</span>
           </div>
         )}
+        {aiError && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center justify-between">
+            <span className="text-sm text-red-600 dark:text-red-400">{aiError}</span>
+            <button onClick={() => setAiError(null)} className="text-red-400 hover:text-red-600 ml-4 text-lg">&times;</button>
+          </div>
+        )}
         {aiRecommendations && (
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
             {aiRecommendations}
           </p>
         )}
-        {!aiRecommendations && !aiLoading && (
+        {!aiRecommendations && !aiLoading && !aiError && (
           <p className="text-sm text-slate-400 dark:text-slate-500 py-4">
             Click "Get Insights" to receive AI-powered recommendations based on your fatigue patterns and health data.
           </p>
