@@ -641,7 +641,7 @@ const Sessions: React.FC = () => {
         return '';
       }
       case 'preWeightKg': {
-        if (!value || value.trim() === '') return 'Pre-weight is required';
+        if (!value || value.trim() === '') return isQuickLog ? '' : 'Pre-weight is required';
         const inputWeight = parseFloat(value);
         if (isNaN(inputWeight)) return 'Enter a valid number';
         const weightKg = convertWeightToKg(inputWeight);
@@ -1527,7 +1527,7 @@ const Sessions: React.FC = () => {
           {/* Mode Toggle */}
           <div className="flex bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
             <button
-              onClick={() => setIsQuickLog(false)}
+              onClick={() => { setIsQuickLog(false); setFieldErrors({}); setTouchedFields({}); }}
               className={`flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm transition-all ${
                 !isQuickLog
                   ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-400 shadow-sm'
@@ -1542,7 +1542,7 @@ const Sessions: React.FC = () => {
               </span>
             </button>
             <button
-              onClick={() => setIsQuickLog(true)}
+              onClick={() => { setIsQuickLog(true); setFieldErrors({}); setTouchedFields({}); }}
               className={`flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm transition-all ${
                 isQuickLog
                   ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-400 shadow-sm'
