@@ -244,7 +244,7 @@ export function formatReminderTime(time: string): string {
   return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
-export function formatNextTrigger(dateString?: string): string {
+export function formatNextTrigger(dateString?: string, timezone?: string): string {
   if (!dateString) return 'Not scheduled';
 
   const date = new Date(dateString);
@@ -263,6 +263,7 @@ export function formatNextTrigger(dateString?: string): string {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: timezone,
   });
 }
 

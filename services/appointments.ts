@@ -350,22 +350,24 @@ export function formatAppointmentTime(time: string): string {
   return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
-export function formatAppointmentDate(dateString: string): string {
+export function formatAppointmentDate(dateString: string, timezone?: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString(undefined, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: timezone,
   });
 }
 
-export function formatAppointmentDateTime(dateString: string, time: string): string {
+export function formatAppointmentDateTime(dateString: string, time: string, timezone?: string): string {
   const date = new Date(dateString);
   const formattedDate = date.toLocaleDateString(undefined, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
+    timeZone: timezone,
   });
   return `${formattedDate} at ${formatAppointmentTime(time)}`;
 }
@@ -381,7 +383,7 @@ export function isPast(appointment: Appointment): boolean {
   return !isUpcoming(appointment);
 }
 
-export function getRelativeDate(dateString: string): string {
+export function getRelativeDate(dateString: string, timezone?: string): string {
   const date = new Date(dateString);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -396,7 +398,7 @@ export function getRelativeDate(dateString: string): string {
   if (diffDays > 0 && diffDays <= 7) return `In ${diffDays} days`;
   if (diffDays < 0 && diffDays >= -7) return `${Math.abs(diffDays)} days ago`;
 
-  return formatAppointmentDate(dateString);
+  return formatAppointmentDate(dateString, timezone);
 }
 
 export function getDurationString(minutes?: number): string {
