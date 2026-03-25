@@ -5,6 +5,8 @@ import { ICONS } from '../constants';
 import { useStore } from '../store';
 import { version } from '../package.json';
 import { useAuth } from '../contexts/AuthContext';
+import { getAIUsage, AIUsage } from '../services/ai';
+import { getCurrentSubscription, Subscription } from '../services/subscription';
 import Logo from './Logo';
 import HelpChatWidget from './HelpChatWidget';
 
@@ -34,9 +36,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     });
   };
 
+  const [aiUsage, setAiUsage] = useState<AIUsage | null>(null);
+  const [subPlan, setSubPlan] = useState<string>('free');
+
   // Use AuthContext profile (shared state) with fallback to local store
   const displayName = authProfile?.fullName || profile.name || 'User';
   const displayEmail = user?.email || profile.email || '';
+
+  // Fetch AI usage and subscription on mount
+  useEffect(() => {
+    getAIUsage().then(setAiUsage).catch(() => {});
+    getCurrentSubscription().then((sub) => setSubPlan(sub.plan)).catch(() => {});
+  }, []);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -229,68 +240,111 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* Universal Header */}
         <header
-          className="h-16 sm:h-20 lg:h-24 bg-white/90 dark:bg-slate-950/90 backdrop-blur-2xl border-b border-slate-100 dark:border-white/5 flex items-center justify-between px-4 sm:px-6 lg:px-12 z-40 sticky top-0 safe-pt"
+          className="bg-white/90 dark:bg-slate-950/90 backdrop-blur-2xl border-b border-slate-100 dark:border-white/5 z-40 sticky top-0 safe-pt"
           role="banner"
         >
-          {/* Mobile: Hamburger + Logo */}
-          <div className="flex items-center gap-3 lg:hidden">
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              aria-label="Open navigation menu"
-              className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-white/10 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 transition-all active:scale-95"
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <line x1="3" y1="12" x2="21" y2="12"/>
-                <line x1="3" y1="18" x2="21" y2="18"/>
-              </svg>
-            </button>
-            <Link to="/dashboard" className="flex items-center gap-2">
-              <Logo className="w-8 h-8" />
-              <span className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight hidden xs:block">dialysis.live</span>
-            </Link>
-          </div>
+          <div className="flex items-center justify-between px-4 sm:px-6 lg:px-12 h-16 sm:h-20 lg:h-[72px]">
+            {/* Mobile: Hamburger + Logo */}
+            <div className="flex items-center gap-3 lg:hidden">
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                aria-label="Open navigation menu"
+                className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-white/10 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 transition-all active:scale-95"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                  <line x1="3" y1="12" x2="21" y2="12"/>
+                  <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+              </button>
+              <Link to="/dashboard" className="flex items-center gap-2">
+                <Logo className="w-8 h-8" />
+                <span className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight hidden xs:block">dialysis.live</span>
+              </Link>
+            </div>
 
-          {/* Desktop: Page Title */}
-          <div className="hidden lg:flex flex-col">
-            <span className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.3em]">Patient Node Sync</span>
-            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
-              {menuItems.find(m => m.path === location.pathname)?.name || 'Application Hub'}
-            </h2>
-          </div>
+            {/* Desktop: Page Title */}
+            <div className="hidden lg:flex flex-col">
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.3em]">Patient Node Sync</span>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                {menuItems.find(m => m.path === location.pathname)?.name || 'Application Hub'}
+              </h2>
+            </div>
 
-          {/* Header Actions */}
-          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
-             {/* Day/Night Toggle */}
-             <button
+            {/* Header Actions */}
+            <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
+              {/* AI Usage Badge */}
+              {aiUsage && (
+                <Link
+                  to="/subscription"
+                  className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-violet-500/10 to-purple-500/10 dark:from-violet-500/20 dark:to-purple-500/20 border border-violet-500/20 dark:border-violet-500/30 rounded-xl hover:border-violet-500/40 transition-all"
+                >
+                  <svg className="w-4 h-4 text-violet-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                  </svg>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider leading-none">AI Calls</span>
+                    <span className="text-xs font-black text-violet-700 dark:text-violet-300 leading-tight">
+                      {aiUsage.unlimited ? (
+                        <>{aiUsage.used} / <span className="text-violet-400">&#8734;</span></>
+                      ) : (
+                        <>{aiUsage.used} / {aiUsage.limit}</>
+                      )}
+                    </span>
+                  </div>
+                </Link>
+              )}
+
+              {/* Plan Badge */}
+              <Link
+                to="/subscription"
+                className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                  subPlan === 'premium'
+                    ? 'bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:border-amber-500/40'
+                    : subPlan === 'basic'
+                      ? 'bg-gradient-to-r from-sky-500/10 to-cyan-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 hover:border-sky-500/40'
+                      : 'bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:border-slate-300'
+                }`}
+              >
+                {subPlan === 'premium' && <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>}
+                {subPlan}
+              </Link>
+
+              {/* Day/Night Toggle */}
+              <button
                 onClick={toggleTheme}
                 aria-label="Toggle Theme"
-                className="w-10 h-10 lg:w-12 lg:h-12 flex items-center justify-center bg-slate-100 dark:bg-white/10 rounded-xl lg:rounded-2xl text-slate-500 dark:text-slate-400 hover:text-sky-500 hover:bg-slate-200 dark:hover:bg-white/20 transition-all active:scale-95"
+                className="w-10 h-10 lg:w-11 lg:h-11 flex items-center justify-center bg-slate-100 dark:bg-white/10 rounded-xl text-slate-500 dark:text-slate-400 hover:text-sky-500 hover:bg-slate-200 dark:hover:bg-white/20 transition-all active:scale-95"
               >
                 {profile.settings.display.theme === 'dark' ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
                 ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                 )}
-             </button>
+              </button>
 
-             {/* New Cycle Button */}
-             <button
+              {/* New Cycle Button */}
+              <button
                 onClick={() => navigate('/sessions')}
                 aria-label="Start new dialysis session"
-                className="w-10 h-10 lg:w-auto lg:px-6 lg:py-3 bg-sky-500 dark:bg-sky-500 text-white rounded-xl lg:rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 hover:bg-sky-600 dark:hover:bg-sky-400 transition-all active:scale-95 group"
+                className="w-10 h-10 lg:w-auto lg:px-5 lg:py-2.5 bg-sky-500 dark:bg-sky-500 text-white rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 hover:bg-sky-600 dark:hover:bg-sky-400 transition-all active:scale-95 group"
               >
                 <ICONS.Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
                 <span className="hidden lg:block text-xs font-black uppercase tracking-widest">New Cycle</span>
-             </button>
+              </button>
 
-             {/* Profile Avatar */}
-             <Link to="/profile" aria-label="View your profile" className="flex items-center">
-                <div className="relative">
-                  <img src={profile.avatarUrl || defaultAvatar} className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl ring-2 ring-slate-100 dark:ring-white/10 shadow-md object-cover" alt={`${displayName}'s profile picture`} />
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-slate-950 rounded-full"></div>
+              {/* Profile Card */}
+              <Link to="/profile" aria-label="View your profile" className="flex items-center gap-3">
+                <div className="hidden lg:flex flex-col items-end">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white leading-tight truncate max-w-[160px]">{displayName}</span>
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight truncate max-w-[160px]">{displayEmail}</span>
                 </div>
-             </Link>
+                <div className="relative">
+                  <img src={profile.avatarUrl || defaultAvatar} className="w-10 h-10 lg:w-11 lg:h-11 rounded-xl ring-2 ring-slate-100 dark:ring-white/10 shadow-md object-cover" alt={`${displayName}'s profile picture`} />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-950 rounded-full"></div>
+                </div>
+              </Link>
+            </div>
           </div>
         </header>
 
