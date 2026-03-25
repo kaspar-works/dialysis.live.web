@@ -398,7 +398,7 @@ const App: React.FC = () => {
                 path="/messages"
                 element={
                   <ProtectedRoute>
-                    <PageGuard><Layout><SEO title="Messages" noIndex /><Messages /></Layout></PageGuard>
+                    <PageGuard><Layout><SEO title="Community Q&A" noIndex /><Messages /></Layout></PageGuard>
                   </ProtectedRoute>
                 }
               />

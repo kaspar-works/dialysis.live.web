@@ -1,26 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { authFetch } from '../services/auth';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  getForumCategories,
+  getForumPosts,
+  getForumPost,
+  createForumPost,
+  createForumReply,
+  markAsHelpful,
+  ForumCategory,
+  ForumPost,
+  ForumReply,
+  CommunityProfile,
+} from '../services/community';
 
-interface Conversation {
-  _id: string;
-  participants: { _id: string; name: string }[];
-  lastMessage?: {
-    content: string;
-    createdAt: string;
-    sender: string;
-  };
-  unreadCount: number;
-  updatedAt: string;
-}
+// ========================
+// Icons
+// ========================
 
-interface Message {
-  _id: string;
-  conversationId: string;
-  sender: { _id: string; name: string };
-  content: string;
-  read: boolean;
-  createdAt: string;
-}
+const SearchIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <circle cx="11" cy="11" r="8" />
+    <path strokeLinecap="round" d="m21 21-4.35-4.35" />
+  </svg>
+);
 
 const PlusIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -28,25 +29,51 @@ const PlusIcon = () => (
   </svg>
 );
 
-const SendIcon = () => (
+const ChatBubbleIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
   </svg>
 );
 
-const InboxIcon = () => (
-  <svg className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+const ChevronDownIcon = ({ className }: { className?: string }) => (
+  <svg className={className || "w-5 h-5"} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
   </svg>
 );
 
-const ChevronLeftIcon = () => (
+const ThumbsUpIcon = ({ className }: { className?: string }) => (
+  <svg className={className || "w-4 h-4"} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" />
+  </svg>
+);
+
+const XIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
   </svg>
 );
 
-function formatTime(dateStr: string): string {
+const EmptyIcon = () => (
+  <svg className="w-16 h-16" fill="none" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+  </svg>
+);
+
+// ========================
+// Helpers
+// ========================
+
+const DEFAULT_CATEGORIES = [
+  'Diet',
+  'Medications',
+  'Sessions',
+  'Lifestyle',
+  'Emotional Support',
+  'Caregivers',
+];
+
+function formatTimeAgo(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -54,471 +81,607 @@ function formatTime(dateStr: string): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'now';
-  if (diffMins < 60) return `${diffMins}m`;
-  if (diffHours < 24) return `${diffHours}h`;
-  if (diffDays < 7) return `${diffDays}d`;
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function formatTimestamp(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+function getCategoryColor(name: string): string {
+  const colors: Record<string, string> = {
+    diet: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    medications: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    sessions: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+    lifestyle: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    'emotional support': 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
+    caregivers: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+  };
+  return colors[name.toLowerCase()] || 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
 }
 
+// ========================
+// Component
+// ========================
+
 export default function Messages() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [isSending, setIsSending] = useState(false);
+  // Data
+  const [categories, setCategories] = useState<ForumCategory[]>([]);
+  const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [totalPosts, setTotalPosts] = useState(0);
+
+  // UI state
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showNewMessage, setShowNewMessage] = useState(false);
-  const [newRecipientId, setNewRecipientId] = useState('');
-  const [newMessageContent, setNewMessageContent] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'activity'>('latest');
+
+  // Expanded question
+  const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const [expandedReplies, setExpandedReplies] = useState<ForumReply[]>([]);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+
+  // Reply form
+  const [replyContent, setReplyContent] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
+
+  // Ask question modal
+  const [showAskModal, setShowAskModal] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newBody, setNewBody] = useState('');
+  const [newCategoryId, setNewCategoryId] = useState('');
+  const [submittingQuestion, setSubmittingQuestion] = useState(false);
+
   const hasFetched = useRef(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const currentUserId = useRef<string>('');
+
+  // ========================
+  // Data loading
+  // ========================
+
+  const loadPosts = useCallback(async (categoryId?: string | null, sort?: 'latest' | 'popular' | 'activity') => {
+    try {
+      setLoading(true);
+      setError(null);
+      const params: any = { limit: 20, sort: sort || sortBy };
+      if (categoryId) params.categoryId = categoryId;
+      const result = await getForumPosts(params);
+      setPosts(result.posts);
+      setTotalPosts(result.pagination.total);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load questions');
+    } finally {
+      setLoading(false);
+    }
+  }, [sortBy]);
 
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
-    fetchConversations();
-  }, []);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const fetchConversations = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const res = await authFetch('/messages');
-      const data = res.conversations || res.data || res || [];
-      setConversations(Array.isArray(data) ? data : []);
-      if (res.userId) {
-        currentUserId.current = res.userId;
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load conversations');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchMessages = async (conversation: Conversation) => {
-    try {
-      setIsLoadingMessages(true);
-      setError(null);
-      const res = await authFetch(`/messages/${conversation._id}`);
-      const data = res.messages || res.data || res || [];
-      setMessages(Array.isArray(data) ? data : []);
-      if (res.userId) {
-        currentUserId.current = res.userId;
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load messages');
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  };
-
-  const handleSelectConversation = async (conversation: Conversation) => {
-    setSelectedConversation(conversation);
-    setShowNewMessage(false);
-    await fetchMessages(conversation);
-
-    // Mark unread messages as read
-    if (conversation.unreadCount > 0) {
+    (async () => {
       try {
-        const unreadMessages = messages.filter(
-          (m) => !m.read && m.sender._id !== currentUserId.current
-        );
-        for (const msg of unreadMessages) {
-          await authFetch(`/messages/${msg._id}/read`, { method: 'PATCH' });
-        }
-        setConversations((prev) =>
-          prev.map((c) =>
-            c._id === conversation._id ? { ...c, unreadCount: 0 } : c
-          )
-        );
+        const [categoriesResult] = await Promise.all([
+          getForumCategories(),
+        ]);
+        setCategories(categoriesResult);
       } catch {
-        // Silently fail on mark-read
+        // Categories are non-critical
       }
-    }
+      await loadPosts();
+    })();
+  }, [loadPosts]);
+
+  const handleCategoryFilter = (categoryId: string | null) => {
+    setSelectedCategoryId(categoryId);
+    setExpandedPostId(null);
+    loadPosts(categoryId, sortBy);
   };
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation || isSending) return;
+  const handleSortChange = (sort: 'latest' | 'popular' | 'activity') => {
+    setSortBy(sort);
+    loadPosts(selectedCategoryId, sort);
+  };
 
-    const otherParticipant = selectedConversation.participants.find(
-      (p) => p._id !== currentUserId.current
-    );
-    if (!otherParticipant) return;
+  // ========================
+  // Expand / collapse question
+  // ========================
 
+  const handleToggleExpand = async (post: ForumPost) => {
+    if (expandedPostId === post._id) {
+      setExpandedPostId(null);
+      setExpandedReplies([]);
+      setReplyContent('');
+      return;
+    }
+
+    setExpandedPostId(post._id);
+    setLoadingReplies(true);
     try {
-      setIsSending(true);
-      const res = await authFetch('/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientId: otherParticipant._id,
-          content: newMessage.trim(),
-        }),
-      });
-
-      const sentMessage = res.message || res.data || res;
-      if (sentMessage && sentMessage._id) {
-        setMessages((prev) => [...prev, sentMessage]);
-      }
-      setNewMessage('');
-
-      // Refresh conversations to update last message
-      fetchConversations();
-    } catch (err: any) {
-      setError(err.message || 'Failed to send message');
+      const result = await getForumPost(post.slug);
+      setExpandedReplies(result.replies);
+    } catch {
+      setExpandedReplies([]);
     } finally {
-      setIsSending(false);
+      setLoadingReplies(false);
     }
   };
 
-  const handleSendNewMessage = async () => {
-    if (!newRecipientId.trim() || !newMessageContent.trim() || isSending) return;
+  // ========================
+  // Submit reply
+  // ========================
 
+  const handleSubmitReply = async (postId: string) => {
+    if (!replyContent.trim() || submittingReply) return;
     try {
-      setIsSending(true);
+      setSubmittingReply(true);
+      const reply = await createForumReply(postId, { content: replyContent.trim() });
+      setExpandedReplies((prev) => [...prev, reply]);
+      setReplyContent('');
+      // Update reply count locally
+      setPosts((prev) =>
+        prev.map((p) => (p._id === postId ? { ...p, replyCount: p.replyCount + 1 } : p))
+      );
+    } catch (err: any) {
+      setError(err.message || 'Failed to post answer');
+    } finally {
+      setSubmittingReply(false);
+    }
+  };
+
+  // ========================
+  // Mark helpful
+  // ========================
+
+  const handleMarkHelpful = async (type: 'post' | 'reply', id: string) => {
+    try {
+      await markAsHelpful(type, id);
+      if (type === 'reply') {
+        setExpandedReplies((prev) =>
+          prev.map((r) => (r._id === id ? { ...r, helpfulCount: r.helpfulCount + 1 } : r))
+        );
+      } else {
+        setPosts((prev) =>
+          prev.map((p) => (p._id === id ? { ...p, helpfulCount: p.helpfulCount + 1 } : p))
+        );
+      }
+    } catch {
+      // Silently fail (user may have already marked)
+    }
+  };
+
+  // ========================
+  // Ask question
+  // ========================
+
+  const handleAskQuestion = async () => {
+    if (!newTitle.trim() || !newBody.trim() || !newCategoryId || submittingQuestion) return;
+    try {
+      setSubmittingQuestion(true);
       setError(null);
-      await authFetch('/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientId: newRecipientId.trim(),
-          content: newMessageContent.trim(),
-        }),
+      const post = await createForumPost({
+        categoryId: newCategoryId,
+        title: newTitle.trim(),
+        content: newBody.trim(),
       });
-
-      setNewRecipientId('');
-      setNewMessageContent('');
-      setShowNewMessage(false);
-      await fetchConversations();
+      setPosts((prev) => [post, ...prev]);
+      setTotalPosts((prev) => prev + 1);
+      setNewTitle('');
+      setNewBody('');
+      setNewCategoryId('');
+      setShowAskModal(false);
     } catch (err: any) {
-      setError(err.message || 'Failed to send message');
+      setError(err.message || 'Failed to post question');
     } finally {
-      setIsSending(false);
+      setSubmittingQuestion(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
+  // ========================
+  // Search filtering (client-side on loaded posts)
+  // ========================
+
+  const filteredPosts = searchQuery.trim()
+    ? posts.filter(
+        (p) =>
+          p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    : posts;
+
+  // ========================
+  // Get category name helper
+  // ========================
+
+  const getCategoryName = (post: ForumPost): string => {
+    if (typeof post.categoryId === 'object' && post.categoryId !== null) {
+      return (post.categoryId as ForumCategory).name;
     }
+    const cat = categories.find((c) => c._id === post.categoryId);
+    return cat?.name || '';
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  const getOtherParticipant = (conversation: Conversation) => {
-    return (
-      conversation.participants.find((p) => p._id !== currentUserId.current) ||
-      conversation.participants[0]
-    );
+  const getAuthorName = (authorId: string | CommunityProfile): string => {
+    if (typeof authorId === 'object' && authorId !== null) {
+      return (authorId as CommunityProfile).displayName;
+    }
+    return 'Community Member';
   };
+
+  // ========================
+  // Render
+  // ========================
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Messages</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Community Q&A</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Ask questions, share experiences, and support fellow patients and caregivers.
+          </p>
+        </div>
         <button
-          onClick={() => {
-            setShowNewMessage(true);
-            setSelectedConversation(null);
-            setMessages([]);
-          }}
+          onClick={() => setShowAskModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-sm font-medium transition-colors"
         >
           <PlusIcon />
-          New Message
+          Ask a Question
         </button>
       </div>
 
+      {/* Error banner */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 text-red-700 dark:text-red-400 text-sm">
-          {error}
-          <button
-            onClick={() => setError(null)}
-            className="ml-2 underline hover:no-underline"
-          >
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 text-red-700 dark:text-red-400 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="ml-2 underline hover:no-underline text-xs">
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Two-column layout */}
-      <div className="flex gap-4 h-[calc(100vh-180px)]">
-        {/* Conversation list */}
-        <div
-          className={`${
-            selectedConversation || showNewMessage ? 'hidden md:flex' : 'flex'
-          } flex-col w-full md:w-96 md:flex-shrink-0 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden`}
-        >
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-            <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Conversations
-            </h2>
+      {/* Search + Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        {/* Search */}
+        <div className="relative flex-1">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
+            <SearchIcon />
           </div>
-          <div className="flex-1 overflow-y-auto">
-            {conversations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                <div className="text-slate-300 dark:text-slate-600 mb-4">
-                  <InboxIcon />
-                </div>
-                <p className="text-slate-500 dark:text-slate-400 font-medium">
-                  No conversations yet
-                </p>
-                <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">
-                  Start a new message to begin
-                </p>
-              </div>
-            ) : (
-              conversations.map((conversation) => {
-                const other = getOtherParticipant(conversation);
-                const isSelected = selectedConversation?._id === conversation._id;
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search questions..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
+          />
+        </div>
 
-                return (
-                  <button
-                    key={conversation._id}
-                    onClick={() => handleSelectConversation(conversation)}
-                    className={`w-full text-left p-4 border-b border-slate-100 dark:border-slate-800 transition-colors ${
-                      isSelected
-                        ? 'bg-sky-50 dark:bg-sky-900/20'
-                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center text-sky-600 dark:text-sky-400 font-semibold text-sm flex-shrink-0">
-                        {other?.name?.charAt(0)?.toUpperCase() || '?'}
+        {/* Sort */}
+        <select
+          value={sortBy}
+          onChange={(e) => handleSortChange(e.target.value as any)}
+          className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 appearance-none cursor-pointer"
+        >
+          <option value="latest">Newest</option>
+          <option value="popular">Most Popular</option>
+          <option value="activity">Recent Activity</option>
+        </select>
+      </div>
+
+      {/* Category filter chips */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => handleCategoryFilter(null)}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            !selectedCategoryId
+              ? 'bg-sky-600 text-white'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+          }`}
+        >
+          All
+        </button>
+        {categories.map((cat) => (
+          <button
+            key={cat._id}
+            onClick={() => handleCategoryFilter(cat._id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              selectedCategoryId === cat._id
+                ? 'bg-sky-600 text-white'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            {cat.icon ? `${cat.icon} ` : ''}{cat.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Questions feed */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="w-10 h-10 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
+        </div>
+      ) : filteredPosts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="text-slate-300 dark:text-slate-600 mb-4">
+            <EmptyIcon />
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">
+            {searchQuery ? 'No questions match your search' : 'No questions yet'}
+          </p>
+          <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">
+            {searchQuery ? 'Try different keywords or browse all categories' : 'Be the first to ask a question!'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredPosts.map((post) => {
+            const isExpanded = expandedPostId === post._id;
+            const categoryName = getCategoryName(post);
+            const authorName = getAuthorName(post.authorId);
+
+            return (
+              <div
+                key={post._id}
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-shadow hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-slate-900/50"
+              >
+                {/* Question card */}
+                <button
+                  onClick={() => handleToggleExpand(post)}
+                  className="w-full text-left p-5"
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Answers count badge */}
+                    <div className="flex-shrink-0 flex flex-col items-center w-14">
+                      <div className={`text-lg font-bold ${post.replyCount > 0 ? 'text-sky-600 dark:text-sky-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                        {post.replyCount}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs text-slate-400 dark:text-slate-500">
+                        {post.replyCount === 1 ? 'answer' : 'answers'}
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-slate-900 dark:text-white text-base mb-1.5 line-clamp-2">
+                        {post.isPinned && (
+                          <span className="text-amber-500 mr-1.5 text-sm">Pinned</span>
+                        )}
+                        {post.title}
+                      </h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-3">
+                        {post.content}
+                      </p>
+
+                      {/* Meta row */}
+                      <div className="flex items-center flex-wrap gap-2">
+                        {categoryName && (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(categoryName)}`}>
+                            {categoryName}
+                          </span>
+                        )}
+                        {post.tags.slice(0, 3).map((tag) => (
                           <span
-                            className={`font-medium truncate ${
-                              conversation.unreadCount > 0
-                                ? 'text-slate-900 dark:text-white'
-                                : 'text-slate-700 dark:text-slate-300'
-                            }`}
+                            key={tag}
+                            className="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
                           >
-                            {other?.name || 'Unknown'}
+                            {tag}
                           </span>
-                          <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">
-                            {conversation.lastMessage
-                              ? formatTime(conversation.lastMessage.createdAt)
-                              : formatTime(conversation.updatedAt)}
-                          </span>
+                        ))}
+                        <span className="text-xs text-slate-400 dark:text-slate-500 ml-auto">
+                          {authorName} &middot; {formatTimeAgo(post.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Expand indicator */}
+                    <div className="flex-shrink-0 mt-1">
+                      <ChevronDownIcon
+                        className={`w-5 h-5 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Expanded answers section */}
+                {isExpanded && (
+                  <div className="border-t border-slate-200 dark:border-slate-800">
+                    {/* Helpful count for the question */}
+                    <div className="px-5 py-3 flex items-center gap-4 border-b border-slate-100 dark:border-slate-800/50">
+                      <button
+                        onClick={() => handleMarkHelpful('post', post._id)}
+                        className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                      >
+                        <ThumbsUpIcon />
+                        <span>{post.helpfulCount} helpful</span>
+                      </button>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                        {post.viewCount} views
+                      </span>
+                    </div>
+
+                    {/* Answers list */}
+                    <div className="px-5 py-4 space-y-4">
+                      <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                        <ChatBubbleIcon />
+                        {post.replyCount} {post.replyCount === 1 ? 'Answer' : 'Answers'}
+                      </h4>
+
+                      {loadingReplies ? (
+                        <div className="flex justify-center py-6">
+                          <div className="w-6 h-6 border-2 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
                         </div>
-                        <div className="flex items-center justify-between gap-2 mt-1">
-                          <p
-                            className={`text-sm truncate ${
-                              conversation.unreadCount > 0
-                                ? 'text-slate-700 dark:text-slate-300 font-medium'
-                                : 'text-slate-500 dark:text-slate-400'
+                      ) : expandedReplies.length === 0 ? (
+                        <p className="text-sm text-slate-400 dark:text-slate-500 py-3">
+                          No answers yet. Be the first to help!
+                        </p>
+                      ) : (
+                        expandedReplies.map((reply) => (
+                          <div
+                            key={reply._id}
+                            className={`rounded-xl p-4 ${
+                              reply.isAcceptedAnswer
+                                ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'
+                                : 'bg-slate-50 dark:bg-slate-800/50'
                             }`}
                           >
-                            {conversation.lastMessage?.content || 'No messages yet'}
-                          </p>
-                          {conversation.unreadCount > 0 && (
-                            <span className="bg-sky-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
-                              {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
-                            </span>
-                          )}
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                                    {getAuthorName(reply.authorId)}
+                                  </span>
+                                  {reply.isHCPResponse && (
+                                    <span className="px-1.5 py-0.5 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
+                                      HCP
+                                    </span>
+                                  )}
+                                  {reply.isAcceptedAnswer && (
+                                    <span className="px-1.5 py-0.5 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
+                                      Accepted
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-slate-400 dark:text-slate-500">
+                                    {formatTimeAgo(reply.createdAt)}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words">
+                                  {reply.content}
+                                </p>
+                                <button
+                                  onClick={() => handleMarkHelpful('reply', reply._id)}
+                                  className="flex items-center gap-1 mt-2 text-xs text-slate-400 dark:text-slate-500 hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
+                                >
+                                  <ThumbsUpIcon className="w-3.5 h-3.5" />
+                                  <span>{reply.helpfulCount} helpful</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+
+                      {/* Reply input */}
+                      <div className="pt-2">
+                        <textarea
+                          value={replyContent}
+                          onChange={(e) => setReplyContent(e.target.value)}
+                          placeholder="Write your answer..."
+                          rows={3}
+                          className="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm resize-none"
+                        />
+                        <div className="flex justify-end mt-2">
+                          <button
+                            onClick={() => handleSubmitReply(post._id)}
+                            disabled={submittingReply || !replyContent.trim()}
+                            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-600/50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-medium transition-colors"
+                          >
+                            {submittingReply ? 'Posting...' : 'Post Answer'}
+                          </button>
                         </div>
                       </div>
                     </div>
-                  </button>
-                );
-              })
-            )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Ask Question Modal */}
+      {showAskModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowAskModal(false)}
+          />
+
+          {/* Modal */}
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            {/* Modal header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Ask a Question</h2>
+              <button
+                onClick={() => setShowAskModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              >
+                <XIcon />
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="p-5 space-y-4">
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Category
+                </label>
+                <select
+                  value={newCategoryId}
+                  onChange={(e) => setNewCategoryId(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 appearance-none cursor-pointer"
+                >
+                  <option value="">Select a category...</option>
+                  {categories.map((cat) => (
+                    <option key={cat._id} value={cat._id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Title */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Question Title
+                </label>
+                <input
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g., How do you manage fluid intake on dialysis days?"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
+                />
+              </div>
+
+              {/* Body */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                  Details
+                </label>
+                <textarea
+                  value={newBody}
+                  onChange={(e) => setNewBody(e.target.value)}
+                  placeholder="Provide more context about your question..."
+                  rows={5}
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex items-center justify-end gap-3 p-5 border-t border-slate-200 dark:border-slate-800">
+              <button
+                onClick={() => setShowAskModal(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAskQuestion}
+                disabled={submittingQuestion || !newTitle.trim() || !newBody.trim() || !newCategoryId}
+                className="px-5 py-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-600/50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-medium transition-colors"
+              >
+                {submittingQuestion ? 'Posting...' : 'Post Question'}
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Message thread / New message / Empty state */}
-        <div
-          className={`${
-            !selectedConversation && !showNewMessage ? 'hidden md:flex' : 'flex'
-          } flex-col flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden`}
-        >
-          {showNewMessage ? (
-            /* New message form */
-            <div className="flex flex-col h-full">
-              <div className="flex items-center gap-3 p-4 border-b border-slate-200 dark:border-slate-800">
-                <button
-                  onClick={() => setShowNewMessage(false)}
-                  className="md:hidden text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                >
-                  <ChevronLeftIcon />
-                </button>
-                <h2 className="font-semibold text-slate-900 dark:text-white">
-                  New Message
-                </h2>
-              </div>
-              <div className="flex-1 p-4 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Recipient ID
-                  </label>
-                  <input
-                    type="text"
-                    value={newRecipientId}
-                    onChange={(e) => setNewRecipientId(e.target.value)}
-                    placeholder="Enter recipient user ID"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Message
-                  </label>
-                  <textarea
-                    value={newMessageContent}
-                    onChange={(e) => setNewMessageContent(e.target.value)}
-                    placeholder="Write your message..."
-                    rows={4}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm resize-none"
-                  />
-                </div>
-                <button
-                  onClick={handleSendNewMessage}
-                  disabled={isSending || !newRecipientId.trim() || !newMessageContent.trim()}
-                  className="px-6 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-600/50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-medium transition-colors"
-                >
-                  {isSending ? 'Sending...' : 'Send Message'}
-                </button>
-              </div>
-            </div>
-          ) : selectedConversation ? (
-            /* Message thread */
-            <div className="flex flex-col h-full">
-              {/* Thread header */}
-              <div className="flex items-center gap-3 p-4 border-b border-slate-200 dark:border-slate-800">
-                <button
-                  onClick={() => {
-                    setSelectedConversation(null);
-                    setMessages([]);
-                  }}
-                  className="md:hidden text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                >
-                  <ChevronLeftIcon />
-                </button>
-                <div className="w-8 h-8 rounded-full bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center text-sky-600 dark:text-sky-400 font-semibold text-sm">
-                  {getOtherParticipant(selectedConversation)
-                    ?.name?.charAt(0)
-                    ?.toUpperCase() || '?'}
-                </div>
-                <h2 className="font-semibold text-slate-900 dark:text-white">
-                  {getOtherParticipant(selectedConversation)?.name || 'Unknown'}
-                </h2>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {isLoadingMessages ? (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="w-8 h-8 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
-                  </div>
-                ) : messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <p className="text-slate-400 dark:text-slate-500 text-sm">
-                      No messages yet. Send the first message!
-                    </p>
-                  </div>
-                ) : (
-                  messages.map((message) => {
-                    const isOwn = message.sender._id === currentUserId.current;
-                    return (
-                      <div
-                        key={message._id}
-                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
-                            isOwn
-                              ? 'bg-sky-600 text-white'
-                              : 'bg-slate-700 text-white'
-                          }`}
-                        >
-                          {!isOwn && (
-                            <p className="text-xs font-medium text-slate-300 mb-1">
-                              {message.sender.name}
-                            </p>
-                          )}
-                          <p className="text-sm whitespace-pre-wrap break-words">
-                            {message.content}
-                          </p>
-                          <p
-                            className={`text-xs mt-1 ${
-                              isOwn ? 'text-sky-200' : 'text-slate-400'
-                            }`}
-                          >
-                            {formatTimestamp(message.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Message input */}
-              <div className="p-4 border-t border-slate-200 dark:border-slate-800">
-                <div className="flex items-end gap-2">
-                  <textarea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Type a message..."
-                    rows={1}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm resize-none"
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={isSending || !newMessage.trim()}
-                    className="p-2.5 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-600/50 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex-shrink-0"
-                  >
-                    {isSending ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <SendIcon />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Empty state - no conversation selected */
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <div className="text-slate-300 dark:text-slate-600 mb-4">
-                <InboxIcon />
-              </div>
-              <p className="text-slate-500 dark:text-slate-400 font-medium">
-                Select a conversation
-              </p>
-              <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">
-                Choose a conversation from the list or start a new message
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
