@@ -8,7 +8,8 @@ import { DialysisType } from '../types';
 import { ICONS } from '../constants';
 import { exportDataAsJSON } from '../services/export';
 import { getMe, updateSettings as updateUserSettings } from '../services/user';
-import { logout } from '../services/auth';
+import { logout, deleteAccount } from '../services/auth';
+import { useNavigate } from 'react-router';
 
 type TabType = 'personal' | 'clinical' | 'account';
 
@@ -24,7 +25,11 @@ const Profile: React.FC = () => {
   const [apiUser, setApiUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<TabType>('personal');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasFetched = useRef(false);
 
@@ -609,6 +614,34 @@ const Profile: React.FC = () => {
                   <ICONS.ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-rose-500 transition-colors" />
                 </button>
               </div>
+
+              {/* Delete Account - Danger Zone */}
+              <div className="mt-6 pt-6 border-t border-red-200 dark:border-red-500/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                  <span className="text-xs font-bold text-red-500 uppercase tracking-wider">Danger Zone</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteAccountModal(true)}
+                  className="w-full flex items-center justify-between p-5 bg-red-50 dark:bg-red-500/5 border-2 border-red-200 dark:border-red-500/20 rounded-2xl hover:border-red-400 dark:hover:border-red-500/40 hover:bg-red-100 dark:hover:bg-red-500/10 transition-all group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center group-hover:bg-red-500/20 transition-colors">
+                      <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                    </div>
+                    <div className="text-left">
+                      <p className="font-bold text-red-700 dark:text-red-400">Delete Account Permanently</p>
+                      <p className="text-xs text-red-500/70 dark:text-red-400/60">Remove all data and close your account forever</p>
+                    </div>
+                  </div>
+                  <ICONS.ChevronRight className="w-5 h-5 text-red-400 group-hover:text-red-600 transition-colors" />
+                </button>
+              </div>
             </div>
 
             {/* Account Actions */}
@@ -735,6 +768,89 @@ const Profile: React.FC = () => {
       )}
 
       {/* Delete Confirmation Modal */}
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => { setShowDeleteAccountModal(false); setDeleteConfirmText(''); }}
+          />
+          <div className="relative bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 sm:max-w-md w-full shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 fade-in duration-200">
+            <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
+
+            <div className="text-center mb-5">
+              <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Delete Your Account?</h3>
+              <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-xl p-4 text-left mb-4">
+                <p className="text-sm font-bold text-red-700 dark:text-red-400 mb-2">This action is permanent and cannot be undone.</p>
+                <ul className="text-xs text-red-600/80 dark:text-red-400/70 space-y-1.5">
+                  <li className="flex items-start gap-2"><span className="mt-0.5">&#x2022;</span> All your health data will be permanently deleted</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5">&#x2022;</span> Dialysis sessions, vitals, labs, and medications — gone</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5">&#x2022;</span> Your subscription will be cancelled immediately</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5">&#x2022;</span> Community profile and forum posts will be removed</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5">&#x2022;</span> You will not be able to recover any data</li>
+                </ul>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
+                Type <span className="font-mono font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-1.5 py-0.5 rounded">DELETE</span> to confirm:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type DELETE here"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 rounded-xl text-center font-mono font-bold text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:border-red-500 dark:focus:border-red-500 transition-colors"
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3">
+              <button
+                onClick={() => { setShowDeleteAccountModal(false); setDeleteConfirmText(''); }}
+                className="flex-1 px-4 py-3 rounded-xl font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors active:scale-[0.98]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (deleteConfirmText !== 'DELETE') return;
+                  setIsDeletingAccount(true);
+                  try {
+                    await deleteAccount();
+                    localStorage.clear();
+                    navigate('/login');
+                  } catch (err: any) {
+                    setNotification({ message: err?.message || 'Failed to delete account', type: 'error' });
+                    setTimeout(() => setNotification(null), 5000);
+                  } finally {
+                    setIsDeletingAccount(false);
+                    setShowDeleteAccountModal(false);
+                    setDeleteConfirmText('');
+                  }
+                }}
+                disabled={deleteConfirmText !== 'DELETE' || isDeletingAccount}
+                className="flex-1 px-4 py-3 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-700 transition-colors active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isDeletingAccount ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete My Account Forever'
+                )}
+              </button>
+            </div>
+
+            <div className="h-2 sm:h-0" />
+          </div>
+        </div>
+      )}
+
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div
