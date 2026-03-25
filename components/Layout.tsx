@@ -240,7 +240,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* Universal Header */}
         <header
-          className="bg-white/90 dark:bg-slate-950/90 backdrop-blur-2xl border-b border-slate-100 dark:border-white/5 z-40 sticky top-0 safe-pt"
+          className="bg-white/90 dark:bg-slate-950/90 backdrop-blur-2xl border-b border-slate-100 dark:border-white/5 z-50 sticky top-0 safe-pt relative"
           role="banner"
         >
           <div className="flex items-center justify-between px-4 sm:px-6 lg:px-12 h-16 sm:h-20 lg:h-[72px]">
