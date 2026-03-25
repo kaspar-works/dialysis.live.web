@@ -63,12 +63,48 @@ const Dashboard: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [showIntelligenceCustomize, setShowIntelligenceCustomize] = useState(false);
+  const [showDashboardCustomize, setShowDashboardCustomize] = useState(false);
   const [intelligenceCards, setIntelligenceCards] = useState<Record<string, boolean>>(() => {
     try {
       const saved = localStorage.getItem('intelligence-cards');
       return saved ? JSON.parse(saved) : {};
     } catch { return {}; }
   });
+
+  // Dashboard widget visibility
+  const DASHBOARD_WIDGETS = [
+    { id: 'healthOverview', label: 'Health Overview', emoji: '💊', description: 'Health score and status' },
+    { id: 'alerts', label: 'Alerts', emoji: '🔔', description: 'Critical and priority alerts' },
+    { id: 'remindersAppointments', label: 'Reminders & Appointments', emoji: '📅', description: 'Upcoming schedule' },
+    { id: 'intelligence', label: 'Dialysis Intelligence', emoji: '🧠', description: 'Clinical insights cards' },
+    { id: 'vitals', label: 'Vitals Grid', emoji: '❤️‍🔥', description: 'BP, heart rate, SpO2, temp' },
+    { id: 'weeklyTrends', label: 'Weekly Trends', emoji: '📈', description: 'Sparkline trend charts' },
+    { id: 'hydration', label: 'Hydration & Quick Add', emoji: '💧', description: 'Fluid tracking and quick log' },
+    { id: 'nutrition', label: 'Nutrition Summary', emoji: '🥗', description: 'Today\'s nutrient intake' },
+    { id: 'achievements', label: 'Achievements', emoji: '🏆', description: 'Progress and milestones' },
+  ];
+
+  const [dashboardWidgets, setDashboardWidgets] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('dashboard-widgets');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
+  const isWidgetVisible = (id: string) => dashboardWidgets[id] !== false;
+
+  const toggleWidget = (id: string) => {
+    setDashboardWidgets(prev => {
+      const next = { ...prev, [id]: prev[id] === false ? true : false };
+      localStorage.setItem('dashboard-widgets', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const resetWidgets = () => {
+    setDashboardWidgets({});
+    localStorage.removeItem('dashboard-widgets');
+  };
   const hasFetched = useRef(false);
 
   const INTELLIGENCE_CARD_DEFS = [
@@ -874,6 +910,16 @@ const Dashboard: React.FC = () => {
               </span>
             )}
           </Link>
+          <button
+            onClick={() => setShowDashboardCustomize(true)}
+            className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+            title="Customize Dashboard"
+          >
+            <svg className="w-[18px] h-[18px] sm:w-5 sm:h-5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
           <Link
             to="/profile"
             className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
@@ -883,8 +929,64 @@ const Dashboard: React.FC = () => {
         </div>
       </header>
 
+      {/* Dashboard Customize Panel */}
+      {showDashboardCustomize && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowDashboardCustomize(false)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 sm:max-w-lg w-full shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 fade-in duration-200 max-h-[85vh] overflow-y-auto">
+            <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-4 sm:hidden" />
+
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Customize Dashboard</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Choose which sections to show</p>
+              </div>
+              <button onClick={resetWidgets} className="text-xs font-semibold text-violet-500 hover:text-violet-600 transition-colors">
+                Reset All
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {DASHBOARD_WIDGETS.map(widget => (
+                <button
+                  key={widget.id}
+                  onClick={() => toggleWidget(widget.id)}
+                  className={`w-full flex items-center gap-3 p-3.5 rounded-xl border transition-all ${
+                    isWidgetVisible(widget.id)
+                      ? 'bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/30'
+                      : 'bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 opacity-60'
+                  }`}
+                >
+                  <span className="text-xl w-8 text-center">{widget.emoji}</span>
+                  <div className="flex-1 text-left">
+                    <p className={`text-sm font-bold ${isWidgetVisible(widget.id) ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'}`}>
+                      {widget.label}
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">{widget.description}</p>
+                  </div>
+                  <div className={`w-10 h-6 rounded-full p-0.5 transition-colors ${
+                    isWidgetVisible(widget.id) ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'
+                  }`}>
+                    <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                      isWidgetVisible(widget.id) ? 'translate-x-4' : 'translate-x-0'
+                    }`} />
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowDashboardCustomize(false)}
+              className="w-full mt-5 py-3 bg-violet-500 hover:bg-violet-600 text-white rounded-xl font-bold text-sm transition-colors active:scale-[0.98]"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Health Status Hero — Clinical Luxe */}
-      <div className="relative bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 rounded-2xl sm:rounded-3xl p-5 sm:p-7 md:p-8 overflow-hidden noise anim-fade-up" style={{ animationDelay: '0.1s' }}>
+      {isWidgetVisible('healthOverview') && <div className="relative bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 rounded-2xl sm:rounded-3xl p-5 sm:p-7 md:p-8 overflow-hidden noise anim-fade-up" style={{ animationDelay: '0.1s' }}>
         {/* Ambient glow */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className={`absolute -top-20 -right-20 w-64 sm:w-80 h-64 sm:h-80 rounded-full blur-[100px] opacity-25 ${
@@ -957,10 +1059,10 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Alerts Section */}
-      {displayAlerts.length > 0 && (
+      {isWidgetVisible('alerts') && displayAlerts.length > 0 && (
         <div className="space-y-3">
           {/* Alert counts badge */}
           {alertCounts && (alertCounts.critical > 0 || alertCounts.high > 0) && (
@@ -1038,7 +1140,7 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* Upcoming Reminders & Appointments */}
-      {(upcomingReminders.length > 0 || upcomingAppointments.length > 0) && (
+      {isWidgetVisible('remindersAppointments') && (upcomingReminders.length > 0 || upcomingAppointments.length > 0) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 anim-fade-up" style={{ animationDelay: '0.15s' }}>
           {upcomingReminders.length > 0 && (
             <div className="noise bg-white dark:bg-slate-800/40 glass-light rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-slate-100 dark:border-white/[0.06]">
@@ -1107,7 +1209,7 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* Dialysis Intelligence */}
-      {(currentWeight !== null && dryWeight !== null) || nutritionTotals.potassium > 0 || latestPotassium || nutritionTotals.phosphorus > 0 || latestPhosphorus || nutritionTotals.sodium > 0 || latestSodium || latestBP || (dashboardData?.medications?.totalActive ?? 0) > 0 || (sessionStats?.totalCompleted ?? 0) > 0 ? (
+      {isWidgetVisible('intelligence') && ((currentWeight !== null && dryWeight !== null) || nutritionTotals.potassium > 0 || latestPotassium || nutritionTotals.phosphorus > 0 || latestPhosphorus || nutritionTotals.sodium > 0 || latestSodium || latestBP || (dashboardData?.medications?.totalActive ?? 0) > 0 || (sessionStats?.totalCompleted ?? 0) > 0) ? (
         <div className="anim-fade-up" style={{ animationDelay: '0.18s' }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5">
@@ -1748,7 +1850,7 @@ const Dashboard: React.FC = () => {
       ) : null}
 
       {/* Vitals Grid — Refined Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 anim-fade-up" style={{ animationDelay: '0.2s' }}>
+      {isWidgetVisible('vitals') && <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 anim-fade-up" style={{ animationDelay: '0.2s' }}>
         {[
           {
             label: 'Blood Pressure', unit: 'mmHg', emoji: '❤️‍🔥',
@@ -1812,10 +1914,10 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* Weekly Trends Strip */}
-      {sparklineCards.length > 0 && (
+      {isWidgetVisible('weeklyTrends') && sparklineCards.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 anim-fade-up" style={{ animationDelay: '0.25s' }}>
           {sparklineCards.map(card => {
             const spark = makeSparkline(card.values, card.color, card.asBars);
@@ -1862,7 +1964,7 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-12 gap-4 sm:gap-5 anim-fade-up" style={{ animationDelay: '0.3s' }}>
+      {isWidgetVisible('hydration') && <div className="grid grid-cols-12 gap-4 sm:gap-5 anim-fade-up" style={{ animationDelay: '0.3s' }}>
         {/* Hydration Card */}
         <div className="col-span-12 lg:col-span-5 relative overflow-hidden rounded-2xl sm:rounded-3xl p-5 sm:p-6 noise" style={{ background: 'linear-gradient(135deg, #0d9488, #0891b2, #0e7490)' }}>
           {/* Wave Effect */}
@@ -2246,7 +2348,7 @@ const Dashboard: React.FC = () => {
             </Link>
           ))}
         </div>
-      </div>
+      </div>}
     </div>
   );
 };
