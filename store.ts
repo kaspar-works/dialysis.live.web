@@ -65,7 +65,7 @@ const DEFAULT_PROFILE: UserProfile = {
     display: {
       compactMode: false,
       showAIInghts: true,
-      theme: 'dark'
+      theme: 'light'
     },
     bpThresholds: {
       normalSys: 120,
@@ -142,18 +142,10 @@ export function useStore() {
   const [profile, setProfile] = useState<UserProfile>(initialData?.profile || DEFAULT_PROFILE);
   const hasLoadedFromStorage = useRef(true); // Already loaded synchronously
 
-  // Sync theme with HTML class
+  // Theme is locked to wellness light mode — dark theme is deprecated app-wide.
   useEffect(() => {
-    const applyTheme = (theme: 'light' | 'dark') => {
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      localStorage.setItem(THEME_KEY, theme);
-    };
-
-    applyTheme(profile.settings.display.theme);
+    document.documentElement.classList.remove('dark');
+    localStorage.setItem(THEME_KEY, 'light');
   }, [profile.settings.display.theme]);
 
   // Set default medications for new users (no localStorage data)

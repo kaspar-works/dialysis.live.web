@@ -31,17 +31,17 @@ const Demo: React.FC = () => {
         <div className="space-y-4">
           {/* Top Stats */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-              <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-1">Stability</p>
-              <p className="text-2xl font-black text-emerald-400">87<span className="text-sm text-white/30">%</span></p>
+            <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
+              <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-1">Stability</p>
+              <p className="text-2xl font-black text-emerald-400">87<span className="text-sm text-[#9B9A94]">%</span></p>
             </div>
-            <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-              <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-1">Fluid</p>
-              <p className="text-2xl font-black text-sky-400">850<span className="text-sm text-white/30">ml</span></p>
+            <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
+              <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-1">Fluid</p>
+              <p className="text-2xl font-black text-sky-400">850<span className="text-sm text-[#9B9A94]">ml</span></p>
             </div>
-            <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-              <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-1">Weight</p>
-              <p className="text-2xl font-black text-violet-400">74.2<span className="text-sm text-white/30">kg</span></p>
+            <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
+              <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-1">Weight</p>
+              <p className="text-2xl font-black text-violet-400">74.2<span className="text-sm text-[#9B9A94]">kg</span></p>
             </div>
           </div>
           {/* Alert Banner */}
@@ -51,7 +51,7 @@ const Demo: React.FC = () => {
             </div>
             <div>
               <p className="text-xs font-bold text-amber-400">Upcoming Session</p>
-              <p className="text-[11px] text-white/40">Today at 2:00 PM - In-center HD</p>
+              <p className="text-[11px] text-[#7B7A74]">Today at 2:00 PM - In-center HD</p>
             </div>
           </div>
           {/* Quick Actions Grid */}
@@ -62,25 +62,25 @@ const Demo: React.FC = () => {
               { icon: ICONS.Droplet, label: 'Fluids', c: 'text-sky-400 bg-sky-500/10' },
               { icon: ICONS.Pill, label: 'Meds', c: 'text-amber-400 bg-amber-500/10' },
             ].map((a, i) => (
-              <div key={i} className="flex flex-col items-center gap-1.5 p-3 bg-white/5 rounded-xl border border-white/5">
+              <div key={i} className="flex flex-col items-center gap-1.5 p-3 bg-white rounded-xl border border-[#E6E1D7]">
                 <div className={`w-8 h-8 rounded-lg ${a.c} flex items-center justify-center`}>
                   <a.icon className="w-4 h-4" />
                 </div>
-                <span className="text-[9px] font-bold text-white/50">{a.label}</span>
+                <span className="text-[9px] font-bold text-[#7B7A74]">{a.label}</span>
               </div>
             ))}
           </div>
           {/* BP Trend Mini Chart */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-            <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-3">Blood Pressure Trend</p>
+          <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
+            <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-3">Blood Pressure Trend</p>
             <div className="flex items-end gap-1.5 h-16">
               {[65, 72, 58, 80, 68, 75, 70, 82, 74, 78, 72, 76].map((h, i) => (
                 <div key={i} className="flex-1 rounded-sm bg-gradient-to-t from-sky-500/60 to-pink-500/60" style={{ height: `${h}%` }} />
               ))}
             </div>
             <div className="flex justify-between mt-2">
-              <span className="text-[8px] text-white/20">Mar 1</span>
-              <span className="text-[8px] text-white/20">Mar 10</span>
+              <span className="text-[8px] text-[#9B9A94]">Mar 1</span>
+              <span className="text-[8px] text-[#9B9A94]">Mar 10</span>
             </div>
           </div>
         </div>
@@ -102,27 +102,27 @@ const Demo: React.FC = () => {
                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">Active Session</span>
               </div>
-              <span className="text-xs text-white/40">In-Center HD</span>
+              <span className="text-xs text-[#7B7A74]">In-Center HD</span>
             </div>
             <div className="text-center py-4">
               <p className="text-4xl font-black tabular-nums">02:48:32</p>
-              <p className="text-xs text-white/30 mt-1">of 4:00:00</p>
+              <p className="text-xs text-[#9B9A94] mt-1">of 4:00:00</p>
             </div>
-            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+            <div className="h-2 bg-white rounded-full overflow-hidden">
               <div className="h-full w-[70%] bg-gradient-to-r from-orange-500 to-red-400 rounded-full" />
             </div>
             <div className="grid grid-cols-3 gap-2 mt-4">
               <div className="text-center">
                 <p className="text-lg font-black">128/82</p>
-                <p className="text-[8px] text-white/30 uppercase tracking-widest">BP</p>
+                <p className="text-[8px] text-[#9B9A94] uppercase tracking-widest">BP</p>
               </div>
               <div className="text-center">
                 <p className="text-lg font-black text-sky-400">2.1L</p>
-                <p className="text-[8px] text-white/30 uppercase tracking-widest">UF Target</p>
+                <p className="text-[8px] text-[#9B9A94] uppercase tracking-widest">UF Target</p>
               </div>
               <div className="text-center">
                 <p className="text-lg font-black text-emerald-400">76</p>
-                <p className="text-[8px] text-white/30 uppercase tracking-widest">Heart Rate</p>
+                <p className="text-[8px] text-[#9B9A94] uppercase tracking-widest">Heart Rate</p>
               </div>
             </div>
           </div>
@@ -131,14 +131,14 @@ const Demo: React.FC = () => {
             { date: 'Mar 8', dur: '3h 55m', rating: 4, uf: '1.8L' },
             { date: 'Mar 6', dur: '4h 00m', rating: 5, uf: '2.2L' },
           ].map((s, i) => (
-            <div key={i} className="bg-white/5 rounded-2xl p-4 border border-white/5 flex items-center justify-between">
+            <div key={i} className="bg-white rounded-2xl p-4 border border-[#E6E1D7] flex items-center justify-between">
               <div>
                 <p className="text-sm font-bold">{s.date}</p>
-                <p className="text-xs text-white/30">{s.dur} - UF {s.uf}</p>
+                <p className="text-xs text-[#9B9A94]">{s.dur} - UF {s.uf}</p>
               </div>
               <div className="flex gap-0.5">
                 {[1, 2, 3, 4, 5].map(n => (
-                  <div key={n} className={`w-3 h-3 rounded-full ${n <= s.rating ? 'bg-amber-400' : 'bg-white/10'}`} />
+                  <div key={n} className={`w-3 h-3 rounded-full ${n <= s.rating ? 'bg-amber-400' : 'bg-[#EDE9E1]'}`} />
                 ))}
               </div>
             </div>
@@ -163,16 +163,16 @@ const Demo: React.FC = () => {
               { label: 'Temperature', value: '36.7', unit: '°C', color: 'text-amber-400', trend: '0' },
               { label: 'SpO2', value: '98', unit: '%', color: 'text-emerald-400', trend: '+1' },
             ].map((v, i) => (
-              <div key={i} className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-2">{v.label}</p>
-                <p className={`text-2xl font-black ${v.color}`}>{v.value}<span className="text-xs text-white/30 ml-1">{v.unit}</span></p>
-                <p className="text-[10px] text-white/20 mt-1">{v.trend === '0' ? 'Stable' : `${v.trend} from last`}</p>
+              <div key={i} className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
+                <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-2">{v.label}</p>
+                <p className={`text-2xl font-black ${v.color}`}>{v.value}<span className="text-xs text-[#9B9A94] ml-1">{v.unit}</span></p>
+                <p className="text-[10px] text-[#9B9A94] mt-1">{v.trend === '0' ? 'Stable' : `${v.trend} from last`}</p>
               </div>
             ))}
           </div>
           {/* Heart Rate Chart */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-            <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-3">Heart Rate - 7 Days</p>
+          <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
+            <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-3">Heart Rate - 7 Days</p>
             <svg viewBox="0 0 300 80" className="w-full">
               <defs>
                 <linearGradient id="hrGrad" x1="0" y1="0" x2="0" y2="1">
@@ -194,7 +194,7 @@ const Demo: React.FC = () => {
             </div>
             <div>
               <p className="text-sm font-bold">Log New Vitals</p>
-              <p className="text-xs text-white/30">Add BP, HR, temp, or SpO2</p>
+              <p className="text-xs text-[#9B9A94]">Add BP, HR, temp, or SpO2</p>
             </div>
           </div>
         </div>
@@ -210,7 +210,7 @@ const Demo: React.FC = () => {
       mockup: (
         <div className="space-y-4">
           {/* Circular Progress */}
-          <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col items-center">
+          <div className="bg-white rounded-2xl p-6 border border-[#E6E1D7] flex flex-col items-center">
             <div className="relative w-36 h-36">
               <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
                 <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
@@ -224,10 +224,10 @@ const Demo: React.FC = () => {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <p className="text-3xl font-black text-sky-400">850</p>
-                <p className="text-[10px] text-white/30">of 1500 ml</p>
+                <p className="text-[10px] text-[#9B9A94]">of 1500 ml</p>
               </div>
             </div>
-            <p className="text-xs text-white/40 mt-3">650 ml remaining today</p>
+            <p className="text-xs text-[#7B7A74] mt-3">650 ml remaining today</p>
           </div>
           {/* Quick Add */}
           <div className="grid grid-cols-4 gap-2">
@@ -237,25 +237,25 @@ const Demo: React.FC = () => {
               { emoji: '🥤', label: 'Juice', ml: '250ml' },
               { emoji: '🍲', label: 'Soup', ml: '200ml' },
             ].map((p, i) => (
-              <div key={i} className="bg-white/5 rounded-xl p-3 border border-white/5 text-center hover:bg-white/10 transition-all cursor-pointer">
+              <div key={i} className="bg-white rounded-xl p-3 border border-[#E6E1D7] text-center hover:bg-[#EDE9E1] transition-all cursor-pointer">
                 <span className="text-xl">{p.emoji}</span>
-                <p className="text-[9px] font-bold text-white/50 mt-1">{p.label}</p>
-                <p className="text-[8px] text-white/30">{p.ml}</p>
+                <p className="text-[9px] font-bold text-[#7B7A74] mt-1">{p.label}</p>
+                <p className="text-[8px] text-[#9B9A94]">{p.ml}</p>
               </div>
             ))}
           </div>
           {/* Today's Log */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-3">
-            <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Today's Intake</p>
+          <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7] space-y-3">
+            <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest">Today's Intake</p>
             {[
               { time: '08:30', type: 'Water', amount: '200ml' },
               { time: '10:15', type: 'Tea', amount: '150ml' },
               { time: '12:40', type: 'Water', amount: '250ml' },
               { time: '14:00', type: 'Juice', amount: '250ml' },
             ].map((e, i) => (
-              <div key={i} className="flex items-center justify-between py-1 border-b border-white/5 last:border-0">
+              <div key={i} className="flex items-center justify-between py-1 border-b border-[#E6E1D7] last:border-0">
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] text-white/20 tabular-nums w-10">{e.time}</span>
+                  <span className="text-[10px] text-[#9B9A94] tabular-nums w-10">{e.time}</span>
                   <span className="text-xs">{e.type}</span>
                 </div>
                 <span className="text-xs font-bold text-sky-400">{e.amount}</span>
@@ -275,43 +275,43 @@ const Demo: React.FC = () => {
       mockup: (
         <div className="space-y-4">
           {/* Adherence Score */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex items-center justify-between">
+          <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7] flex items-center justify-between">
             <div>
-              <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-1">Weekly Adherence</p>
-              <p className="text-3xl font-black text-emerald-400">94<span className="text-sm text-white/30">%</span></p>
+              <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-1">Weekly Adherence</p>
+              <p className="text-3xl font-black text-emerald-400">94<span className="text-sm text-[#9B9A94]">%</span></p>
             </div>
             <div className="flex gap-1">
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
                 <div key={i} className="flex flex-col items-center gap-1">
-                  <div className={`w-5 h-5 rounded-md ${i === 3 ? 'bg-amber-500/20 border border-amber-500/30' : i < 6 ? 'bg-emerald-500/20' : 'bg-white/5'} flex items-center justify-center`}>
+                  <div className={`w-5 h-5 rounded-md ${i === 3 ? 'bg-amber-500/20 border border-amber-500/30' : i < 6 ? 'bg-emerald-500/20' : 'bg-white'} flex items-center justify-center`}>
                     {i < 6 && i !== 3 && <ICONS.Check className="w-3 h-3 text-emerald-400" />}
                     {i === 3 && <span className="text-[8px] text-amber-400">!</span>}
                   </div>
-                  <span className="text-[7px] text-white/20">{d}</span>
+                  <span className="text-[7px] text-[#9B9A94]">{d}</span>
                 </div>
               ))}
             </div>
           </div>
           {/* Today's Meds */}
-          <p className="text-[8px] font-black text-white/30 uppercase tracking-widest">Today's Schedule</p>
+          <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest">Today's Schedule</p>
           {[
             { name: 'Epoetin Alfa', dose: '4000 IU', time: '08:00', taken: true, type: 'Dialysis Day' },
             { name: 'Calcium Acetate', dose: '667mg x2', time: '12:00', taken: true, type: 'Daily' },
             { name: 'Sevelamer', dose: '800mg', time: '18:00', taken: false, type: 'Daily' },
             { name: 'Calcitriol', dose: '0.25mcg', time: '20:00', taken: false, type: 'Daily' },
           ].map((m, i) => (
-            <div key={i} className={`bg-white/5 rounded-2xl p-4 border ${m.taken ? 'border-emerald-500/20' : 'border-white/5'} flex items-center gap-3`}>
+            <div key={i} className={`bg-white rounded-2xl p-4 border ${m.taken ? 'border-emerald-500/20' : 'border-[#E6E1D7]'} flex items-center gap-3`}>
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${m.taken ? 'bg-emerald-500/20' : 'bg-amber-500/10'}`}>
                 {m.taken ? <ICONS.Check className="w-5 h-5 text-emerald-400" /> : <ICONS.Clock className="w-5 h-5 text-amber-400" />}
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-bold">{m.name}</p>
-                  <span className="px-1.5 py-0.5 bg-white/5 rounded text-[7px] font-bold text-white/30">{m.type}</span>
+                  <span className="px-1.5 py-0.5 bg-white rounded text-[7px] font-bold text-[#9B9A94]">{m.type}</span>
                 </div>
-                <p className="text-xs text-white/30">{m.dose} at {m.time}</p>
+                <p className="text-xs text-[#9B9A94]">{m.dose} at {m.time}</p>
               </div>
-              <div className={`w-6 h-6 rounded-full border-2 ${m.taken ? 'bg-emerald-500 border-emerald-500' : 'border-white/20'}`} />
+              <div className={`w-6 h-6 rounded-full border-2 ${m.taken ? 'bg-emerald-500 border-emerald-500' : 'border-[#E6E1D7]'}`} />
             </div>
           ))}
         </div>
@@ -327,15 +327,15 @@ const Demo: React.FC = () => {
       mockup: (
         <div className="space-y-4">
           {/* Camera Preview */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 border border-white/5 flex flex-col items-center">
-            <div className="w-24 h-24 rounded-full bg-white/5 border-2 border-dashed border-emerald-500/30 flex items-center justify-center mb-4">
+          <div className="bg-gradient-to-br from-[#F4F1EC] to-[#EDE9E1] rounded-2xl p-6 border border-[#E6E1D7] flex flex-col items-center">
+            <div className="w-24 h-24 rounded-full bg-white border-2 border-dashed border-emerald-500/30 flex items-center justify-center mb-4">
               <ICONS.Camera className="w-10 h-10 text-emerald-400" />
             </div>
-            <p className="text-sm font-bold text-white/60">Tap to scan your meal</p>
-            <p className="text-xs text-white/30 mt-1">AI analyzes in seconds</p>
+            <p className="text-sm font-bold text-[#4A4F5C]">Tap to scan your meal</p>
+            <p className="text-xs text-[#9B9A94] mt-1">AI analyzes in seconds</p>
           </div>
           {/* Analysis Result */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+          <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
             <div className="flex items-center gap-2 mb-4">
               <ICONS.Sparkles className="w-4 h-4 text-emerald-400" />
               <p className="text-xs font-bold text-emerald-400">Last Scan: Grilled Chicken Salad</p>
@@ -348,10 +348,10 @@ const Demo: React.FC = () => {
               ].map((n, i) => (
                 <div key={i}>
                   <div className="flex justify-between mb-1">
-                    <span className="text-xs text-white/50">{n.label}</span>
-                    <span className="text-xs font-bold">{n.value}<span className="text-white/30">{n.unit}</span></span>
+                    <span className="text-xs text-[#7B7A74]">{n.label}</span>
+                    <span className="text-xs font-bold">{n.value}<span className="text-[#9B9A94]">{n.unit}</span></span>
                   </div>
-                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-white rounded-full overflow-hidden">
                     <div className={`h-full ${n.color} rounded-full`} style={{ width: `${(n.value / n.max) * 100}%` }} />
                   </div>
                 </div>
@@ -363,7 +363,7 @@ const Demo: React.FC = () => {
             <ICONS.CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-bold text-emerald-400">Kidney-Friendly</p>
-              <p className="text-[11px] text-white/40 mt-1">This meal is within recommended renal diet limits. Good choice for potassium-conscious eating.</p>
+              <p className="text-[11px] text-[#7B7A74] mt-1">This meal is within recommended renal diet limits. Good choice for potassium-conscious eating.</p>
             </div>
           </div>
         </div>
@@ -379,15 +379,15 @@ const Demo: React.FC = () => {
       mockup: (
         <div className="space-y-4">
           {/* Current Weight */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+          <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-1">Current Weight</p>
-                <p className="text-4xl font-black">74.2<span className="text-lg text-white/30 ml-1">kg</span></p>
+                <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-1">Current Weight</p>
+                <p className="text-4xl font-black">74.2<span className="text-lg text-[#9B9A94] ml-1">kg</span></p>
               </div>
               <div className="text-right">
-                <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-1">Dry Weight</p>
-                <p className="text-xl font-black text-violet-400">72.0<span className="text-sm text-white/30 ml-1">kg</span></p>
+                <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-1">Dry Weight</p>
+                <p className="text-xl font-black text-violet-400">72.0<span className="text-sm text-[#9B9A94] ml-1">kg</span></p>
               </div>
             </div>
             <div className="mt-3 bg-amber-500/10 rounded-xl px-3 py-2 flex items-center gap-2">
@@ -396,8 +396,8 @@ const Demo: React.FC = () => {
             </div>
           </div>
           {/* Weight Chart */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-            <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-3">14-Day Trend</p>
+          <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
+            <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-3">14-Day Trend</p>
             <svg viewBox="0 0 300 80" className="w-full">
               <defs>
                 <linearGradient id="wtGrad" x1="0" y1="0" x2="0" y2="1">
@@ -414,13 +414,13 @@ const Demo: React.FC = () => {
           </div>
           {/* IDWG Stats */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-              <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-1">Avg IDWG</p>
-              <p className="text-xl font-black text-amber-400">2.1<span className="text-sm text-white/30">kg</span></p>
+            <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
+              <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-1">Avg IDWG</p>
+              <p className="text-xl font-black text-amber-400">2.1<span className="text-sm text-[#9B9A94]">kg</span></p>
             </div>
-            <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-              <p className="text-[8px] font-black text-white/30 uppercase tracking-widest mb-1">Max IDWG</p>
-              <p className="text-xl font-black text-red-400">3.4<span className="text-sm text-white/30">kg</span></p>
+            <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
+              <p className="text-[8px] font-black text-[#9B9A94] uppercase tracking-widest mb-1">Max IDWG</p>
+              <p className="text-xl font-black text-red-400">3.4<span className="text-sm text-[#9B9A94]">kg</span></p>
             </div>
           </div>
         </div>
@@ -436,7 +436,7 @@ const Demo: React.FC = () => {
       mockup: (
         <div className="space-y-4">
           {/* Latest Results */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+          <div className="bg-white rounded-2xl p-4 border border-[#E6E1D7]">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-bold">Latest Results - Mar 5</p>
               <span className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[8px] font-bold text-emerald-400">4 Normal</span>
@@ -448,8 +448,8 @@ const Demo: React.FC = () => {
               { name: 'Phosphorus', val: '4.2 mg/dL', range: '2.5-4.5', status: 'normal' },
               { name: 'Calcium', val: '9.1 mg/dL', range: '8.5-10.5', status: 'normal' },
             ].map((l, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                <span className="text-xs text-white/60">{l.name}</span>
+              <div key={i} className="flex items-center justify-between py-2 border-b border-[#E6E1D7] last:border-0">
+                <span className="text-xs text-[#4A4F5C]">{l.name}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold">{l.val}</span>
                   <div className={`w-2 h-2 rounded-full ${l.status === 'normal' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
@@ -464,7 +464,7 @@ const Demo: React.FC = () => {
             </div>
             <div>
               <p className="text-sm font-bold">Scan Lab Report</p>
-              <p className="text-xs text-white/30">Take a photo to auto-digitize</p>
+              <p className="text-xs text-[#9B9A94]">Take a photo to auto-digitize</p>
             </div>
           </div>
         </div>
@@ -492,12 +492,12 @@ const Demo: React.FC = () => {
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center flex-shrink-0">
                 <ICONS.Sparkles className="w-4 h-4 text-white" />
               </div>
-              <div className="bg-white/5 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[85%] border border-white/5">
-                <p className="text-xs text-white/70 leading-relaxed">Yes, post-dialysis fatigue is very common and affects up to <span className="text-white font-bold">70-80%</span> of patients. Here are common causes:</p>
+              <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 max-w-[85%] border border-[#E6E1D7]">
+                <p className="text-xs text-[#4A4F5C] leading-relaxed">Yes, post-dialysis fatigue is very common and affects up to <span className="text-[#1F2D2A] font-bold">70-80%</span> of patients. Here are common causes:</p>
                 <ul className="mt-2 space-y-1">
-                  <li className="text-xs text-white/50 flex items-start gap-2"><span className="text-purple-400 mt-0.5">-</span> Fluid and electrolyte shifts</li>
-                  <li className="text-xs text-white/50 flex items-start gap-2"><span className="text-purple-400 mt-0.5">-</span> Blood pressure changes</li>
-                  <li className="text-xs text-white/50 flex items-start gap-2"><span className="text-purple-400 mt-0.5">-</span> Anemia-related tiredness</li>
+                  <li className="text-xs text-[#7B7A74] flex items-start gap-2"><span className="text-purple-400 mt-0.5">-</span> Fluid and electrolyte shifts</li>
+                  <li className="text-xs text-[#7B7A74] flex items-start gap-2"><span className="text-purple-400 mt-0.5">-</span> Blood pressure changes</li>
+                  <li className="text-xs text-[#7B7A74] flex items-start gap-2"><span className="text-purple-400 mt-0.5">-</span> Anemia-related tiredness</li>
                 </ul>
               </div>
             </div>
@@ -512,28 +512,28 @@ const Demo: React.FC = () => {
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center flex-shrink-0">
                 <ICONS.Sparkles className="w-4 h-4 text-white" />
               </div>
-              <div className="bg-white/5 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[85%] border border-white/5">
-                <p className="text-xs text-white/70 leading-relaxed">Great question! Some strategies that help:</p>
+              <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 max-w-[85%] border border-[#E6E1D7]">
+                <p className="text-xs text-[#4A4F5C] leading-relaxed">Great question! Some strategies that help:</p>
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center gap-2 bg-emerald-500/10 rounded-lg px-2 py-1.5">
                     <span className="text-emerald-400 text-xs">1.</span>
-                    <span className="text-xs text-white/60">Light exercise on non-dialysis days</span>
+                    <span className="text-xs text-[#4A4F5C]">Light exercise on non-dialysis days</span>
                   </div>
                   <div className="flex items-center gap-2 bg-sky-500/10 rounded-lg px-2 py-1.5">
                     <span className="text-sky-400 text-xs">2.</span>
-                    <span className="text-xs text-white/60">Stay within fluid limits</span>
+                    <span className="text-xs text-[#4A4F5C]">Stay within fluid limits</span>
                   </div>
                   <div className="flex items-center gap-2 bg-amber-500/10 rounded-lg px-2 py-1.5">
                     <span className="text-amber-400 text-xs">3.</span>
-                    <span className="text-xs text-white/60">Iron-rich foods for anemia</span>
+                    <span className="text-xs text-[#4A4F5C]">Iron-rich foods for anemia</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
           {/* Input */}
-          <div className="bg-white/5 rounded-2xl p-3 border border-white/10 flex items-center gap-3">
-            <div className="flex-1 text-xs text-white/20">Ask about your health...</div>
+          <div className="bg-white rounded-2xl p-3 border border-[#E6E1D7] flex items-center gap-3">
+            <div className="flex-1 text-xs text-[#9B9A94]">Ask about your health...</div>
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center">
               <ICONS.Send className="w-4 h-4 text-white" />
             </div>
@@ -551,7 +551,7 @@ const Demo: React.FC = () => {
       mockup: (
         <div className="space-y-4">
           {/* Report Preview */}
-          <div className="bg-white/5 rounded-2xl p-5 border border-white/5">
+          <div className="bg-white rounded-2xl p-5 border border-[#E6E1D7]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center">
@@ -559,12 +559,12 @@ const Demo: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs font-bold">Monthly Clinical Report</p>
-                  <p className="text-[10px] text-white/30">Feb 10 - Mar 10, 2026</p>
+                  <p className="text-[10px] text-[#9B9A94]">Feb 10 - Mar 10, 2026</p>
                 </div>
               </div>
               <span className="px-2 py-1 bg-emerald-500/10 rounded text-[8px] font-bold text-emerald-400">Ready</span>
             </div>
-            <div className="space-y-2 border-t border-white/5 pt-3">
+            <div className="space-y-2 border-t border-[#E6E1D7] pt-3">
               {[
                 { label: 'Sessions Tracked', val: '12' },
                 { label: 'Vitals Recorded', val: '48' },
@@ -573,7 +573,7 @@ const Demo: React.FC = () => {
                 { label: 'Med Adherence', val: '94%' },
               ].map((r, i) => (
                 <div key={i} className="flex justify-between py-1">
-                  <span className="text-xs text-white/40">{r.label}</span>
+                  <span className="text-xs text-[#7B7A74]">{r.label}</span>
                   <span className="text-xs font-bold">{r.val}</span>
                 </div>
               ))}
@@ -581,11 +581,11 @@ const Demo: React.FC = () => {
           </div>
           {/* Export Buttons */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white/5 rounded-xl p-4 border border-white/5 flex flex-col items-center gap-2 hover:bg-white/10 transition-all cursor-pointer">
+            <div className="bg-white rounded-xl p-4 border border-[#E6E1D7] flex flex-col items-center gap-2 hover:bg-[#EDE9E1] transition-all cursor-pointer">
               <ICONS.Download className="w-6 h-6 text-red-400" />
               <span className="text-xs font-bold">Export PDF</span>
             </div>
-            <div className="bg-white/5 rounded-xl p-4 border border-white/5 flex flex-col items-center gap-2 hover:bg-white/10 transition-all cursor-pointer">
+            <div className="bg-white rounded-xl p-4 border border-[#E6E1D7] flex flex-col items-center gap-2 hover:bg-[#EDE9E1] transition-all cursor-pointer">
               <ICONS.Code className="w-6 h-6 text-emerald-400" />
               <span className="text-xs font-bold">Export JSON</span>
             </div>
@@ -608,27 +608,27 @@ const Demo: React.FC = () => {
             { name: 'Diet & Nutrition', posts: 187, color: 'bg-emerald-500/10 text-emerald-400' },
             { name: 'Treatment Tips', posts: 156, color: 'bg-amber-500/10 text-amber-400' },
           ].map((c, i) => (
-            <div key={i} className="bg-white/5 rounded-2xl p-4 border border-white/5 flex items-center justify-between">
+            <div key={i} className="bg-white rounded-2xl p-4 border border-[#E6E1D7] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl ${c.color.split(' ')[0]} flex items-center justify-center`}>
                   <ICONS.MessageSquare className={`w-5 h-5 ${c.color.split(' ')[1]}`} />
                 </div>
                 <div>
                   <p className="text-sm font-bold">{c.name}</p>
-                  <p className="text-xs text-white/30">{c.posts} posts</p>
+                  <p className="text-xs text-[#9B9A94]">{c.posts} posts</p>
                 </div>
               </div>
-              <ICONS.ChevronRight className="w-4 h-4 text-white/20" />
+              <ICONS.ChevronRight className="w-4 h-4 text-[#9B9A94]" />
             </div>
           ))}
           {/* Success Story */}
           <div className="bg-gradient-to-br from-teal-500/10 to-cyan-500/10 rounded-2xl p-4 border border-teal-500/20">
             <p className="text-[8px] font-black text-teal-400 uppercase tracking-widest mb-2">Success Story</p>
             <p className="text-sm font-bold mb-1">"How I Improved My Lab Results"</p>
-            <p className="text-xs text-white/40 line-clamp-2">After 6 months of consistent tracking with dialysis.live, my phosphorus levels went from 6.8 to 4.2...</p>
+            <p className="text-xs text-[#7B7A74] line-clamp-2">After 6 months of consistent tracking with dialysis.live, my phosphorus levels went from 6.8 to 4.2...</p>
             <div className="flex items-center gap-2 mt-3">
               <div className="w-6 h-6 rounded-full bg-teal-500/20" />
-              <span className="text-xs text-white/50">Sarah M. - Home HD</span>
+              <span className="text-xs text-[#7B7A74]">Sarah M. - Home HD</span>
             </div>
           </div>
         </div>
@@ -646,7 +646,7 @@ const Demo: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#020617] min-h-screen selection:bg-sky-500/30 selection:text-white overflow-x-hidden text-white w-full">
+    <div className="bg-[#F4F1EC] min-h-screen selection:bg-[#4EC7B8]/30 selection:text-[#1F2D2A] overflow-x-hidden text-[#1F2D2A] w-full">
       <SEO
         title="Interactive Demo - See How It Works"
         description="Explore every feature of dialysis.live with our interactive demo. See the dashboard, session tracking, vitals monitoring, AI nutrition scanning, and more."
@@ -654,23 +654,23 @@ const Demo: React.FC = () => {
 
       {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-        <div className="absolute top-[-10%] right-[-10%] w-[100vw] h-[100vw] bg-sky-900/20 rounded-full blur-[100px] md:blur-[160px] animate-pulse"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[80vw] h-[80vw] bg-pink-900/10 rounded-full blur-[140px]"></div>
+        <div className="absolute top-[-10%] right-[-10%] w-[100vw] h-[100vw] rounded-full blur-[100px] md:blur-[160px] animate-pulse" style={{ backgroundColor: '#D8E7F8', opacity: 0.5 }}></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[80vw] h-[80vw] rounded-full blur-[140px]" style={{ backgroundColor: '#E4DAF2', opacity: 0.4 }}></div>
       </div>
 
       <PublicNav />
 
       {/* Hero */}
       <section className="pt-28 sm:pt-36 md:pt-40 pb-10 sm:pb-16 px-4 sm:px-6 md:px-20 max-w-[1440px] mx-auto text-center">
-        <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-[9px] md:text-xs font-black uppercase tracking-[0.3em] md:tracking-[0.4em] backdrop-blur-xl mb-6 sm:mb-8">
-          <div className="w-2 h-2 rounded-full bg-sky-400 animate-ping"></div>
+        <div className="inline-flex items-center gap-3 px-4 py-2 bg-white border border-[#E6E1D7] rounded-full text-[9px] md:text-xs font-black uppercase tracking-[0.3em] md:tracking-[0.4em] backdrop-blur-xl mb-6 sm:mb-8">
+          <div className="w-2 h-2 rounded-full bg-[#E87556] animate-ping"></div>
           Interactive Demo
         </div>
         <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.9]">
           See How<br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-pink-400 to-emerald-400">It Works.</span>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4EC7B8] to-[#7ED6A7]">It Works.</span>
         </h1>
-        <p className="text-white/40 text-base sm:text-lg md:text-2xl font-medium max-w-2xl mx-auto leading-relaxed mt-6 sm:mt-8">
+        <p className="text-[#7B7A74] text-base sm:text-lg md:text-2xl font-medium max-w-2xl mx-auto leading-relaxed mt-6 sm:mt-8">
           Explore every screen. Click through features to see how dialysis.live helps you manage your renal health journey.
         </p>
       </section>
@@ -681,23 +681,23 @@ const Demo: React.FC = () => {
           {/* Screen Navigator */}
           <div className="lg:col-span-4 xl:col-span-3">
             <div className="lg:sticky lg:top-28 space-y-2 max-h-[calc(100vh-8rem)] overflow-y-auto custom-scrollbar pb-4">
-              <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] mb-4 px-2">All Screens</p>
+              <p className="text-[9px] font-black text-[#9B9A94] uppercase tracking-[0.3em] mb-4 px-2">All Screens</p>
               {screens.map((screen, i) => (
                 <button
                   key={screen.id}
                   onClick={() => handleScreenChange(i)}
                   className={`w-full text-left px-4 py-3 rounded-2xl border transition-all duration-300 group flex items-center gap-3 ${
                     activeScreen === i
-                      ? 'bg-white/10 border-white/20 shadow-lg'
-                      : 'bg-white/[0.02] border-white/5 hover:bg-white/5 hover:border-white/10'
+                      ? 'bg-[#EDE9E1] border-[#E6E1D7] shadow-lg'
+                      : 'bg-white/[0.02] border-[#E6E1D7] hover:bg-white hover:border-[#E6E1D7]'
                   }`}
                 >
                   <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${screen.color} flex items-center justify-center flex-shrink-0 ${activeScreen === i ? 'scale-110' : 'group-hover:scale-105'} transition-transform`}>
                     <screen.icon className="w-4 h-4 text-white" />
                   </div>
                   <div className="min-w-0">
-                    <p className={`text-sm font-bold truncate ${activeScreen === i ? 'text-white' : 'text-white/60'}`}>{screen.title}</p>
-                    <p className="text-[10px] text-white/30 truncate">{screen.tag}</p>
+                    <p className={`text-sm font-bold truncate ${activeScreen === i ? 'text-white' : 'text-[#4A4F5C]'}`}>{screen.title}</p>
+                    <p className="text-[10px] text-[#9B9A94] truncate">{screen.tag}</p>
                   </div>
                   {activeScreen === i && (
                     <div className="w-1.5 h-1.5 rounded-full bg-sky-400 ml-auto flex-shrink-0" />
@@ -718,12 +718,12 @@ const Demo: React.FC = () => {
 
                   {/* Phone frame */}
                   <div className="relative w-[300px] sm:w-[340px]">
-                    <div className="bg-white/5 backdrop-blur-xl rounded-[2.5rem] p-2 border border-white/10 shadow-2xl">
-                      <div className="bg-slate-950 rounded-[2.2rem] border border-white/5 overflow-hidden">
+                    <div className="bg-white backdrop-blur-xl rounded-[2.5rem] p-2 border border-[#E6E1D7] shadow-2xl">
+                      <div className="bg-white rounded-[2.2rem] border border-[#E6E1D7] overflow-hidden">
                         {/* Status bar */}
                         <div className="flex items-center justify-between px-6 pt-3 pb-2">
-                          <span className="text-[10px] font-bold text-white/40">9:41</span>
-                          <div className="w-24 h-5 bg-white/10 rounded-full"></div>
+                          <span className="text-[10px] font-bold text-[#7B7A74]">9:41</span>
+                          <div className="w-24 h-5 bg-[#EDE9E1] rounded-full"></div>
                           <div className="flex items-center gap-1">
                             <div className="w-4 h-2.5 border border-white/30 rounded-sm relative"><div className="absolute inset-0.5 bg-white/40 rounded-[1px]" style={{ width: '70%' }}></div></div>
                           </div>
@@ -736,7 +736,7 @@ const Demo: React.FC = () => {
                           </div>
                           <div>
                             <p className="text-sm font-black">{screens[activeScreen].title}</p>
-                            <p className="text-[9px] text-white/30">{screens[activeScreen].tag}</p>
+                            <p className="text-[9px] text-[#9B9A94]">{screens[activeScreen].tag}</p>
                           </div>
                         </div>
 
@@ -746,7 +746,7 @@ const Demo: React.FC = () => {
                         </div>
 
                         {/* Bottom nav */}
-                        <div className="border-t border-white/5 px-4 py-3 flex items-center justify-around">
+                        <div className="border-t border-[#E6E1D7] px-4 py-3 flex items-center justify-around">
                           {[
                             { icon: ICONS.Dashboard, label: 'Home' },
                             { icon: ICONS.Activity, label: 'Sessions' },
@@ -755,8 +755,8 @@ const Demo: React.FC = () => {
                             { icon: ICONS.Pill, label: 'Meds' },
                           ].map((tab, i) => (
                             <div key={i} className="flex flex-col items-center gap-1">
-                              <tab.icon className={`w-4 h-4 ${i === 0 ? 'text-sky-400' : 'text-white/20'}`} />
-                              <span className={`text-[7px] ${i === 0 ? 'text-sky-400' : 'text-white/20'}`}>{tab.label}</span>
+                              <tab.icon className={`w-4 h-4 ${i === 0 ? 'text-sky-400' : 'text-[#9B9A94]'}`} />
+                              <span className={`text-[7px] ${i === 0 ? 'text-sky-400' : 'text-[#9B9A94]'}`}>{tab.label}</span>
                             </div>
                           ))}
                         </div>
@@ -780,7 +780,7 @@ const Demo: React.FC = () => {
                   <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">
                     {screens[activeScreen].title}
                   </h2>
-                  <p className="text-white/40 text-base md:text-lg font-medium leading-relaxed mt-4">
+                  <p className="text-[#7B7A74] text-base md:text-lg font-medium leading-relaxed mt-4">
                     {screens[activeScreen].subtitle}
                   </p>
                 </div>
@@ -788,13 +788,13 @@ const Demo: React.FC = () => {
                 {/* Feature highlights per screen */}
                 <div className="space-y-3">
                   {getFeatureHighlights(screens[activeScreen].id).map((f, i) => (
-                    <div key={i} className="flex items-start gap-3 bg-white/5 rounded-xl p-4 border border-white/5">
+                    <div key={i} className="flex items-start gap-3 bg-white rounded-xl p-4 border border-[#E6E1D7]">
                       <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${screens[activeScreen].color} flex items-center justify-center flex-shrink-0`}>
                         <ICONS.Check className="w-4 h-4 text-white" />
                       </div>
                       <div>
                         <p className="text-sm font-bold">{f.title}</p>
-                        <p className="text-xs text-white/40 mt-0.5">{f.desc}</p>
+                        <p className="text-xs text-[#7B7A74] mt-0.5">{f.desc}</p>
                       </div>
                     </div>
                   ))}
@@ -805,15 +805,15 @@ const Demo: React.FC = () => {
                   <button
                     onClick={() => handleScreenChange(Math.max(0, activeScreen - 1))}
                     disabled={activeScreen === 0}
-                    className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                    className="px-6 py-3 bg-white border border-[#E6E1D7] rounded-xl font-black text-xs uppercase tracking-widest hover:bg-[#EDE9E1] transition-all disabled:opacity-20 disabled:cursor-not-allowed"
                   >
                     <ICONS.ChevronLeft className="w-5 h-5" />
                   </button>
-                  <span className="text-xs text-white/30 tabular-nums">{activeScreen + 1} / {screens.length}</span>
+                  <span className="text-xs text-[#9B9A94] tabular-nums">{activeScreen + 1} / {screens.length}</span>
                   <button
                     onClick={() => handleScreenChange(Math.min(screens.length - 1, activeScreen + 1))}
                     disabled={activeScreen === screens.length - 1}
-                    className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                    className="px-6 py-3 bg-white border border-[#E6E1D7] rounded-xl font-black text-xs uppercase tracking-widest hover:bg-[#EDE9E1] transition-all disabled:opacity-20 disabled:cursor-not-allowed"
                   >
                     <ICONS.ChevronRight className="w-5 h-5" />
                   </button>
@@ -827,19 +827,31 @@ const Demo: React.FC = () => {
       {/* CTA Section */}
       <section className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 md:px-20">
         <div className="max-w-[1440px] mx-auto">
-          <div className="relative bg-gradient-to-br from-sky-500/20 via-pink-500/10 to-emerald-500/20 rounded-2xl sm:rounded-[3rem] md:rounded-[5rem] p-6 sm:p-12 md:p-24 border border-white/10 overflow-hidden">
-            <div className="absolute inset-0 bg-[#020617]/60 backdrop-blur-xl"></div>
+          <div
+            className="relative rounded-2xl sm:rounded-[3rem] md:rounded-[5rem] p-6 sm:p-12 md:p-24 overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #4EC7B8 0%, #7ED6A7 100%)' }}
+          >
+            <div
+              aria-hidden
+              className="absolute -top-16 -right-16 w-64 h-64 rounded-full opacity-20"
+              style={{ backgroundColor: '#fff' }}
+            />
+            <div
+              aria-hidden
+              className="absolute -bottom-20 -left-10 w-72 h-72 rounded-full opacity-10"
+              style={{ backgroundColor: '#fff' }}
+            />
             <div className="relative z-10 text-center space-y-8">
-              <h2 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter">
+              <h2 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter text-white">
                 Ready to<br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">Get Started?</span>
+                <span className="text-white/90">Get Started?</span>
               </h2>
-              <p className="text-white/40 text-lg md:text-xl font-medium max-w-xl mx-auto">
+              <p className="text-white/90 text-lg md:text-xl font-medium max-w-xl mx-auto">
                 Join dialysis patients taking control of their health. Free to start, no credit card required.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 md:gap-6 pt-4">
-                <Link to="/register" className="w-full sm:w-auto px-8 sm:px-12 md:px-16 py-4 sm:py-6 md:py-8 bg-white text-slate-950 rounded-2xl sm:rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] hover:scale-105 active:scale-95 transition-all text-center">Create Free Account</Link>
-                <Link to="/features" className="w-full sm:w-auto px-8 sm:px-12 md:px-16 py-4 sm:py-6 md:py-8 bg-white/5 border border-white/10 text-white rounded-2xl sm:rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] hover:bg-white/10 transition-all text-center">View All Features</Link>
+                <Link to="/register" className="w-full sm:w-auto px-8 sm:px-12 md:px-16 py-4 sm:py-6 md:py-8 bg-white text-[#2F8F87] rounded-2xl sm:rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] hover:scale-105 active:scale-95 transition-all text-center">Create Free Account</Link>
+                <Link to="/features" className="w-full sm:w-auto px-8 sm:px-12 md:px-16 py-4 sm:py-6 md:py-8 border border-white/60 text-white rounded-2xl sm:rounded-[2rem] font-black text-xs md:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] hover:bg-white/10 transition-all text-center">View All Features</Link>
               </div>
             </div>
           </div>

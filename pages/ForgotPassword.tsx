@@ -1,9 +1,8 @@
-
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import Logo from '../components/Logo';
 import SEO from '../components/SEO';
 import { forgotPassword } from '../services/auth';
+import { THEME, ensureWellnessFont, WELLNESS_FONT_FAMILY } from '../theme';
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -12,6 +11,10 @@ const ForgotPassword: React.FC = () => {
   const [oauthProvider, setOauthProvider] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    ensureWellnessFont();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,132 +39,302 @@ const ForgotPassword: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col lg:flex-row animate-in fade-in duration-700">
+    <div
+      className="min-h-screen w-full flex flex-col lg:flex-row"
+      style={{
+        backgroundColor: THEME.bg,
+        color: THEME.ink,
+        fontFamily: WELLNESS_FONT_FAMILY,
+      }}
+    >
       <SEO
-        title="Reset Password - Recover Your Account"
-        description="Reset your dialysis.live password securely. Enter your email to receive password recovery instructions."
+        title="Reset your password — dialysis.live"
+        description="Recover access to your dialysis.live account. We'll send you a secure reset link by email."
       />
-      {/* Visual Side */}
-      <div className="lg:w-1/2 bg-slate-50 p-12 lg:p-24 flex flex-col justify-between relative overflow-hidden order-1 lg:order-2">
-        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[120px] -translate-y-1/2 -translate-x-1/2"></div>
-        
-        <Link to="/" className="relative z-10">
-          <Logo className="w-14 h-14" />
-          <span className="font-bold text-xl text-slate-900 tracking-tight mt-4 block">dialysis.live</span>
+
+      {/* Branding Side */}
+      <div
+        className="hidden lg:flex lg:w-1/2 p-12 lg:p-20 flex-col justify-between relative overflow-hidden order-1 lg:order-2"
+        style={{ background: THEME.calmGradient }}
+      >
+        <div
+          aria-hidden
+          className="absolute -top-24 -left-24 w-[500px] h-[500px] rounded-full opacity-30 blur-3xl"
+          style={{ background: THEME.teal }}
+        />
+        <div
+          aria-hidden
+          className="absolute -bottom-32 -right-24 w-[400px] h-[400px] rounded-full opacity-25 blur-3xl"
+          style={{ background: THEME.lavender }}
+        />
+
+        <Link to="/" className="relative z-10 flex items-center gap-2.5">
+          <span
+            className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-lg"
+            style={{ background: THEME.heroGradient }}
+            aria-hidden
+          >
+            d
+          </span>
+          <span className="text-xl font-bold tracking-tight" style={{ color: THEME.ink }}>
+            dialysis.live
+          </span>
         </Link>
 
-        <div className="relative z-10 space-y-12">
-           <div className="space-y-4">
-              <h2 className="text-5xl lg:text-7xl font-black text-slate-900 tracking-tighter leading-[0.9]">
-                Restore <br/>
-                <span className="text-sky-600 font-black">System Access.</span>
-              </h2>
-              <p className="text-slate-500 text-xl font-medium max-w-md leading-relaxed">
-                If your authentication protocol has failed, we can initiate a secure reset of your clinical credentials.
-              </p>
-           </div>
+        <div className="relative z-10 space-y-8">
+          <h2
+            className="font-bold tracking-tight"
+            style={{
+              fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+              lineHeight: 1.05,
+              letterSpacing: '-0.02em',
+              color: THEME.ink,
+            }}
+          >
+            Let's get you back{' '}
+            <span
+              style={{
+                background: THEME.heroGradient,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              into your account.
+            </span>
+          </h2>
+          <p className="text-lg leading-relaxed max-w-md" style={{ color: THEME.muted }}>
+            We'll email a secure recovery link. Your clinical data stays encrypted and private.
+          </p>
 
-           <div className="p-8 bg-white rounded-[2.5rem] border border-slate-100 shadow-xl flex items-center gap-6">
-              <div className="w-14 h-14 bg-sky-50 text-sky-500 rounded-2xl flex items-center justify-center shadow-inner shrink-0">
-                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <div
+            className="flex items-start gap-4 p-5 rounded-3xl"
+            style={{
+              backgroundColor: THEME.card,
+              border: `1px solid ${THEME.border}`,
+              boxShadow: `0 4px 20px -8px ${THEME.tealDark}1a`,
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-white shadow-sm"
+              style={{ background: `linear-gradient(135deg, ${THEME.skyInk}e6, ${THEME.skyInk})` }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+            </div>
+            <div className="text-sm leading-relaxed" style={{ color: THEME.ink }}>
+              <div className="font-bold mb-1">Encrypted recovery</div>
+              <div style={{ color: THEME.muted }}>
+                Only you can complete the reset via the emailed link.
               </div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
-                 Encrypted recovery protocols ensure your clinical data remains isolated and secure.
-              </p>
-           </div>
+            </div>
+          </div>
         </div>
 
-        <div className="relative z-10 text-slate-300 text-[10px] font-black uppercase tracking-[0.2em]">
-           2025 dialysis.live • Secure Recovery Node
+        <div
+          className="relative z-10 text-xs font-bold uppercase tracking-[0.2em]"
+          style={{ color: THEME.muted }}
+        >
+          {new Date().getFullYear()} · dialysis.live
         </div>
       </div>
 
       {/* Form Side */}
-      <div className="flex-1 p-12 lg:p-24 flex items-center justify-center order-2 lg:order-1 relative">
-        <div className="absolute top-10 left-10 lg:left-24">
-          <Link to="/login" className="flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-colors font-bold text-xs uppercase tracking-widest group">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="group-hover:-translate-x-1 transition-transform"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            Back to Authentication
+      <div className="flex-1 p-6 sm:p-8 md:p-12 lg:p-20 flex flex-col items-center justify-center relative order-2 lg:order-1">
+        <div className="absolute top-6 sm:top-10 left-4 sm:left-10 lg:left-20">
+          <Link
+            to="/login"
+            className="flex items-center gap-2 text-xs uppercase tracking-widest font-bold group transition-colors"
+            style={{ color: THEME.muted }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className="group-hover:-translate-x-1 transition-transform"
+            >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Back to sign in
           </Link>
         </div>
 
-        <div className="w-full max-w-md">
-           {!isSubmitted ? (
-             <div className="space-y-12 animate-in slide-in-from-bottom-4 duration-500">
-                <div className="space-y-4">
-                   <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-none">Password Reset</h1>
-                   <p className="text-slate-500 font-medium">Initialize the credential recovery cycle.</p>
+        <div className="w-full max-w-md mt-16 lg:mt-0">
+          {!isSubmitted ? (
+            <div className="space-y-8">
+              <div className="space-y-3">
+                <h1
+                  className="font-bold tracking-tight"
+                  style={{
+                    fontSize: 'clamp(1.75rem, 3vw, 2.25rem)',
+                    letterSpacing: '-0.015em',
+                    color: THEME.ink,
+                  }}
+                >
+                  Reset your password
+                </h1>
+                <p style={{ color: THEME.muted }}>
+                  Enter the email you signed up with and we'll send a recovery link.
+                </p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold ml-1" style={{ color: THEME.muted }}>
+                    Registered email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full rounded-xl px-4 py-3.5 font-medium transition-all outline-none"
+                    style={{
+                      backgroundColor: THEME.card,
+                      border: `1.5px solid ${THEME.border}`,
+                      color: THEME.ink,
+                      fontFamily: WELLNESS_FONT_FAMILY,
+                    }}
+                    onFocus={(e) => {
+                      (e.target as HTMLInputElement).style.borderColor = THEME.teal;
+                      (e.target as HTMLInputElement).style.boxShadow = `0 0 0 3px ${THEME.teal}33`;
+                    }}
+                    onBlur={(e) => {
+                      (e.target as HTMLInputElement).style.borderColor = THEME.border;
+                      (e.target as HTMLInputElement).style.boxShadow = '';
+                    }}
+                    placeholder="you@example.com"
+                    required
+                    disabled={isLoading}
+                  />
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-8">
-                   <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Registered Email</label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-3xl px-8 py-5 font-bold text-slate-900 focus:ring-4 focus:ring-sky-50 focus:border-sky-500 transition-all outline-none"
-                        placeholder="alex@example.com"
-                        required
-                        disabled={isLoading}
-                      />
-                   </div>
-
-                   {error && (
-                     <p className="text-red-500 text-sm font-bold text-center">{error}</p>
-                   )}
-
-                   <button
-                     disabled={isLoading}
-                     className="w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black text-sm uppercase tracking-widest shadow-2xl shadow-slate-200 hover:bg-sky-600 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                   >
-                      {isLoading ? 'Sending...' : 'Request Reset Protocol'}
-                   </button>
-                </form>
-
-                <p className="text-xs font-bold text-slate-400 text-center leading-relaxed">
-                   Wait 5-10 minutes for the synchronization email to arrive in your inbox.
-                </p>
-             </div>
-           ) : (
-             <div className="space-y-8 text-center animate-in zoom-in-95 duration-500">
-                {isOAuth ? (
-                  <>
-                    <div className="w-24 h-24 bg-amber-50 text-amber-500 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner border border-amber-100 mb-8">
-                       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    </div>
-                    <div className="space-y-4">
-                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">No Password to Reset</h2>
-                       <p className="text-slate-500 font-medium leading-relaxed">
-                          The account for <span className="text-slate-900 font-black">{email}</span> was created using <span className="text-slate-900 font-black">{oauthProvider}</span> sign-in. Please use that provider to access your account.
-                       </p>
-                    </div>
-                    <div className="pt-8">
-                       <Link to="/login" className="px-12 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl hover:bg-sky-600 transition-all">
-                          Sign In with {oauthProvider}
-                       </Link>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner border border-emerald-100 mb-8">
-                       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    </div>
-                    <div className="space-y-4">
-                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">Protocol Dispatched</h2>
-                       <p className="text-slate-500 font-medium leading-relaxed">
-                          A recovery link has been synchronized to <span className="text-slate-900 font-black">{email}</span>. Please verify your identity to proceed.
-                       </p>
-                    </div>
-                    <div className="pt-8">
-                       <Link to="/login" className="px-12 py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl hover:bg-sky-600 transition-all">
-                          Return to Hub
-                       </Link>
-                    </div>
-                  </>
+                {error && (
+                  <div
+                    className="p-3 rounded-xl text-sm"
+                    style={{
+                      backgroundColor: THEME.peach,
+                      color: THEME.peachInk,
+                      border: `1px solid ${THEME.peachInk}44`,
+                    }}
+                  >
+                    {error}
+                  </div>
                 )}
-             </div>
-           )}
+
+                <button
+                  disabled={isLoading}
+                  className="w-full py-4 rounded-full font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg"
+                  style={{
+                    background: THEME.heroGradient,
+                    boxShadow: `0 8px 24px -8px ${THEME.teal}80`,
+                  }}
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      Sending…
+                    </>
+                  ) : (
+                    'Send recovery link →'
+                  )}
+                </button>
+              </form>
+
+              <p className="text-xs text-center leading-relaxed" style={{ color: THEME.muted }}>
+                The email usually arrives within a few minutes. Check spam if you don't see it.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6 text-center">
+              {isOAuth ? (
+                <>
+                  <div
+                    className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto"
+                    style={{ backgroundColor: THEME.butter }}
+                  >
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-sm"
+                      style={{ background: `linear-gradient(135deg, ${THEME.butterInk}e6, ${THEME.butterInk})` }}
+                    >
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <h2
+                      className="font-bold tracking-tight"
+                      style={{ fontSize: '1.75rem', letterSpacing: '-0.015em', color: THEME.ink }}
+                    >
+                      No password to reset
+                    </h2>
+                    <p className="leading-relaxed" style={{ color: THEME.muted }}>
+                      The account for{' '}
+                      <span className="font-bold" style={{ color: THEME.ink }}>
+                        {email}
+                      </span>{' '}
+                      was created using{' '}
+                      <span className="font-bold" style={{ color: THEME.ink }}>
+                        {oauthProvider}
+                      </span>{' '}
+                      sign-in. Please use that provider to access your account.
+                    </p>
+                  </div>
+                  <Link
+                    to="/login"
+                    className="inline-block px-8 py-4 rounded-full font-bold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                    style={{ background: THEME.heroGradient }}
+                  >
+                    Sign in with {oauthProvider}
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto"
+                    style={{ backgroundColor: THEME.mint }}
+                  >
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-sm"
+                      style={{ background: `linear-gradient(135deg, ${THEME.mintInk}e6, ${THEME.mintInk})` }}
+                    >
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <h2
+                      className="font-bold tracking-tight"
+                      style={{ fontSize: '1.75rem', letterSpacing: '-0.015em', color: THEME.ink }}
+                    >
+                      Check your inbox
+                    </h2>
+                    <p className="leading-relaxed" style={{ color: THEME.muted }}>
+                      We sent a recovery link to{' '}
+                      <span className="font-bold" style={{ color: THEME.ink }}>
+                        {email}
+                      </span>
+                      . Tap the link in the email to finish resetting your password.
+                    </p>
+                  </div>
+                  <Link
+                    to="/login"
+                    className="inline-block px-8 py-4 rounded-full font-bold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                    style={{ background: THEME.heroGradient }}
+                  >
+                    Back to sign in
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

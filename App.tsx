@@ -52,6 +52,7 @@ function lazyWithRetry(importFn: () => Promise<any>) {
 // Lazy load pages for code splitting
 // Public pages
 const Landing = lazyWithRetry(() => import('./pages/Landing'));
+const LandingV2 = lazyWithRetry(() => import('./pages/LandingV2'));
 const Login = lazyWithRetry(() => import('./pages/Login'));
 const Register = lazyWithRetry(() => import('./pages/Register'));
 const ForgotPassword = lazyWithRetry(() => import('./pages/ForgotPassword'));
@@ -131,7 +132,8 @@ const App: React.FC = () => {
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
               {/* Public Marketing Routes - redirect to dashboard if authenticated */}
-              <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
+              <Route path="/" element={<PublicRoute><LandingV2 /></PublicRoute>} />
+              <Route path="/v1" element={<Landing />} />
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
               <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 

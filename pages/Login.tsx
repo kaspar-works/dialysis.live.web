@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useStore } from '../store';
-import Logo from '../components/Logo';
 import SEO from '../components/SEO';
+import { THEME, ensureWellnessFont, WELLNESS_FONT_FAMILY } from '../theme';
 
 // Google Client ID from environment
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -214,184 +214,353 @@ const Login: React.FC = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col lg:flex-row animate-in fade-in duration-700 transition-colors">
-      <SEO
-        title="Login - Access Your Dialysis Management Dashboard"
-        description="Sign in to your dialysis.live account to track sessions, monitor vitals, and manage your renal health journey."
-      />
-      {/* Visual Branding Side */}
-      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 p-12 lg:p-24 flex-col justify-between relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2"></div>
+  useEffect(() => {
+    ensureWellnessFont();
+  }, []);
 
-        <Link to="/" className="relative z-10">
-          <Logo className="w-14 h-14" />
-          <span className="font-bold text-xl text-white tracking-tight mt-4 block">dialysis.live</span>
+  const inputStyle = (hasError: boolean): React.CSSProperties => ({
+    backgroundColor: hasError ? THEME.peach : THEME.card,
+    border: `1.5px solid ${hasError ? THEME.peachInk : THEME.border}`,
+    color: THEME.ink,
+    fontFamily: WELLNESS_FONT_FAMILY,
+  });
+
+  return (
+    <div
+      className="min-h-screen w-full flex flex-col lg:flex-row"
+      style={{
+        backgroundColor: THEME.bg,
+        color: THEME.ink,
+        fontFamily: WELLNESS_FONT_FAMILY,
+      }}
+    >
+      <SEO
+        title="Sign in — dialysis.live"
+        description="Sign in to your dialysis.live account to track sessions, monitor vitals, and manage your renal health."
+      />
+
+      {/* Branding Side — wellness gradient */}
+      <div
+        className="hidden lg:flex lg:w-1/2 p-12 lg:p-20 flex-col justify-between relative overflow-hidden"
+        style={{ background: THEME.calmGradient }}
+      >
+        <div
+          aria-hidden
+          className="absolute -top-24 -right-24 w-[500px] h-[500px] rounded-full opacity-30 blur-3xl"
+          style={{ background: THEME.teal }}
+        />
+        <div
+          aria-hidden
+          className="absolute -bottom-32 -left-24 w-[400px] h-[400px] rounded-full opacity-25 blur-3xl"
+          style={{ background: THEME.green }}
+        />
+
+        <Link to="/" className="relative z-10 flex items-center gap-2.5">
+          <span
+            className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-lg"
+            style={{ background: THEME.heroGradient }}
+            aria-hidden
+          >
+            d
+          </span>
+          <span className="text-xl font-bold tracking-tight" style={{ color: THEME.ink }}>
+            dialysis.live
+          </span>
         </Link>
 
         <div className="relative z-10 space-y-6">
-           <h2 className="text-5xl lg:text-7xl font-black text-white tracking-tighter leading-[0.9]">
-             Back to your <br/>
-             <span className="text-sky-400">Treatment Hub.</span>
-           </h2>
-           <p className="text-white/50 text-xl font-medium max-w-md leading-relaxed">
-             Securely access your clinical history and synchronize today's treatment events.
-           </p>
+          <h2
+            className="font-bold tracking-tight"
+            style={{
+              fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+              lineHeight: 1.05,
+              letterSpacing: '-0.02em',
+              color: THEME.ink,
+            }}
+          >
+            Welcome back to your{' '}
+            <span
+              style={{
+                background: THEME.heroGradient,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              care space.
+            </span>
+          </h2>
+          <p className="text-lg leading-relaxed max-w-md" style={{ color: THEME.muted }}>
+            Securely access your history and sync today's treatment events.
+          </p>
+
+          {/* Small trust tile */}
+          <div
+            className="inline-flex items-center gap-3 p-4 rounded-2xl"
+            style={{
+              backgroundColor: THEME.card,
+              border: `1px solid ${THEME.border}`,
+              boxShadow: `0 4px 16px -8px ${THEME.tealDark}1a`,
+            }}
+          >
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm"
+              style={{ background: `linear-gradient(135deg, ${THEME.mintInk}e6, ${THEME.mintInk})` }}
+            >
+              🔒
+            </div>
+            <div>
+              <div className="text-sm font-bold" style={{ color: THEME.ink }}>
+                HIPAA-aware · 256-bit encryption
+              </div>
+              <div className="text-xs" style={{ color: THEME.muted }}>
+                Your data is never sold or shared.
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="relative z-10 text-white/30 text-xs font-black uppercase tracking-[0.2em]">
-           2025 dialysis.live
+        <div
+          className="relative z-10 text-xs font-bold uppercase tracking-[0.2em]"
+          style={{ color: THEME.muted }}
+        >
+          {new Date().getFullYear()} · dialysis.live
         </div>
       </div>
 
       {/* Form Side */}
-      <div className="flex-1 p-6 sm:p-8 md:p-12 lg:p-24 flex flex-col items-center justify-center relative">
-        {/* Back Home Link */}
-        <div className="absolute top-6 sm:top-10 left-4 sm:left-10 lg:left-24">
-          <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-bold text-xs uppercase tracking-widest group">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="group-hover:-translate-x-1 transition-transform"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      <div className="flex-1 p-6 sm:p-8 md:p-12 lg:p-20 flex flex-col items-center justify-center relative">
+        <div className="absolute top-6 sm:top-10 left-4 sm:left-10 lg:left-20">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-xs uppercase tracking-widest font-bold group transition-colors"
+            style={{ color: THEME.muted }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className="group-hover:-translate-x-1 transition-transform"
+            >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
             Back to Home
           </Link>
         </div>
 
-        <div className="w-full max-w-md space-y-10">
-           <div className="space-y-4 text-center lg:text-left">
-              <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight transition-colors">Login</h1>
-              <p className="text-slate-500 dark:text-slate-400 font-medium">Please enter your dialysis.live credentials.</p>
-           </div>
+        <div className="w-full max-w-md space-y-8 mt-16 lg:mt-0">
+          <div className="space-y-3">
+            <h1
+              className="font-bold tracking-tight"
+              style={{
+                fontSize: 'clamp(1.75rem, 3vw, 2.25rem)',
+                letterSpacing: '-0.015em',
+                color: THEME.ink,
+              }}
+            >
+              Sign in
+            </h1>
+            <p style={{ color: THEME.muted }}>
+              Please enter your dialysis.live credentials.
+            </p>
+          </div>
 
-           {/* Error Message */}
-           {error && (
-             <div className="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
-               <div className="flex items-start gap-3">
-                 <div className="w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-                     <path d="M18 6L6 18M6 6l12 12" />
-                   </svg>
-                 </div>
-                 <p className="text-sm font-medium text-rose-600 dark:text-rose-400">{error}</p>
-               </div>
-             </div>
-           )}
-
-           <div className="space-y-6">
-              {/* Google Sign-In Button - only show if no error */}
-              {GOOGLE_CLIENT_ID && !googleError && (
-                <div className="relative">
-                  {isGoogleLoading && (
-                    <div className="absolute inset-0 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center z-10">
-                      <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin mr-2"></div>
-                      <span className="font-bold text-sm text-slate-600 dark:text-slate-300">Signing in...</span>
-                    </div>
-                  )}
-                  {/* Custom styled Google button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (window.google?.accounts?.id) {
-                        try {
-                          window.google.accounts.id.prompt();
-                        } catch (err) {
-                          console.error('Google prompt error:', err);
-                          setGoogleError(true);
-                        }
-                      }
-                    }}
-                    disabled={!googleLoaded || isGoogleLoading}
-                    className="w-full py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    {!googleLoaded ? 'Loading...' : 'Continue with Google'}
-                  </button>
-                </div>
-              )}
-
-              {GOOGLE_CLIENT_ID && !googleError && (
-                <div className="relative py-2">
-                   <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-100 dark:border-slate-800"></div>
-                   </div>
-                   <div className="relative flex justify-center text-xs font-medium">
-                      <span className="bg-white dark:bg-slate-950 px-4 text-slate-400">or sign in with email</span>
-                   </div>
-                </div>
-              )}
-
-              <form onSubmit={handleLogin} className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">
-                    Email Address <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={e => handleFieldChange('email', e.target.value)}
-                    onBlur={() => handleFieldBlur('email')}
-                    className={`w-full rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white transition-all outline-none ${
-                      fieldErrors.email && touchedFields.email
-                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
-                        : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500'
-                    }`}
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    disabled={isLoading || isGoogleLoading}
-                  />
-                  {fieldErrors.email && touchedFields.email && (
-                    <p className="text-xs text-rose-500 ml-1">{fieldErrors.email}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-1">
-                        Password <span className="text-rose-500">*</span>
-                      </label>
-                      <Link to="/forgot-password" className="text-xs font-bold text-sky-500 hover:text-sky-600 transition-colors">Forgot?</Link>
-                  </div>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={e => handleFieldChange('password', e.target.value)}
-                    onBlur={() => handleFieldBlur('password')}
-                    className={`w-full rounded-xl px-4 py-4 font-medium text-slate-900 dark:text-white transition-all outline-none ${
-                      fieldErrors.password && touchedFields.password
-                        ? 'bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-400 dark:border-rose-500'
-                        : 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500'
-                    }`}
-                    placeholder="Min. 8 characters"
-                    autoComplete="current-password"
-                    disabled={isLoading || isGoogleLoading}
-                  />
-                  {fieldErrors.password && touchedFields.password && (
-                    <p className="text-xs text-rose-500 ml-1">{fieldErrors.password}</p>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading || isGoogleLoading || hasFormErrors}
-                  className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold hover:bg-slate-800 dark:hover:bg-slate-100 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white dark:border-slate-900/30 dark:border-t-slate-900 rounded-full animate-spin"></div>
-                      Signing in...
-                    </>
-                  ) : 'Sign In'}
-                </button>
-              </form>
-           </div>
-
-           <div className="text-center">
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Don't have an account? <Link to="/register" className="text-sky-500 font-bold hover:text-sky-600 transition-colors">Sign Up</Link>
+          {/* Error message */}
+          {error && (
+            <div
+              className="p-4 rounded-2xl flex items-start gap-3"
+              style={{
+                backgroundColor: THEME.peach,
+                border: `1px solid ${THEME.peachInk}44`,
+              }}
+            >
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-white"
+                style={{ backgroundColor: THEME.peachInk }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium" style={{ color: THEME.peachInk }}>
+                {error}
               </p>
-           </div>
+            </div>
+          )}
+
+          <div className="space-y-5">
+            {/* Google Sign-In */}
+            {GOOGLE_CLIENT_ID && !googleError && (
+              <div className="relative">
+                {isGoogleLoading && (
+                  <div
+                    className="absolute inset-0 rounded-2xl flex items-center justify-center z-10"
+                    style={{ backgroundColor: THEME.card }}
+                  >
+                    <div
+                      className="w-5 h-5 rounded-full animate-spin mr-2"
+                      style={{ border: `2px solid ${THEME.border}`, borderTopColor: THEME.teal }}
+                    />
+                    <span className="font-bold text-sm" style={{ color: THEME.muted }}>
+                      Signing in…
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.google?.accounts?.id) {
+                      try {
+                        window.google.accounts.id.prompt();
+                      } catch (err) {
+                        console.error('Google prompt error:', err);
+                        setGoogleError(true);
+                      }
+                    }
+                  }}
+                  disabled={!googleLoaded || isGoogleLoading}
+                  className="w-full py-3.5 rounded-2xl font-bold transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                  style={{
+                    backgroundColor: THEME.card,
+                    border: `1.5px solid ${THEME.border}`,
+                    color: THEME.ink,
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                  </svg>
+                  {!googleLoaded ? 'Loading…' : 'Continue with Google'}
+                </button>
+              </div>
+            )}
+
+            {GOOGLE_CLIENT_ID && !googleError && (
+              <div className="relative py-1">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full" style={{ borderTop: `1px solid ${THEME.border}` }} />
+                </div>
+                <div className="relative flex justify-center text-xs font-medium">
+                  <span
+                    className="px-4"
+                    style={{ backgroundColor: THEME.bg, color: THEME.muted }}
+                  >
+                    or sign in with email
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold ml-1" style={{ color: THEME.muted }}>
+                  Email address <span style={{ color: THEME.peachInk }}>*</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => handleFieldChange('email', e.target.value)}
+                  onBlur={() => handleFieldBlur('email')}
+                  className="w-full rounded-xl px-4 py-3.5 font-medium transition-all outline-none focus:ring-2"
+                  style={{
+                    ...inputStyle(!!(fieldErrors.email && touchedFields.email)),
+                  }}
+                  onFocus={(e) => {
+                    (e.target as HTMLInputElement).style.borderColor = THEME.teal;
+                    (e.target as HTMLInputElement).style.boxShadow = `0 0 0 3px ${THEME.teal}33`;
+                  }}
+                  onBlurCapture={(e) => {
+                    (e.target as HTMLInputElement).style.boxShadow = '';
+                  }}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  disabled={isLoading || isGoogleLoading}
+                />
+                {fieldErrors.email && touchedFields.email && (
+                  <p className="text-xs ml-1" style={{ color: THEME.peachInk }}>
+                    {fieldErrors.email}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold ml-1" style={{ color: THEME.muted }}>
+                    Password <span style={{ color: THEME.peachInk }}>*</span>
+                  </label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs font-bold transition-opacity hover:opacity-70"
+                    style={{ color: THEME.tealDark }}
+                  >
+                    Forgot?
+                  </Link>
+                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => handleFieldChange('password', e.target.value)}
+                  onBlur={() => handleFieldBlur('password')}
+                  className="w-full rounded-xl px-4 py-3.5 font-medium transition-all outline-none"
+                  style={{
+                    ...inputStyle(!!(fieldErrors.password && touchedFields.password)),
+                  }}
+                  onFocus={(e) => {
+                    (e.target as HTMLInputElement).style.borderColor = THEME.teal;
+                    (e.target as HTMLInputElement).style.boxShadow = `0 0 0 3px ${THEME.teal}33`;
+                  }}
+                  onBlurCapture={(e) => {
+                    (e.target as HTMLInputElement).style.boxShadow = '';
+                  }}
+                  placeholder="Min. 8 characters"
+                  autoComplete="current-password"
+                  disabled={isLoading || isGoogleLoading}
+                />
+                {fieldErrors.password && touchedFields.password && (
+                  <p className="text-xs ml-1" style={{ color: THEME.peachInk }}>
+                    {fieldErrors.password}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading || isGoogleLoading || hasFormErrors}
+                className="w-full py-4 rounded-full font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:-translate-y-0.5 hover:shadow-lg"
+                style={{
+                  background: THEME.heroGradient,
+                  boxShadow: `0 8px 24px -8px ${THEME.teal}80`,
+                }}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    Signing in…
+                  </>
+                ) : (
+                  'Sign in →'
+                )}
+              </button>
+            </form>
+          </div>
+
+          <div className="text-center">
+            <p className="text-sm" style={{ color: THEME.muted }}>
+              Don't have an account?{' '}
+              <Link
+                to="/register"
+                className="font-bold transition-opacity hover:opacity-70"
+                style={{ color: THEME.tealDark }}
+              >
+                Sign up
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
