@@ -51,6 +51,8 @@ const Dashboard: React.FC = () => {
   const [hasUrgentAlerts, setHasUrgentAlerts] = useState(false);
   const [hasAlertsFetched, setHasAlertsFetched] = useState(false);
   const [isDismissing, setIsDismissing] = useState<string | null>(null);
+  const [alertsExpanded, setAlertsExpanded] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
   const [upcomingReminders, setUpcomingReminders] = useState<Reminder[]>([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
   const [nutritionData, setNutritionData] = useState<TodayMealsResponse | null>(null);
@@ -104,6 +106,24 @@ const Dashboard: React.FC = () => {
   const resetWidgets = () => {
     setDashboardWidgets({});
     localStorage.removeItem('dashboard-widgets');
+  };
+
+  // Minimal preset: only the essentials — fast morning/evening check.
+  const MINIMAL_PRESET_IDS = ['healthOverview', 'alerts', 'hydration'];
+  const applyMinimalPreset = () => {
+    // Any widget not in MINIMAL_PRESET_IDS is set to false (hidden).
+    const next: Record<string, boolean> = {};
+    for (const w of DASHBOARD_WIDGETS) {
+      next[w.id] = MINIMAL_PRESET_IDS.includes(w.id);
+    }
+    setDashboardWidgets(next);
+    localStorage.setItem('dashboard-widgets', JSON.stringify(next));
+  };
+  const applyFullPreset = () => {
+    const next: Record<string, boolean> = {};
+    for (const w of DASHBOARD_WIDGETS) next[w.id] = true;
+    setDashboardWidgets(next);
+    localStorage.setItem('dashboard-widgets', JSON.stringify(next));
   };
   const hasFetched = useRef(false);
 
@@ -441,11 +461,11 @@ const Dashboard: React.FC = () => {
       return { label: 'No Data', color: 'slate', message: 'Start logging your health data to see your score.' };
     }
 
-    // Fallback to local calculation
-    if (healthScore >= 85) return { label: 'Excellent', color: 'emerald', message: 'You\'re doing great! Keep up the excellent work.' };
-    if (healthScore >= 70) return { label: 'Good', color: 'sky', message: 'Looking good. Stay consistent with your routine.' };
-    if (healthScore >= 55) return { label: 'Fair', color: 'amber', message: 'Some areas need attention. Review your logs.' };
-    return { label: 'Needs Attention', color: 'rose', message: 'Please review your health metrics and consult your care team.' };
+    // Fallback to local calculation — warm, supportive tone
+    if (healthScore >= 85) return { label: 'Excellent', color: 'emerald', message: 'You\'re doing wonderfully. Keep going — your care team will be pleased.' };
+    if (healthScore >= 70) return { label: 'Good', color: 'sky', message: 'Looking good. A little consistency goes a long way.' };
+    if (healthScore >= 55) return { label: 'Fair', color: 'amber', message: 'A few areas could use a gentle check-in. You\'ve got this.' };
+    return { label: 'Needs Attention', color: 'rose', message: 'Let\'s review a few numbers together and reach out to your care team if anything feels off.' };
   }, [healthOverview, healthScore]);
 
   // Latest potassium lab result
@@ -533,6 +553,43 @@ const Dashboard: React.FC = () => {
     if (thisWeek === 2) return 'needs_attention';
     return 'at_risk';
   }, [sessionStats?.thisWeek]);
+
+  // Score reasons + suggested actions — shown when score < 75
+  const scoreInsights = useMemo(() => {
+    if (healthScore === null || healthScore >= 75) return null;
+    const reasons: string[] = [];
+    const actions: { text: string; to?: string }[] = [];
+
+    const hasHighBP = Array.isArray(apiAlerts) && apiAlerts.some((a: any) =>
+      (a.severity === 'high' || a.severity === 'critical') && /blood pressure|bp|hyperten/i.test(`${a.message || ''} ${a.title || ''}`)
+    );
+    if (hasHighBP) {
+      reasons.push('Blood pressure is running high');
+      actions.push({ text: 'Review BP trends', to: '/vitals' });
+    }
+
+    const weekly = sessionStats?.thisWeek ?? 0;
+    if (sessionComplianceCategory === 'at_risk' || sessionComplianceCategory === 'needs_attention') {
+      reasons.push(weekly > 0 ? `Only ${weekly} session${weekly === 1 ? '' : 's'} logged this week` : 'No sessions logged yet this week');
+      actions.push({ text: 'Schedule your next session', to: '/appointments' });
+    }
+
+    if (dailyFluidLimit > 0 && fluidPercentage >= 100) {
+      reasons.push(`Over fluid limit (${fluidPercentage}% of daily)`);
+      actions.push({ text: 'Check fluid log', to: '/fluid' });
+    } else if (dailyFluidLimit > 0 && todayFluid === 0) {
+      reasons.push('No fluid intake logged today');
+      actions.push({ text: 'Log fluid intake', to: '/fluid' });
+    }
+
+    if (potassiumRisk === 'high' || potassiumRisk === 'elevated') {
+      reasons.push('Potassium intake is elevated');
+      actions.push({ text: 'Reduce high-potassium foods' });
+    }
+
+    if (reasons.length === 0) return null;
+    return { reasons: reasons.slice(0, 3), actions: actions.slice(0, 3) };
+  }, [healthScore, apiAlerts, sessionStats, sessionComplianceCategory, dailyFluidLimit, fluidPercentage, todayFluid, potassiumRisk]);
 
   // Display alerts from API only (no local fallback)
   const displayAlerts = useMemo(() => {
@@ -829,6 +886,20 @@ const Dashboard: React.FC = () => {
     <div className="w-full max-w-7xl mx-auto space-y-5 sm:space-y-6 pb-24 px-4">
       <OnboardingModal />
 
+      {/* Trust bar — reassurance strip at the top of every dashboard visit */}
+      <div
+        className="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2.5 rounded-full text-[11px] font-medium"
+        style={{ backgroundColor: '#EDE9E1', color: '#4A4F5C', border: '1px solid #E6E1D7' }}
+      >
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden>🔒</span> Your data is secure & never shared
+        </span>
+        <span className="hidden sm:inline" style={{ color: '#9B9A94' }}>·</span>
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden>🏥</span> For tracking & informational use only — not medical advice
+        </span>
+      </div>
+
       {/* System Announcements */}
       {visibleAnnouncements.map((announcement) => {
         const aColors = {
@@ -939,10 +1010,38 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">Customize Dashboard</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Choose which sections to show</p>
+                <p className="text-xs text-slate-400 mt-0.5">Choose a preset or pick individual sections</p>
               </div>
-              <button onClick={resetWidgets} className="text-xs font-semibold text-violet-500 hover:text-violet-600 transition-colors">
+              <button onClick={resetWidgets} className="text-xs font-semibold transition-colors" style={{ color: '#2F8F87' }}>
                 Reset All
+              </button>
+            </div>
+
+            {/* Presets */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <button
+                type="button"
+                onClick={applyMinimalPreset}
+                className="p-3 rounded-xl text-left transition-all hover:-translate-y-0.5"
+                style={{ backgroundColor: '#D6EFDD', border: '1px solid rgba(79,168,114,0.28)' }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span aria-hidden>🌱</span>
+                  <span className="text-sm font-bold" style={{ color: '#1F2D2A' }}>Minimal</span>
+                </div>
+                <p className="text-[11px]" style={{ color: '#4A4F5C' }}>Essentials only — score, alerts, hydration.</p>
+              </button>
+              <button
+                type="button"
+                onClick={applyFullPreset}
+                className="p-3 rounded-xl text-left transition-all hover:-translate-y-0.5"
+                style={{ backgroundColor: '#D8E7F8', border: '1px solid rgba(92,143,209,0.28)' }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span aria-hidden>📊</span>
+                  <span className="text-sm font-bold" style={{ color: '#1F2D2A' }}>Full tracking</span>
+                </div>
+                <p className="text-[11px]" style={{ color: '#4A4F5C' }}>Every widget, every insight, every number.</p>
               </button>
             </div>
 
@@ -985,102 +1084,333 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Health Status Hero — Clinical Luxe */}
-      {isWidgetVisible('healthOverview') && <div className="relative bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 rounded-2xl sm:rounded-3xl p-5 sm:p-7 md:p-8 overflow-hidden noise anim-fade-up" style={{ animationDelay: '0.1s' }}>
-        {/* Ambient glow */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className={`absolute -top-20 -right-20 w-64 sm:w-80 h-64 sm:h-80 rounded-full blur-[100px] opacity-25 ${
-            healthStatus.color === 'emerald' ? 'bg-teal-500' : healthStatus.color === 'sky' ? 'bg-cyan-500' : healthStatus.color === 'amber' ? 'bg-amber-500' : healthStatus.color === 'slate' ? 'bg-slate-500' : 'bg-rose-500'
-          }`} />
-          <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-teal-600/15 rounded-full blur-[80px]" />
-        </div>
+      {/* Section: Today */}
+      <DashboardSectionHeader label="Today" />
 
-        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-6 md:gap-10">
-          {/* Health Score Orb */}
-          <div className="relative shrink-0">
-            <div
-              className="w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 rounded-full animate-orb-glow flex items-center justify-center"
-              style={{
-                '--orb-color': healthStatus.color === 'emerald' ? 'rgba(20,184,166,0.35)' : healthStatus.color === 'sky' ? 'rgba(6,182,212,0.35)' : healthStatus.color === 'amber' ? 'rgba(245,158,11,0.35)' : healthStatus.color === 'slate' ? 'rgba(100,116,139,0.3)' : 'rgba(244,63,94,0.35)',
-              } as React.CSSProperties}
-            >
-              <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 200 200">
-                <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
-                <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" strokeDasharray="4 8" />
-                <circle
-                  cx="100" cy="100" r="88" fill="none"
-                  stroke={`url(#healthGrad)`}
-                  strokeWidth="7" strokeLinecap="round"
-                  strokeDasharray={`${(healthScore ?? 0) * 5.53} 553`}
-                  className="transition-all duration-[1.5s] ease-out"
-                />
-                <defs>
-                  <linearGradient id="healthGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor={healthStatus.color === 'emerald' ? '#14b8a6' : healthStatus.color === 'sky' ? '#06b6d4' : healthStatus.color === 'amber' ? '#f59e0b' : healthStatus.color === 'slate' ? '#64748b' : '#f43f5e'} />
-                    <stop offset="100%" stopColor={healthStatus.color === 'emerald' ? '#0d9488' : healthStatus.color === 'sky' ? '#0891b2' : healthStatus.color === 'amber' ? '#d97706' : healthStatus.color === 'slate' ? '#475569' : '#e11d48'} />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="relative flex flex-col items-center justify-center text-white">
-                <span className="font-display text-5xl sm:text-6xl md:text-7xl font-extrabold tabular-nums anim-count-in" style={{ animationDelay: '0.4s' }}>
-                  {healthScore ?? '--'}
-                </span>
-                <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-1 ${
-                  healthStatus.color === 'emerald' ? 'text-teal-400' : healthStatus.color === 'sky' ? 'text-cyan-400' : healthStatus.color === 'amber' ? 'text-amber-400' : healthStatus.color === 'slate' ? 'text-slate-400' : 'text-rose-400'
-                }`}>{healthStatus.label}</span>
-              </div>
+      {/* Health Status Hero — Wellness */}
+      {isWidgetVisible('healthOverview') && (() => {
+        const statusAccent =
+          healthStatus.color === 'emerald' ? { solid: '#2F8F87', light: '#4EC7B8', soft: 'rgba(47,143,135,0.12)', name: 'teal' } :
+          healthStatus.color === 'sky' ? { solid: '#0891b2', light: '#06b6d4', soft: 'rgba(8,145,178,0.12)', name: 'cyan' } :
+          healthStatus.color === 'amber' ? { solid: '#C99638', light: '#E5B15A', soft: 'rgba(201,150,56,0.14)', name: 'amber' } :
+          healthStatus.color === 'slate' ? { solid: '#64748B', light: '#94A3B8', soft: 'rgba(100,116,139,0.12)', name: 'slate' } :
+          { solid: '#E87556', light: '#F59669', soft: 'rgba(232,117,86,0.14)', name: 'coral' };
+
+        const factors = healthOverview?.factors ?? [];
+        const fallbackFactors: { name: string; score: number; status: 'good' | 'warning' | 'critical'; detail: string }[] = [
+          { name: 'Hydration', score: dailyFluidLimit > 0 ? Math.max(0, 100 - Math.abs(fluidPercentage - 100)) : 0, status: fluidPercentage > 110 ? 'critical' : fluidPercentage > 90 ? 'good' : 'warning', detail: dailyFluidLimit > 0 ? `${fluidPercentage}% of daily limit` : 'Set a daily limit to track' },
+          { name: 'Weight', score: currentWeight !== null ? 70 : 0, status: currentWeight !== null ? 'good' : 'warning', detail: currentWeight !== null ? `Current ${displayWeight(currentWeight)}` : 'No weight logged yet' },
+          { name: 'Sessions', score: Math.min(((sessionStats?.thisWeek || 0) / 3) * 100, 100), status: (sessionStats?.thisWeek || 0) >= 3 ? 'good' : (sessionStats?.thisWeek || 0) >= 2 ? 'warning' : 'critical', detail: `${sessionStats?.thisWeek || 0} of 3 this week` },
+        ];
+        const displayFactors = factors.length > 0 ? factors : fallbackFactors;
+        const statusColor = (s: string) =>
+          s === 'good' ? '#4FA872' : s === 'warning' ? '#C99638' : s === 'critical' ? '#E87556' : '#9B9A94';
+        const statusBg = (s: string) =>
+          s === 'good' ? 'rgba(79,168,114,0.14)' : s === 'warning' ? 'rgba(201,150,56,0.16)' : s === 'critical' ? 'rgba(232,117,86,0.15)' : 'rgba(155,154,148,0.12)';
+
+        return (
+          <div
+            className="relative rounded-2xl sm:rounded-3xl overflow-hidden anim-fade-up"
+            style={{
+              animationDelay: '0.1s',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E6E1D7',
+              boxShadow: '0 10px 40px -20px rgba(47,143,135,0.18)',
+            }}
+          >
+            {/* Ambient glow */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div
+                className="absolute -top-24 -right-24 w-72 sm:w-96 h-72 sm:h-96 rounded-full blur-[110px] opacity-30"
+                style={{ backgroundColor: statusAccent.solid }}
+              />
+              <div className="absolute -bottom-20 -left-20 w-56 h-56 rounded-full blur-[90px] opacity-25" style={{ backgroundColor: 'rgba(47,143,135,0.35)' }} />
             </div>
-          </div>
 
-          {/* Status Info */}
-          <div className="flex-1 text-center lg:text-left min-w-0">
-            <h2 className="font-display text-xl sm:text-2xl md:text-3xl font-extrabold text-white mb-2 tracking-tight">
-              Health Overview
-            </h2>
-            <p className="text-white/50 text-sm sm:text-base md:text-lg mb-5 max-w-md mx-auto lg:mx-0 leading-relaxed">
-              {healthStatus.message}
-            </p>
+            {/* Subtle grid pattern */}
+            <div
+              className="absolute inset-0 pointer-events-none opacity-[0.03]"
+              style={{
+                backgroundImage: 'linear-gradient(rgba(31,45,42,1) 1px, transparent 1px), linear-gradient(90deg, rgba(31,45,42,1) 1px, transparent 1px)',
+                backgroundSize: '32px 32px',
+              }}
+            />
 
-            {/* Quick Stats — Horizontal Chips */}
-            <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
-              {[
-                { emoji: '💧', label: 'Hydration', value: dailyFluidLimit > 0 ? `${fluidPercentage}%` : todayFluid > 0 ? displayFluid(todayFluid) : '--' },
-                { emoji: '⚖️', label: 'Weight', value: currentWeight !== null ? displayWeight(currentWeight) : '--' },
-                { emoji: '🩺', label: 'Sessions', value: `${sessionStats?.thisWeek || 0}/wk` },
-              ].map(chip => (
-                <div key={chip.label} className="glass rounded-xl px-3 py-2.5 flex items-center gap-2.5">
-                  <span className="text-lg">{chip.emoji}</span>
-                  <div>
-                    <p className="text-white/40 text-[10px] font-medium uppercase tracking-wider">{chip.label}</p>
-                    <p className="text-white font-bold text-sm tabular-nums">{chip.value}</p>
+            <div className="relative z-10 p-5 sm:p-7 md:p-9">
+              {/* Editorial header row */}
+              <div className="flex flex-col lg:flex-row lg:items-start gap-6 md:gap-10 mb-7">
+                {/* Orb */}
+                <div className="relative shrink-0 mx-auto lg:mx-0">
+                  <div
+                    className="w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 rounded-full animate-orb-glow flex items-center justify-center"
+                    style={{ '--orb-color': `${statusAccent.solid}55` } as React.CSSProperties}
+                  >
+                    <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 200 200">
+                      <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(31,45,42,0.06)" strokeWidth="6" />
+                      <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(31,45,42,0.06)" strokeWidth="6" strokeDasharray="3 9" />
+                      <circle
+                        cx="100" cy="100" r="88" fill="none"
+                        stroke="url(#healthGrad)"
+                        strokeWidth="7" strokeLinecap="round"
+                        strokeDasharray={`${(healthScore ?? 0) * 5.53} 553`}
+                        className="transition-all duration-[1.5s] ease-out"
+                      />
+                      <defs>
+                        <linearGradient id="healthGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor={statusAccent.solid} />
+                          <stop offset="100%" stopColor={statusAccent.light} />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <div className="relative flex flex-col items-center justify-center" style={{ color: '#1F2D2A' }}>
+                      <span
+                        className="font-editorial text-[68px] sm:text-[82px] md:text-[92px] leading-none tabular-nums anim-count-in"
+                        style={{ animationDelay: '0.4s', letterSpacing: '-0.02em' }}
+                      >
+                        {healthScore ?? '—'}
+                      </span>
+                      <span
+                        className="font-mono-brand text-[9px] sm:text-[10px] font-semibold uppercase mt-1.5"
+                        style={{ color: statusAccent.solid, letterSpacing: '0.32em' }}
+                      >
+                        {healthStatus.label}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              ))}
+
+                {/* Title block */}
+                <div className="flex-1 text-center lg:text-left min-w-0">
+                  <div className="flex items-center gap-2 justify-center lg:justify-start mb-1.5">
+                    <span
+                      className="font-mono-brand text-[10px] font-semibold uppercase"
+                      style={{ color: statusAccent.solid, letterSpacing: '0.28em', fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      No. 01
+                    </span>
+                    <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'rgba(31,45,42,0.25)' }} />
+                    <span
+                      className="font-mono-brand text-[10px] font-medium uppercase"
+                      style={{ color: '#7B7A74', letterSpacing: '0.3em' }}
+                    >
+                      Your body today
+                    </span>
+                  </div>
+                  <h2
+                    className="font-editorial text-[32px] sm:text-[38px] md:text-[44px] leading-[1.02] tracking-tight mb-2.5"
+                    style={{ color: '#1F2D2A' }}
+                  >
+                    <em>Health Overview</em>
+                  </h2>
+                  <p className="text-sm sm:text-base md:text-[17px] max-w-xl mx-auto lg:mx-0 leading-relaxed" style={{ color: '#5C6B68' }}>
+                    {healthStatus.message}
+                  </p>
+                </div>
+              </div>
+
+              {/* Editorial rule + section label */}
+              <div className="flex items-center gap-4 mb-5">
+                <span
+                  className="font-mono-brand text-[10px] font-bold uppercase shrink-0"
+                  style={{ color: '#1F2D2A', letterSpacing: '0.32em' }}
+                >
+                  Breakdown
+                </span>
+                <div
+                  className="flex-1 h-px"
+                  style={{ background: 'linear-gradient(90deg, rgba(31,45,42,0.22), rgba(31,45,42,0.05) 70%, transparent)' }}
+                />
+                <span className="font-mono-brand text-[9px] font-medium uppercase shrink-0" style={{ color: '#9B9A94', letterSpacing: '0.3em' }}>
+                  {displayFactors.length} factors
+                </span>
+              </div>
+
+              {/* Factor grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
+                {displayFactors.map((factor, i) => {
+                  const pct = Math.max(0, Math.min(100, Math.round(factor.score)));
+                  const fColor = statusColor(factor.status);
+                  const fBg = statusBg(factor.status);
+                  return (
+                    <div key={`${factor.name}-${i}`} className="relative">
+                      {/* Top row: name + score */}
+                      <div className="flex items-baseline justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: fColor, boxShadow: `0 0 0 3px ${fBg}` }}
+                          />
+                          <span className="font-semibold text-[13.5px] truncate" style={{ color: '#1F2D2A', letterSpacing: '-0.005em' }}>
+                            {factor.name}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline gap-1 shrink-0">
+                          <span
+                            className="font-editorial text-[26px] leading-none tabular-nums"
+                            style={{ color: '#1F2D2A', letterSpacing: '-0.02em' }}
+                          >
+                            {pct}
+                          </span>
+                          <span className="font-mono-brand text-[10px] font-medium" style={{ color: '#9B9A94' }}>
+                            / 100
+                          </span>
+                        </div>
+                      </div>
+                      {/* Progress rail */}
+                      <div
+                        className="relative h-[5px] rounded-full overflow-hidden"
+                        style={{ backgroundColor: 'rgba(31,45,42,0.06)' }}
+                      >
+                        <div
+                          className="absolute inset-y-0 left-0 rounded-full transition-all duration-[1.2s] ease-out"
+                          style={{
+                            width: `${pct}%`,
+                            background: `linear-gradient(90deg, ${fColor}, ${fColor}dd)`,
+                            boxShadow: `0 0 8px ${fColor}80`,
+                          }}
+                        />
+                        {/* Tick marks */}
+                        <div className="absolute inset-0 flex items-center justify-between px-[20%] pointer-events-none">
+                          {[0, 1, 2].map(t => (
+                            <span key={t} className="w-px h-[5px]" style={{ backgroundColor: 'rgba(31,45,42,0.12)' }} />
+                          ))}
+                        </div>
+                      </div>
+                      {/* Detail */}
+                      <p className="text-[11.5px] mt-1.5 font-medium" style={{ color: '#7B7A74' }}>
+                        {factor.detail}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Reasons + suggested actions — only when score < 75 */}
+              {scoreInsights && (
+                <>
+                  <div className="flex items-center gap-4 mt-7 mb-4">
+                    <span
+                      className="font-mono-brand text-[10px] font-bold uppercase shrink-0"
+                      style={{ color: '#1F2D2A', letterSpacing: '0.32em' }}
+                    >
+                      Next steps
+                    </span>
+                    <div
+                      className="flex-1 h-px"
+                      style={{ background: 'linear-gradient(90deg, rgba(31,45,42,0.22), rgba(31,45,42,0.05) 70%, transparent)' }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left">
+                    <div
+                      className="rounded-2xl p-4"
+                      style={{ backgroundColor: '#FFE2D6', border: '1px solid rgba(232,117,86,0.25)' }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-mono-brand text-[10px] font-bold uppercase" style={{ color: '#E87556', letterSpacing: '0.26em' }}>
+                          Main reasons
+                        </span>
+                      </div>
+                      <ul className="space-y-1.5">
+                        {scoreInsights.reasons.map((r) => (
+                          <li key={r} className="text-[12.5px] font-medium flex items-start gap-2" style={{ color: '#2B3A37' }}>
+                            <span style={{ color: '#E87556' }}>•</span>
+                            <span>{r}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div
+                      className="rounded-2xl p-4"
+                      style={{ backgroundColor: '#D6EFDD', border: '1px solid rgba(79,168,114,0.25)' }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-mono-brand text-[10px] font-bold uppercase" style={{ color: '#4FA872', letterSpacing: '0.26em' }}>
+                          Suggested actions
+                        </span>
+                      </div>
+                      <ul className="space-y-1.5">
+                        {scoreInsights.actions.map((a) => (
+                          <li key={a.text} className="text-[12.5px] font-medium flex items-start gap-2" style={{ color: '#2B3A37' }}>
+                            <span style={{ color: '#4FA872' }}>→</span>
+                            {a.to ? (
+                              <Link to={a.to} className="hover:underline" style={{ color: '#2F8F87' }}>
+                                {a.text}
+                              </Link>
+                            ) : (
+                              <span>{a.text}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        </div>
-      </div>}
+        );
+      })()}
 
-      {/* Alerts Section */}
-      {isWidgetVisible('alerts') && displayAlerts.length > 0 && (
-        <div className="space-y-3">
-          {/* Alert counts badge */}
-          {alertCounts && (alertCounts.critical > 0 || alertCounts.high > 0) && (
-            <div className="flex items-center gap-2 mb-2">
-              {alertCounts.critical > 0 && (
-                <span className="px-3 py-1 bg-rose-500/10 text-rose-500 text-xs font-bold rounded-full">
-                  {alertCounts.critical} Critical
-                </span>
-              )}
-              {alertCounts.high > 0 && (
-                <span className="px-3 py-1 bg-orange-500/10 text-orange-500 text-xs font-bold rounded-full">
-                  {alertCounts.high} High Priority
-                </span>
-              )}
-            </div>
-          )}
+      {/* Alerts Section — grouped summary with expand */}
+      {isWidgetVisible('alerts') && displayAlerts.length > 0 && (() => {
+        const buckets = displayAlerts.reduce(
+          (acc, a) => {
+            const sev = (a.severity || a.type || 'info').toLowerCase();
+            if (sev === 'critical') acc.critical++;
+            else if (sev === 'high' || sev === 'warning') acc.warning++;
+            else acc.info++;
+            return acc;
+          },
+          { critical: 0, warning: 0, info: 0 }
+        );
+        const topTone = buckets.critical > 0 ? 'critical' : buckets.warning > 0 ? 'warning' : 'info';
+        const summaryStyle = {
+          critical: { bg: '#FFE2D6', fg: '#E87556', border: 'rgba(232,117,86,0.28)', emoji: '🚨' },
+          warning:  { bg: '#FBEBC7', fg: '#C99638', border: 'rgba(201,150,56,0.28)', emoji: '🔔' },
+          info:     { bg: '#D8E7F8', fg: '#5C8FD1', border: 'rgba(92,143,209,0.28)', emoji: 'ℹ️' },
+        }[topTone];
 
-          {displayAlerts.map((alert, i) => {
+        return (
+          <div className="space-y-3">
+            {/* Summary card (always visible) */}
+            <button
+              type="button"
+              onClick={() => setAlertsExpanded((v) => !v)}
+              className="w-full rounded-2xl px-4 py-3.5 flex items-center gap-4 text-left transition-all hover:-translate-y-0.5"
+              style={{ backgroundColor: summaryStyle.bg, border: `1px solid ${summaryStyle.border}` }}
+              aria-expanded={alertsExpanded}
+            >
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+                style={{ background: `linear-gradient(135deg, ${summaryStyle.fg}e6, ${summaryStyle.fg})` }}
+              >
+                <span className="text-lg">{summaryStyle.emoji}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm" style={{ color: '#1F2D2A' }}>
+                  {displayAlerts.length} {displayAlerts.length === 1 ? 'alert' : 'alerts'} to review
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] font-semibold mt-0.5">
+                  {buckets.critical > 0 && <span style={{ color: '#E87556' }}>🔴 {buckets.critical} critical</span>}
+                  {buckets.warning > 0 && <span style={{ color: '#C99638' }}>🟠 {buckets.warning} needs attention</span>}
+                  {buckets.info > 0 && <span style={{ color: '#5C8FD1' }}>🔵 {buckets.info} info</span>}
+                </div>
+              </div>
+              <span
+                className="text-xs font-bold uppercase tracking-wider flex items-center gap-1 shrink-0"
+                style={{ color: summaryStyle.fg }}
+              >
+                {alertsExpanded ? 'Collapse' : 'Expand'}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className={`transition-transform ${alertsExpanded ? 'rotate-180' : ''}`}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
+            </button>
+
+            {/* Expanded alert list */}
+            {alertsExpanded && (
+              <div className="space-y-2 pl-2">
+                {displayAlerts.map((alert, i) => {
             const severityColors: Record<string, { bg: string; border: string; icon: string; text: string }> = {
               critical: { bg: 'bg-rose-500/10', border: 'border-rose-500/20', icon: 'bg-rose-500/20', text: 'text-rose-700 dark:text-rose-300' },
               high: { bg: 'bg-orange-500/10', border: 'border-orange-500/20', icon: 'bg-orange-500/20', text: 'text-orange-700 dark:text-orange-300' },
@@ -1136,8 +1466,11 @@ const Dashboard: React.FC = () => {
               </div>
             );
           })}
-        </div>
-      )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Upcoming Reminders & Appointments */}
       {isWidgetVisible('remindersAppointments') && (upcomingReminders.length > 0 || upcomingAppointments.length > 0) && (
@@ -1207,6 +1540,9 @@ const Dashboard: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Section: Insights */}
+      <DashboardSectionHeader label="Insights" sub="Clinical patterns from your data" />
 
       {/* Dialysis Intelligence */}
       {isWidgetVisible('intelligence') && ((currentWeight !== null && dryWeight !== null) || nutritionTotals.potassium > 0 || latestPotassium || nutritionTotals.phosphorus > 0 || latestPhosphorus || nutritionTotals.sodium > 0 || latestSodium || latestBP || (dashboardData?.medications?.totalActive ?? 0) > 0 || (sessionStats?.totalCompleted ?? 0) > 0) ? (
@@ -1839,7 +2175,7 @@ const Dashboard: React.FC = () => {
                     }`}>
                       {sessionComplianceCategory === 'on_track' && 'You are meeting your weekly dialysis target. Consistent attendance is crucial for optimal outcomes.'}
                       {sessionComplianceCategory === 'needs_attention' && 'You have completed 2 of 3 sessions this week. Try to schedule your remaining session soon.'}
-                      {sessionComplianceCategory === 'at_risk' && 'You are behind on dialysis sessions this week. Missing sessions increases health risks. Contact your clinic to reschedule.'}
+                      {sessionComplianceCategory === 'at_risk' && 'You’ve missed some sessions this week. Let’s get you back on track — a quick call to your clinic can help you reschedule.'}
                     </p>
                   </div>
                 </div>
@@ -1848,6 +2184,9 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       ) : null}
+
+      {/* Section: Tracking */}
+      <DashboardSectionHeader label="Tracking" sub="Today's numbers at a glance" />
 
       {/* Vitals Grid — Refined Cards */}
       {isWidgetVisible('vitals') && <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 anim-fade-up" style={{ animationDelay: '0.2s' }}>
@@ -2017,6 +2356,38 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Smart status line — how much left / over / near limit */}
+            {dailyFluidLimit > 0 && (
+              <div
+                className="mb-4 px-4 py-3 rounded-2xl flex items-center gap-3"
+                style={{
+                  backgroundColor:
+                    fluidPercentage >= 100
+                      ? 'rgba(232,117,86,0.22)'
+                      : fluidPercentage >= 85
+                        ? 'rgba(201,150,56,0.22)'
+                        : 'rgba(255,255,255,0.14)',
+                  border: '1px solid rgba(255,255,255,0.18)',
+                }}
+              >
+                <span className="text-xl leading-none" aria-hidden>
+                  {fluidPercentage >= 100 ? '⚠️' : fluidPercentage >= 85 ? '🔔' : '💧'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-white text-sm font-bold leading-tight">
+                    {fluidPercentage >= 100
+                      ? `Over your daily limit by ${displayFluid(Math.max(0, todayFluid - dailyFluidLimit))}`
+                      : fluidPercentage >= 85
+                        ? `Only ${displayFluid(fluidRemaining)} left — go gently`
+                        : `You can still drink ${displayFluid(fluidRemaining)} today`}
+                  </div>
+                  <div className="text-white/70 text-[11px] mt-0.5">
+                    {displayFluid(todayFluid)} logged · daily limit {displayFluid(dailyFluidLimit)}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Quick Add */}
             <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
@@ -2349,8 +2720,68 @@ const Dashboard: React.FC = () => {
           ))}
         </div>
       </div>}
+
+      {/* Floating Quick Actions */}
+      <div className="fixed bottom-20 right-4 sm:bottom-8 sm:right-8 z-40 flex flex-col items-end gap-3">
+        {fabOpen && (
+          <div className="flex flex-col items-end gap-2.5 anim-fade-up">
+            {[
+              { to: '/fluid', icon: '💧', label: 'Add Fluid', tile: '#D8E7F8', chip: '#5C8FD1' },
+              { to: '/weight', icon: '⚖️', label: 'Log Weight', tile: '#FFE2D6', chip: '#E87556' },
+              { to: '/symptoms', icon: '🩹', label: 'Log Symptoms', tile: '#E4DAF2', chip: '#8A6FC4' },
+            ].map((a) => (
+              <Link
+                key={a.to}
+                to={a.to}
+                onClick={() => setFabOpen(false)}
+                className="flex items-center gap-3 pl-4 pr-5 py-2.5 rounded-full shadow-lg transition-all hover:-translate-y-0.5"
+                style={{ backgroundColor: '#FFFFFF', border: '1px solid #E6E1D7' }}
+              >
+                <span
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0"
+                  style={{ backgroundColor: a.tile }}
+                >
+                  {a.icon}
+                </span>
+                <span className="text-sm font-bold" style={{ color: '#1F2D2A' }}>{a.label}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setFabOpen((v) => !v)}
+          aria-label={fabOpen ? 'Close quick actions' : 'Open quick actions'}
+          aria-expanded={fabOpen}
+          className="w-14 h-14 rounded-full flex items-center justify-center transition-all hover:-translate-y-0.5 hover:shadow-2xl active:scale-95"
+          style={{
+            background: 'linear-gradient(135deg, #4EC7B8 0%, #7ED6A7 100%)',
+            boxShadow: '0 12px 30px -8px rgba(47,143,135,0.55)',
+            color: '#fff',
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className={`transition-transform ${fabOpen ? 'rotate-45' : ''}`}>
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 };
+
+const DashboardSectionHeader: React.FC<{ label: string; sub?: string }> = ({ label, sub }) => (
+  <div className="flex items-baseline gap-3 pt-3">
+    <h3 className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: '#2F8F87' }}>
+      {label}
+    </h3>
+    <div className="flex-1 h-px" style={{ backgroundColor: '#E6E1D7' }} />
+    {sub && (
+      <span className="text-xs font-medium" style={{ color: '#9B9A94' }}>
+        {sub}
+      </span>
+    )}
+  </div>
+);
 
 export default Dashboard;

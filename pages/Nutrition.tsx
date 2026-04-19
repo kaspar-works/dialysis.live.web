@@ -323,10 +323,10 @@ export default function Nutrition() {
                           <div className="text-sm font-medium text-slate-900 dark:text-white truncate">{meal.name}</div>
                           <div className="text-xs text-slate-500 dark:text-slate-400">
                             {[
-                              meal.nutrients.sodium !== undefined && formatNutrient('sodium', meal.nutrients.sodium),
-                              meal.nutrients.potassium !== undefined && formatNutrient('potassium', meal.nutrients.potassium),
-                              meal.nutrients.phosphorus !== undefined && formatNutrient('phosphorus', meal.nutrients.phosphorus),
-                              meal.nutrients.protein !== undefined && formatNutrient('protein', meal.nutrients.protein),
+                              meal.nutrients?.sodium !== undefined && formatNutrient('sodium', meal.nutrients.sodium),
+                              meal.nutrients?.potassium !== undefined && formatNutrient('potassium', meal.nutrients.potassium),
+                              meal.nutrients?.phosphorus !== undefined && formatNutrient('phosphorus', meal.nutrients.phosphorus),
+                              meal.nutrients?.protein !== undefined && formatNutrient('protein', meal.nutrients.protein),
                             ].filter(Boolean).join(' / ') || 'No nutrient data'}
                             {meal.servingSize && ` - ${meal.servingSize}`}
                           </div>
@@ -425,14 +425,14 @@ export default function Nutrition() {
                   <div className="text-xs text-slate-500 dark:text-slate-400">
                     {getMealTypeName(meal.mealType)}
                     {meal.servingSize && ` - ${meal.servingSize}`}
-                    {meal.nutrients.calories !== undefined && ` - ${Math.round(meal.nutrients.calories)} cal`}
+                    {meal.nutrients?.calories !== undefined && ` - ${Math.round(meal.nutrients.calories)} cal`}
                   </div>
                   <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                     {[
-                      meal.nutrients.sodium !== undefined && `Na: ${formatNutrient('sodium', meal.nutrients.sodium)}`,
-                      meal.nutrients.potassium !== undefined && `K: ${formatNutrient('potassium', meal.nutrients.potassium)}`,
-                      meal.nutrients.phosphorus !== undefined && `P: ${formatNutrient('phosphorus', meal.nutrients.phosphorus)}`,
-                      meal.nutrients.protein !== undefined && `Pro: ${formatNutrient('protein', meal.nutrients.protein)}`,
+                      meal.nutrients?.sodium !== undefined && `Na: ${formatNutrient('sodium', meal.nutrients.sodium)}`,
+                      meal.nutrients?.potassium !== undefined && `K: ${formatNutrient('potassium', meal.nutrients.potassium)}`,
+                      meal.nutrients?.phosphorus !== undefined && `P: ${formatNutrient('phosphorus', meal.nutrients.phosphorus)}`,
+                      meal.nutrients?.protein !== undefined && `Pro: ${formatNutrient('protein', meal.nutrients.protein)}`,
                     ].filter(Boolean).join(' / ')}
                   </div>
                 </div>

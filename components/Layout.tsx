@@ -135,7 +135,7 @@ const menuSections = [
   // Flat list for header title lookup and mobile drawer
   const menuItems = menuSections.flatMap(s => s.items);
 
-  const defaultAvatar = "https://ui-avatars.com/api/?name=" + encodeURIComponent(displayName) + "&background=0ea5e9&color=fff&bold=true";
+  const defaultAvatar = "https://ui-avatars.com/api/?name=" + encodeURIComponent(displayName) + "&background=4EC7B8&color=fff&bold=true";
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F4F1EC] transition-colors duration-500">
@@ -251,106 +251,202 @@ const menuSections = [
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Universal Header */}
-        <header
-          className="bg-[#F4F1EC]/85 backdrop-blur-2xl border-b border-[#E6E1D7] z-50 sticky top-0 safe-pt relative"
-          role="banner"
-        >
-          <div className="flex items-center justify-between px-4 sm:px-6 lg:px-12 h-16 sm:h-20 lg:h-[72px]">
-            {/* Mobile: Hamburger + Logo */}
-            <div className="flex items-center gap-3 lg:hidden">
-              <button
-                onClick={() => setIsMobileMenuOpen(true)}
-                aria-label="Open navigation menu"
-                className="w-10 h-10 flex items-center justify-center bg-[#EDE9E1] rounded-xl text-[#4A4F5C] hover:bg-[#E6E1D7] transition-all active:scale-95"
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="3" y1="6" x2="21" y2="6"/>
-                  <line x1="3" y1="12" x2="21" y2="12"/>
-                  <line x1="3" y1="18" x2="21" y2="18"/>
-                </svg>
-              </button>
-              <Link to="/dashboard" className="flex items-center gap-2">
-                <Logo className="w-8 h-8" />
-                <span className="text-base font-black text-[#1F2D2A] uppercase tracking-tight hidden xs:block">dialysis.live</span>
-              </Link>
-            </div>
+        {/* Universal Header — Editorial Horology */}
+        {(() => {
+          const currentItem = menuItems.find(m => m.path === location.pathname);
+          const pageTitle = currentItem?.name || 'Overview';
+          const pageIndex = menuItems.findIndex(m => m.path === location.pathname);
+          const serial = String(pageIndex >= 0 ? pageIndex + 1 : 0).padStart(2, '0');
+          const planColor = subPlan === 'premium' ? '#C99638' : subPlan === 'basic' ? '#5C8FD1' : '#7B7A74';
 
-            {/* Desktop: Page Title */}
-            <div className="hidden lg:flex flex-col">
-              <span className="text-[10px] font-black text-[#9B9A94] uppercase tracking-[0.3em]">Patient Node Sync</span>
-              <h2 className="text-xl font-black text-[#1F2D2A] uppercase tracking-tight">
-                {menuItems.find(m => m.path === location.pathname)?.name || 'Application Hub'}
-              </h2>
-            </div>
+          return (
+            <header
+              className="header-edge z-50 sticky top-0 safe-pt relative"
+              role="banner"
+              style={{
+                backgroundColor: 'rgba(244,241,236,0.78)',
+                backdropFilter: 'blur(28px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+              }}
+            >
+              <div className="flex items-center justify-between gap-3 sm:gap-4 px-4 sm:px-6 lg:px-10 h-16 sm:h-20 lg:h-[78px]">
 
-            {/* Header Actions */}
-            <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
-              {/* AI Usage Badge */}
-              {aiUsage && (
-                <Link
-                  to="/subscription"
-                  className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-violet-500/10 to-purple-500/10 dark:from-violet-500/20 dark:to-purple-500/20 border border-violet-500/20 dark:border-violet-500/30 rounded-xl hover:border-violet-500/40 transition-all"
-                >
-                  <svg className="w-4 h-4 text-violet-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                  </svg>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider leading-none">AI Calls</span>
-                    <span className="text-xs font-black text-violet-700 dark:text-violet-300 leading-tight">
-                      {aiUsage.unlimited ? (
-                        <>{aiUsage.used} / <span className="text-violet-400">&#8734;</span></>
-                      ) : (
-                        <>{aiUsage.used} / {aiUsage.limit}</>
-                      )}
+                {/* LEFT — Mobile: hamburger + wordmark + title */}
+                <div className="flex items-center gap-3 lg:hidden min-w-0">
+                  <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    aria-label="Open navigation menu"
+                    className="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl text-[#4A4F5C] active:scale-95 transition-all"
+                    style={{ backgroundColor: '#EDE9E1', border: '1px solid rgba(230,225,215,0.9)' }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                      <line x1="4" y1="7" x2="20" y2="7"/>
+                      <line x1="4" y1="12" x2="20" y2="12"/>
+                      <line x1="4" y1="17" x2="14" y2="17"/>
+                    </svg>
+                  </button>
+                  <div className="flex flex-col leading-none min-w-0">
+                    <span className="font-mono-brand text-[9px] font-medium uppercase truncate editorial-serial" style={{ color: '#7B7A74' }}>
+                      <span style={{ color: '#2F8F87' }}>No. {serial}</span>
+                      <span className="mx-1.5 opacity-40">·</span>
+                      Dialysis.live
                     </span>
+                    <h2 className="font-editorial text-[22px] leading-[1.1] truncate mt-0.5" style={{ color: '#1F2D2A' }}>
+                      <em>{pageTitle}</em>
+                    </h2>
                   </div>
-                </Link>
-              )}
-
-              {/* Plan Badge */}
-              <Link
-                to="/subscription"
-                className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
-                  subPlan === 'premium'
-                    ? 'bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:border-amber-500/40'
-                    : subPlan === 'basic'
-                      ? 'bg-gradient-to-r from-sky-500/10 to-cyan-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 hover:border-sky-500/40'
-                      : 'bg-[#EDE9E1] border border-[#E6E1D7] text-[#7B7A74] hover:border-slate-300'
-                }`}
-              >
-                {subPlan === 'premium' && <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>}
-                {subPlan}
-              </Link>
-
-              {/* New Cycle Button */}
-              <button
-                onClick={() => navigate('/sessions')}
-                aria-label="Start new dialysis session"
-                className="w-10 h-10 lg:w-auto lg:px-5 lg:py-2.5 text-white rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 hover:-translate-y-0.5 hover:shadow-lg group"
-                style={{
-                  background: 'linear-gradient(135deg, #4EC7B8 0%, #7ED6A7 100%)',
-                  boxShadow: '0 8px 24px -8px rgba(78,199,184,0.5)',
-                }}
-              >
-                <ICONS.Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                <span className="hidden lg:block text-xs font-black uppercase tracking-widest">New Cycle</span>
-              </button>
-
-              {/* Profile Card */}
-              <Link to="/profile" aria-label="View your profile" className="flex items-center gap-3">
-                <div className="hidden lg:flex flex-col items-end">
-                  <span className="text-sm font-bold text-[#1F2D2A] leading-tight truncate max-w-[160px]">{displayName}</span>
-                  <span className="text-[11px] text-[#7B7A74] leading-tight truncate max-w-[160px]">{displayEmail}</span>
                 </div>
-                <div className="relative">
-                  <img src={profile.avatarUrl || defaultAvatar} className="w-10 h-10 lg:w-11 lg:h-11 rounded-xl ring-2 ring-[#E6E1D7] shadow-md object-cover" alt={`${displayName}'s profile picture`} />
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#F4F1EC] rounded-full"></div>
+
+                {/* LEFT — Desktop: editorial title block */}
+                <div className="hidden lg:flex items-stretch gap-5 min-w-0 flex-1">
+                  <div className="flex flex-col justify-center">
+                    <div
+                      className="w-[3px] h-12 rounded-full shrink-0"
+                      style={{
+                        background: 'linear-gradient(180deg, #2F8F87 0%, #4EC7B8 55%, rgba(126,214,167,0.15) 100%)',
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col justify-center min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono-brand text-[10px] font-semibold uppercase editorial-serial" style={{ color: '#2F8F87' }}>
+                        No. {serial}
+                      </span>
+                      <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'rgba(31,45,42,0.25)' }} />
+                      <span className="font-mono-brand text-[10px] font-medium uppercase tracking-[0.32em]" style={{ color: '#7B7A74' }}>
+                        Patient Care
+                      </span>
+                    </div>
+                    <h2
+                      className="font-editorial text-[30px] leading-[1.05] truncate mt-0.5"
+                      style={{ color: '#1F2D2A' }}
+                    >
+                      <em>{pageTitle}</em>
+                    </h2>
+                  </div>
                 </div>
-              </Link>
-            </div>
-          </div>
-        </header>
+
+                {/* RIGHT — Instrument cluster + CTA + avatar */}
+                <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+
+                  {/* Unified Status Instrument (AI + Plan) */}
+                  {aiUsage && (
+                    <Link
+                      to="/subscription"
+                      aria-label="View subscription and AI usage"
+                      className="hidden md:flex items-center h-11 rounded-2xl overflow-hidden transition-all hover:-translate-y-0.5 group"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.62) 100%)',
+                        boxShadow:
+                          'inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -1px 0 rgba(31,45,42,0.04), 0 1px 2px rgba(31,45,42,0.04), 0 6px 22px -12px rgba(31,45,42,0.15)',
+                        border: '1px solid rgba(230,225,215,0.85)',
+                        backdropFilter: 'blur(12px)',
+                      }}
+                    >
+                      {/* AI half */}
+                      <div className="flex items-center gap-2 pl-3.5 pr-3 h-full">
+                        <div
+                          className="w-6 h-6 rounded-lg flex items-center justify-center"
+                          style={{
+                            background: 'linear-gradient(135deg, rgba(228,218,242,0.9), rgba(228,218,242,0.4))',
+                            border: '1px solid rgba(138,111,196,0.2)',
+                          }}
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8A6FC4" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                          </svg>
+                        </div>
+                        <div className="flex flex-col leading-none">
+                          <span className="font-mono-brand text-[8px] font-semibold tracking-[0.24em] uppercase" style={{ color: '#9B9A94' }}>AI</span>
+                          <span className="font-mono-brand text-[12.5px] font-semibold tabular-nums mt-0.5" style={{ color: '#1F2D2A' }}>
+                            {aiUsage.used}
+                            <span className="mx-[2px] font-normal" style={{ color: '#8A6FC4' }}>/</span>
+                            {aiUsage.unlimited ? <span style={{ color: '#8A6FC4' }}>∞</span> : aiUsage.limit}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div
+                        className="w-px h-7 shrink-0"
+                        style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(31,45,42,0.14) 50%, transparent 100%)' }}
+                      />
+
+                      {/* Plan half */}
+                      <div className="flex items-center gap-1.5 pl-3 pr-3.5 h-full">
+                        {subPlan === 'premium' ? (
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="#C99638">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                          </svg>
+                        ) : (
+                          <span
+                            className="w-[7px] h-[7px] rounded-full"
+                            style={{ backgroundColor: planColor, boxShadow: `0 0 0 3px ${planColor}22` }}
+                          />
+                        )}
+                        <span
+                          className="font-mono-brand text-[10px] font-bold uppercase tracking-[0.22em]"
+                          style={{ color: planColor }}
+                        >
+                          {subPlan}
+                        </span>
+                      </div>
+                    </Link>
+                  )}
+
+                  {/* New Cycle — editorial CTA pill */}
+                  <button
+                    onClick={() => navigate('/sessions')}
+                    aria-label="Start new dialysis session"
+                    className="relative h-11 w-11 lg:w-auto lg:px-5 rounded-2xl flex items-center justify-center gap-2.5 text-white transition-all active:scale-[0.97] hover:-translate-y-0.5 group overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, #2F8F87 0%, #4EC7B8 55%, #7ED6A7 100%)',
+                      boxShadow:
+                        'inset 0 1px 0 rgba(255,255,255,0.42), inset 0 -1px 0 rgba(0,0,0,0.1), 0 10px 26px -10px rgba(47,143,135,0.55), 0 2px 6px -2px rgba(47,143,135,0.35)',
+                    }}
+                  >
+                    <span className="header-shimmer-sweep" aria-hidden="true" />
+                    <svg
+                      width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                      className="relative z-10 transition-transform duration-500 group-hover:rotate-[135deg]"
+                    >
+                      <circle cx="12" cy="12" r="9" opacity="0.35"/>
+                      <line x1="12" y1="8" x2="12" y2="16"/>
+                      <line x1="8" y1="12" x2="16" y2="12"/>
+                    </svg>
+                    <span className="relative z-10 hidden lg:block font-mono-brand text-[10.5px] font-bold uppercase tracking-[0.28em]">
+                      New Cycle
+                    </span>
+                  </button>
+
+                  {/* Profile — avatar with breathing ring */}
+                  <Link
+                    to="/profile"
+                    aria-label={`View ${displayName}'s profile`}
+                    className="relative flex items-center shrink-0"
+                  >
+                    <span className="presence-ring" aria-hidden="true" />
+                    <img
+                      src={profile.avatarUrl || defaultAvatar}
+                      className="w-11 h-11 rounded-2xl object-cover relative z-10"
+                      style={{
+                        boxShadow:
+                          '0 0 0 2px #F4F1EC, 0 0 0 3px rgba(230,225,215,0.95), 0 8px 18px -8px rgba(31,45,42,0.22)',
+                      }}
+                      alt=""
+                    />
+                    <span
+                      className="presence-dot absolute bottom-[2px] right-[2px] w-2.5 h-2.5 rounded-full z-20"
+                      style={{ backgroundColor: '#4FA872' }}
+                      aria-hidden="true"
+                    />
+                  </Link>
+                </div>
+              </div>
+            </header>
+          );
+        })()}
 
         <main className="flex-1 overflow-y-auto bg-[#F4F1EC] relative custom-scrollbar pb-28 sm:pb-32 lg:pb-12 flex flex-col transition-colors duration-500" role="main" aria-label="Main content">
           {/* Subtle Dynamic BG Elements */}
