@@ -13,6 +13,9 @@
 
 # Testing and coverage
 /coverage
+/test-results
+/playwright-report
+/playwright/.cache
 
 # Environment variables
 .env
