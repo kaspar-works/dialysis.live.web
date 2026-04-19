@@ -219,33 +219,38 @@ function sampleValueFor(input: HTMLInputElement | HTMLTextAreaElement): string {
   return 'sample';
 }
 
-function fillAllInputs(container: HTMLElement) {
+type FillStats = { inputs: number; textareas: number; selects: number; checkboxes: number };
+
+function fillAllInputs(container: HTMLElement): FillStats {
+  const stats: FillStats = { inputs: 0, textareas: 0, selects: 0, checkboxes: 0 };
   const inputs = container.querySelectorAll<HTMLInputElement>('input:not([type=hidden]):not([disabled]):not([readonly])');
   inputs.forEach((input) => {
     const type = input.type.toLowerCase();
     try {
       if (type === 'checkbox' || type === 'radio') {
-        if (!input.checked) fireEvent.click(input);
+        if (!input.checked) { fireEvent.click(input); stats.checkboxes++; }
       } else if (type === 'file') {
         // skip file inputs
       } else {
         fireEvent.change(input, { target: { value: sampleValueFor(input) } });
+        stats.inputs++;
       }
     } catch { /* ignore per-input issues */ }
   });
 
   const textareas = container.querySelectorAll<HTMLTextAreaElement>('textarea:not([disabled]):not([readonly])');
   textareas.forEach((ta) => {
-    try { fireEvent.change(ta, { target: { value: sampleValueFor(ta) } }); } catch { /* ignore */ }
+    try { fireEvent.change(ta, { target: { value: sampleValueFor(ta) } }); stats.textareas++; } catch { /* ignore */ }
   });
 
   const selects = container.querySelectorAll<HTMLSelectElement>('select:not([disabled])');
   selects.forEach((sel) => {
     try {
       const first = sel.querySelector<HTMLOptionElement>('option:not([disabled])');
-      if (first && first.value) fireEvent.change(sel, { target: { value: first.value } });
+      if (first && first.value) { fireEvent.change(sel, { target: { value: first.value } }); stats.selects++; }
     } catch { /* ignore */ }
   });
+  return stats;
 }
 
 async function submitAllForms(container: HTMLElement): Promise<number> {
@@ -260,38 +265,44 @@ async function submitAllForms(container: HTMLElement): Promise<number> {
   return forms.length;
 }
 
-// Pages where forms are the primary mode of interaction
-const FORM_PAGES: { name: string; importer: () => Promise<{ default: React.ComponentType<any> }> }[] = [
-  // Auth
+// Pages where forms are the primary mode of interaction.
+// `triggers` = regexes matching button text that opens a hidden form.
+type FormPage = {
+  name: string;
+  importer: () => Promise<{ default: React.ComponentType<any> }>;
+  triggers?: RegExp[];
+};
+const FORM_PAGES: FormPage[] = [
+  // Auth — forms visible by default
   { name: 'Login',             importer: () => import('../../pages/Login') },
   { name: 'Register',          importer: () => import('../../pages/Register') },
   { name: 'ForgotPassword',    importer: () => import('../../pages/ForgotPassword') },
   { name: 'ResetPassword',     importer: () => import('../../pages/ResetPassword') },
   { name: 'ChangePassword',    importer: () => import('../../pages/ChangePassword') },
 
-  // Tracking
-  { name: 'FluidLog',          importer: () => import('../../pages/FluidLog') },
-  { name: 'WeightLog',         importer: () => import('../../pages/WeightLog') },
-  { name: 'Nutrition',         importer: () => import('../../pages/Nutrition') },
-  { name: 'Exercise',          importer: () => import('../../pages/Exercise') },
-  { name: 'Vitals',            importer: () => import('../../pages/Vitals') },
-  { name: 'Symptoms',          importer: () => import('../../pages/Symptoms') },
-  { name: 'AccessSite',        importer: () => import('../../pages/AccessSite') },
-  { name: 'Medications',       importer: () => import('../../pages/Medications') },
-  { name: 'LabReports',        importer: () => import('../../pages/LabReports') },
+  // Tracking — many have "Add / Log / Record" buttons that reveal the form
+  { name: 'FluidLog',          importer: () => import('../../pages/FluidLog'),     triggers: [/^(add|log|\+)/i] },
+  { name: 'WeightLog',         importer: () => import('../../pages/WeightLog'),    triggers: [/^(add|log|\+)/i] },
+  { name: 'Nutrition',         importer: () => import('../../pages/Nutrition'),    triggers: [/^(add|log|new meal|\+)/i] },
+  { name: 'Exercise',          importer: () => import('../../pages/Exercise'),     triggers: [/^(add|log|record|\+)/i] },
+  { name: 'Vitals',            importer: () => import('../../pages/Vitals'),       triggers: [/^(add|log|record|\+)/i] },
+  { name: 'Symptoms',          importer: () => import('../../pages/Symptoms'),     triggers: [/^(add|log|record|\+)/i] },
+  { name: 'AccessSite',        importer: () => import('../../pages/AccessSite'),   triggers: [/^(add|log|record|\+)/i] },
+  { name: 'Medications',       importer: () => import('../../pages/Medications'),  triggers: [/^(add|new medication|\+)/i] },
+  { name: 'LabReports',        importer: () => import('../../pages/LabReports'),   triggers: [/^(add|upload|new|\+)/i] },
 
   // Planning
-  { name: 'Reminders',         importer: () => import('../../pages/Reminders') },
-  { name: 'Appointments',      importer: () => import('../../pages/Appointments') },
+  { name: 'Reminders',         importer: () => import('../../pages/Reminders'),    triggers: [/^(add|new reminder|\+)/i] },
+  { name: 'Appointments',      importer: () => import('../../pages/Appointments'), triggers: [/^(add|new|\+)/i] },
 
   // AI / clinical
   { name: 'AIChat',            importer: () => import('../../pages/AIChat') },
   { name: 'SymptomAnalysis',   importer: () => import('../../pages/SymptomAnalysis') },
 
   // Profile / settings
-  { name: 'Profile',           importer: () => import('../../pages/Profile') },
+  { name: 'Profile',           importer: () => import('../../pages/Profile'),      triggers: [/^edit/i] },
   { name: 'Settings',          importer: () => import('../../pages/Settings') },
-  { name: 'TwoFactorSettings', importer: () => import('../../pages/TwoFactorSettings') },
+  { name: 'TwoFactorSettings', importer: () => import('../../pages/TwoFactorSettings'), triggers: [/^(enable|set ?up)/i] },
 
   // Community
   { name: 'NewForumPost',      importer: () => import('../../pages/NewForumPost') },
@@ -314,11 +325,34 @@ describe('All forms submit without crashing', () => {
       // Wait for first render + any immediate lazy content
       await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
 
-      fillAllInputs(container);
+      // If the page has a hidden form behind a trigger button, try to open it.
+      if (page.triggers) {
+        const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('button'));
+        for (const re of page.triggers) {
+          const btn = buttons.find((b) => re.test((b.textContent || '').trim()));
+          if (btn) {
+            try {
+              await act(async () => {
+                fireEvent.click(btn);
+                await new Promise((r) => setTimeout(r, 30));
+              });
+              break;
+            } catch { /* ignore — trigger click can be no-op */ }
+          }
+        }
+      }
+
+      const stats = fillAllInputs(container);
       const submittedCount = await submitAllForms(container);
 
       // ErrorBoundary fallback check — if it fired, its markup contains "Something went wrong"
       const boundaryFired = container.textContent?.includes('Something went wrong') ?? false;
+
+      // Emit a per-page coverage line for the test report.
+      // Format: [FORM-COVERAGE] <Page> forms=N inputs=N textareas=N selects=N checkboxes=N
+      // eslint-disable-next-line no-console
+      process.stdout.write(`[FORM-COVERAGE] ${page.name} forms=${submittedCount} inputs=${stats.inputs} textareas=${stats.textareas} selects=${stats.selects} checkboxes=${stats.checkboxes}\n`);
+
       expect(
         boundaryFired,
         `${page.name}: ErrorBoundary fired during form interaction (${submittedCount} forms submitted)`
