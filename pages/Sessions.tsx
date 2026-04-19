@@ -167,6 +167,7 @@ const Sessions: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<DialysisSession | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
 
   const hasFetched = useRef(false);
 
@@ -1168,8 +1169,11 @@ const Sessions: React.FC = () => {
       {/* Header */}
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <span className="px-3 py-1 bg-purple-500/10 text-purple-500 text-[10px] font-bold uppercase tracking-wider rounded-full">Dialysis</span>
-          <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight mt-2">Sessions</h1>
+          <span className="px-3 py-1 bg-[#4EC7B8]/12 text-[#2F8F87] text-[10px] font-bold uppercase tracking-wider rounded-full">Dialysis</span>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#1F2D2A] tracking-tight mt-2">Sessions</h1>
+          <p className="text-sm mt-1" style={{ color: '#7B7A74' }}>
+            Track your dialysis sessions and monitor trends over time.
+          </p>
         </div>
         {viewMode === 'list' && !activeSession && (
           <div className="flex items-center gap-3">
@@ -1178,7 +1182,8 @@ const Sessions: React.FC = () => {
               <button
                 onClick={() => setShowAnalysisDropdown(!showAnalysisDropdown)}
                 disabled={isAnalyzing || completedSessions.length < 2}
-                className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl font-bold hover:from-violet-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
+                className="flex items-center gap-2 px-4 py-3 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 hover:shadow-lg"
+                style={{ background: 'linear-gradient(135deg, #C5B4E3 0%, #8A6FC4 100%)', boxShadow: '0 8px 20px -8px rgba(138,111,196,0.35)' }}
                 title={completedSessions.length < 2 ? 'Need at least 2 completed sessions' : 'AI Analysis'}
               >
                 {isAnalyzing ? (
@@ -1212,7 +1217,8 @@ const Sessions: React.FC = () => {
             </div>
             <button
               onClick={() => setViewMode('create')}
-              className="flex items-center gap-2 px-6 py-3 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-all"
+              className="flex items-center gap-2 px-6 py-3 text-white rounded-xl font-bold transition-all hover:-translate-y-0.5 hover:shadow-lg"
+              style={{ background: 'linear-gradient(135deg, #4EC7B8 0%, #7ED6A7 100%)', boxShadow: '0 8px 24px -8px rgba(78,199,184,0.5)' }}
             >
               <ICONS.Plus className="w-5 h-5" />
               New Session
@@ -1252,12 +1258,76 @@ const Sessions: React.FC = () => {
 
       {/* List View */}
       {viewMode === 'list' && (
-        <div className="space-y-6">
+        <div className="space-y-7">
+          {/* Trust chip + overview summary bar + quick actions */}
+          {!activeSession && completedSessions.length > 0 && (() => {
+            const last = completedSessions[0];
+            const lastDurMin = last.startedAt && last.endedAt
+              ? Math.max(0, Math.round((new Date(last.endedAt).getTime() - new Date(last.startedAt).getTime()) / 60000))
+              : null;
+            const lastDur = lastDurMin !== null
+              ? `${Math.floor(lastDurMin / 60)}h ${lastDurMin % 60}m`
+              : '—';
+            const lastUf = last.actualUfMl ? displayFluid(last.actualUfMl) : '—';
+            const lastWhen = displayShortDate(last.startedAt);
+            return (
+              <>
+                {/* Section header */}
+                <SectionBand label="Overview" sub="Your last session & next steps" />
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Last session tile */}
+                  <div className="rounded-2xl p-5" style={{ backgroundColor: '#D8E7F8', border: '1px solid rgba(92,143,209,0.22)' }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span>🩺</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#5C8FD1' }}>Last session</span>
+                    </div>
+                    <div className="text-2xl font-bold tabular-nums" style={{ color: '#1F2D2A' }}>{lastDur}</div>
+                    <div className="text-xs mt-1" style={{ color: '#4A4F5C' }}>UF removed · <span className="font-semibold">{lastUf}</span></div>
+                    <div className="text-[11px] mt-0.5" style={{ color: '#7B7A74' }}>{lastWhen}</div>
+                  </div>
+                  {/* This week tile */}
+                  <div className="rounded-2xl p-5" style={{ backgroundColor: '#D6EFDD', border: '1px solid rgba(79,168,114,0.22)' }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span>📅</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#4FA872' }}>This week</span>
+                    </div>
+                    <div className="text-2xl font-bold tabular-nums" style={{ color: '#1F2D2A' }}>
+                      {completedSessions.filter(s => {
+                        const d = new Date(s.startedAt);
+                        const now = new Date();
+                        const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+                        return d >= weekStart;
+                      }).length} sessions
+                    </div>
+                    <div className="text-xs mt-1" style={{ color: '#4A4F5C' }}>Target 3/wk · keep going</div>
+                  </div>
+                  {/* Quick actions tile */}
+                  <div className="rounded-2xl p-5" style={{ backgroundColor: '#FFE2D6', border: '1px solid rgba(232,117,86,0.22)' }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span>⚡</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#E87556' }}>Quick actions</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Link to="/weight" className="px-3 py-1.5 rounded-full text-xs font-bold bg-white hover:-translate-y-0.5 transition-all" style={{ color: '#1F2D2A', border: '1px solid rgba(232,117,86,0.25)' }}>⚖️ Add Weight</Link>
+                      <Link to="/fluid" className="px-3 py-1.5 rounded-full text-xs font-bold bg-white hover:-translate-y-0.5 transition-all" style={{ color: '#1F2D2A', border: '1px solid rgba(232,117,86,0.25)' }}>💧 Add Fluid</Link>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium" style={{ backgroundColor: '#EDE9E1', color: '#4A4F5C', border: '1px solid #E6E1D7' }}>
+                  🔒 Secure & private health data
+                </div>
+              </>
+            );
+          })()}
+
           {/* Active Session Alert */}
           {activeSession && (
             <div
               onClick={() => setViewMode('active')}
-              className="bg-emerald-500 text-white rounded-2xl p-6 cursor-pointer hover:bg-emerald-600 transition-all"
+              className="text-white rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg"
+              style={{ background: 'linear-gradient(135deg, #4EC7B8 0%, #7ED6A7 100%)', boxShadow: '0 10px 28px -10px rgba(78,199,184,0.55)' }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -1274,7 +1344,9 @@ const Sessions: React.FC = () => {
 
           {/* Charts Section */}
           {chartData.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <>
+              <SectionBand label="Trends" sub="Weight & fluid patterns over time" />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Weight Trend Chart */}
               <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
                 <div className="flex items-center justify-between mb-4">
@@ -1284,7 +1356,7 @@ const Sessions: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-4 text-xs">
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-purple-500" />
+                      <div className="w-3 h-3 rounded-full bg-[#4EC7B8]" />
                       <span className="text-slate-400">Pre</span>
                     </div>
                     <div className="flex items-center gap-1">
@@ -1424,50 +1496,70 @@ const Sessions: React.FC = () => {
                 </div>
               </div>
             </div>
+            </>
           )}
 
           {/* Sessions List */}
+          <SectionBand label="Sessions" sub="Your recent history" />
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Recent Sessions</h2>
-              <span className="text-sm text-slate-400">{completedSessions.length} completed</span>
+              <h2 className="text-xl font-bold text-[#1F2D2A]">Recent Sessions</h2>
+              <span className="text-sm" style={{ color: '#7B7A74' }}>{completedSessions.length} completed</span>
             </div>
 
             {completedSessions.length > 0 ? (<>
               <div className="space-y-3">
-                {completedSessions.map(session => (
+                {completedSessions.map(session => {
+                  // Derive a lightweight status: good / watch / attention
+                  let statusTone: 'good' | 'watch' | 'attention' = 'good';
+                  if (session.sessionRating === SessionRating.BAD) statusTone = 'attention';
+                  else if (session.sessionRating === SessionRating.OK) statusTone = 'watch';
+                  else if (session.actualUfMl && session.targetUfMl && session.actualUfMl < session.targetUfMl * 0.7) statusTone = 'watch';
+                  const statusStyle = {
+                    good: { bg: '#D6EFDD', fg: '#4FA872', icon: '✅', label: 'Good session' },
+                    watch: { bg: '#FBEBC7', fg: '#C99638', icon: '⚠️', label: 'Watch' },
+                    attention: { bg: '#FFE2D6', fg: '#E87556', icon: '🔴', label: 'Needs attention' },
+                  }[statusTone];
+                  return (
                   <div
                     key={session._id}
                     onClick={() => handleViewDetails(session)}
-                    className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-100 dark:border-slate-700 cursor-pointer hover:shadow-lg transition-all"
+                    className="bg-white rounded-2xl p-5 border border-[#E6E1D7] cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center">
-                          <ICONS.Activity className="w-6 h-6 text-purple-500" />
+                        <div className="w-12 h-12 bg-[#4EC7B8]/12 rounded-xl flex items-center justify-center">
+                          <ICONS.Activity className="w-6 h-6 text-[#2F8F87]" />
                         </div>
                         <div>
-                          <p className="font-bold text-slate-900 dark:text-white">
+                          <p className="font-bold text-[#1F2D2A]">
                             {session.type.toUpperCase()} - {session.mode}
                           </p>
-                          <p className="text-sm text-slate-400">
+                          <p className="text-sm" style={{ color: '#7B7A74' }}>
                             {displayFullDate(session.startedAt)} at {displayTime(session.startedAt)}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-4 sm:gap-6">
                         <div className="text-right hidden sm:block">
-                          <p className="text-sm text-slate-400">Duration</p>
-                          <p className="font-bold text-slate-900 dark:text-white">
+                          <p className="text-xs uppercase tracking-wider font-semibold" style={{ color: '#7B7A74' }}>Duration</p>
+                          <p className="font-extrabold text-base tabular-nums text-[#1F2D2A]">
                             {session.actualDurationMin ? formatDuration(session.actualDurationMin) : '--'}
                           </p>
                         </div>
                         <div className="text-right hidden sm:block">
-                          <p className="text-sm text-slate-400">UF Removed</p>
-                          <p className="font-bold text-sky-500">
+                          <p className="text-xs uppercase tracking-wider font-semibold" style={{ color: '#7B7A74' }}>UF Removed</p>
+                          <p className="font-extrabold text-base tabular-nums" style={{ color: '#2F8F87' }}>
                             {session.actualUfMl ? displayFluid(session.actualUfMl) : '--'}
                           </p>
                         </div>
+                        <span
+                          className="hidden md:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold"
+                          style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg }}
+                        >
+                          <span>{statusStyle.icon}</span>
+                          {statusStyle.label}
+                        </span>
                         {session.sessionRating && (
                           <span className={`text-xl ${getRatingColor(session.sessionRating)}`}>
                             {session.sessionRating === SessionRating.GOOD ? '😊' : session.sessionRating === SessionRating.OK ? '😐' : '😞'}
@@ -1487,7 +1579,8 @@ const Sessions: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
               {sessions.length < totalSessions && (
                 <div className="flex justify-center mt-4">
@@ -1530,7 +1623,7 @@ const Sessions: React.FC = () => {
               onClick={() => { setIsQuickLog(false); setFieldErrors({}); setTouchedFields({}); }}
               className={`flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm transition-all ${
                 !isQuickLog
-                  ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-400 shadow-sm'
+                  ? 'bg-white dark:bg-slate-600 text-[#2F8F87] shadow-sm'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
             >
@@ -1545,7 +1638,7 @@ const Sessions: React.FC = () => {
               onClick={() => { setIsQuickLog(true); setFieldErrors({}); setTouchedFields({}); }}
               className={`flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm transition-all ${
                 isQuickLog
-                  ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-400 shadow-sm'
+                  ? 'bg-white dark:bg-slate-600 text-[#2F8F87] shadow-sm'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
             >
@@ -1559,8 +1652,8 @@ const Sessions: React.FC = () => {
           </div>
 
           {isQuickLog && (
-            <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 rounded-xl p-4">
-              <p className="text-sm text-purple-700 dark:text-purple-300">
+            <div className="bg-[#D6EFDD] border border-[#4FA872]/30 rounded-xl p-4">
+              <p className="text-sm text-[#1F2D2A]">
                 Log a completed session manually. Enter the date, duration, and details without using a timer.
               </p>
             </div>
@@ -2098,8 +2191,9 @@ const Sessions: React.FC = () => {
               onClick={isQuickLog ? handleQuickLogSession : handleCreateSession}
               disabled={isSubmitting || hasFieldErrors}
               className={`flex-[2] py-4 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
-                hasFieldErrors ? 'bg-slate-400 cursor-not-allowed' : 'bg-purple-500 hover:bg-purple-600'
+                hasFieldErrors ? 'bg-slate-400 cursor-not-allowed' : 'hover:-translate-y-0.5 hover:shadow-lg'
               }`}
+              style={hasFieldErrors ? undefined : { background: 'linear-gradient(135deg, #4EC7B8 0%, #7ED6A7 100%)', boxShadow: '0 8px 24px -8px rgba(78,199,184,0.5)' }}
             >
               {isSubmitting ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -2375,7 +2469,7 @@ const Sessions: React.FC = () => {
 
                 {/* Temperature */}
                 <div>
-                  <label className="text-xs font-bold text-purple-500 uppercase tracking-wider mb-2 block">Temp (°C)</label>
+                  <label className="text-xs font-bold text-[#2F8F87] uppercase tracking-wider mb-2 block">Temp (°C)</label>
                   <input
                     type="number"
                     step="0.1"
@@ -2464,7 +2558,7 @@ const Sessions: React.FC = () => {
                       )}
                       {vital.temperature && (
                         <div className="flex items-center gap-2">
-                          <span className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center text-purple-500 text-sm">🌡️</span>
+                          <span className="w-8 h-8 bg-[#4EC7B8]/12 rounded-lg flex items-center justify-center text-[#2F8F87] text-sm">🌡️</span>
                           <div>
                             <p className="text-xs text-slate-400">Temp</p>
                             <p className="font-bold text-slate-900 dark:text-white">{vital.temperature.value}°{vital.temperature.unit === 'celsius' ? 'C' : 'F'}</p>
@@ -2589,7 +2683,7 @@ const Sessions: React.FC = () => {
                     onClick={() => setPostData({ ...postData, sessionRating: rating })}
                     className={`flex-1 py-3 rounded-xl text-2xl transition-all ${
                       postData.sessionRating === rating
-                        ? 'bg-purple-500 shadow-lg scale-105'
+                        ? 'bg-[#4EC7B8] shadow-lg scale-105'
                         : 'bg-slate-100 dark:bg-slate-700'
                     }`}
                   >
@@ -2703,19 +2797,103 @@ const Sessions: React.FC = () => {
       )}
 
       {/* Session Detail View */}
-      {viewMode === 'detail' && selectedSession && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-slate-700 space-y-6">
+      {viewMode === 'detail' && selectedSession && (() => {
+        // Clinical interpretation — derived from available data
+        const bpPre = selectedSession.preBpSystolic;
+        const bpPost = selectedSession.postBpSystolic;
+        const bpDrop = (bpPre && bpPost) ? bpPre - bpPost : null;
+        const wLoss = (selectedSession.preWeightKg && selectedSession.postWeightKg)
+          ? selectedSession.preWeightKg - selectedSession.postWeightKg : null;
+        const wLossPct = (wLoss !== null && selectedSession.preWeightKg)
+          ? (wLoss / selectedSession.preWeightKg) * 100 : null;
+        const uf = selectedSession.actualUfMl ?? null;
+        const ufTarget = selectedSession.targetUfMl ?? null;
+        const ufPct = (uf && ufTarget) ? Math.round((uf / ufTarget) * 100) : null;
+
+        const interpretation: { tone: 'good' | 'watch' | 'attention'; icon: string; text: string }[] = [];
+        if (ufPct !== null) {
+          if (ufPct >= 90 && ufPct <= 110) interpretation.push({ tone: 'good', icon: '✅', text: `UF achieved target (${ufPct}%)` });
+          else if (ufPct < 90) interpretation.push({ tone: 'watch', icon: '⚠️', text: `UF below target (${ufPct}%) — monitor next session` });
+          else interpretation.push({ tone: 'watch', icon: '⚠️', text: `UF over target (${ufPct}%) — watch for hypotension` });
+        }
+        if (bpDrop !== null) {
+          if (bpDrop >= 30) interpretation.push({ tone: 'attention', icon: '🚨', text: `Significant BP drop (${bpDrop} mmHg) — flag with care team` });
+          else if (bpDrop >= 20) interpretation.push({ tone: 'watch', icon: '⚠️', text: `Notable BP drop (${bpDrop} mmHg) — keep an eye` });
+          else if (bpDrop >= 0) interpretation.push({ tone: 'good', icon: '✅', text: `BP change within expected range (${bpDrop} mmHg)` });
+        }
+        if (wLossPct !== null) {
+          if (wLossPct >= 1.5 && wLossPct <= 3.5) interpretation.push({ tone: 'good', icon: '✅', text: `Weight reduction within expected range (${wLossPct.toFixed(1)}%)` });
+          else if (wLossPct < 1.5) interpretation.push({ tone: 'watch', icon: '⚠️', text: `Weight reduction lower than expected (${wLossPct.toFixed(1)}%)` });
+          else interpretation.push({ tone: 'watch', icon: '⚠️', text: `Weight reduction higher than expected (${wLossPct.toFixed(1)}%)` });
+        }
+        if (selectedSession.ktV != null) {
+          if (selectedSession.ktV >= 1.2) interpretation.push({ tone: 'good', icon: '✅', text: `Dialysis adequacy within healthy range (Kt/V ${selectedSession.ktV.toFixed(2)})` });
+          else interpretation.push({ tone: 'watch', icon: '⚠️', text: `Dialysis adequacy below target (Kt/V ${selectedSession.ktV.toFixed(2)})` });
+        }
+
+        const toneColor = (t: 'good' | 'watch' | 'attention') =>
+          t === 'good' ? { bg: '#D6EFDD', fg: '#4FA872' } : t === 'watch' ? { bg: '#FBEBC7', fg: '#C99638' } : { bg: '#FFE2D6', fg: '#E87556' };
+
+        return (
+        <div className="bg-white rounded-3xl p-6 md:p-8 border border-[#E6E1D7] space-y-6 transition-shadow hover:shadow-md">
+          {/* Breadcrumb + close */}
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Session Details</h2>
-              <p className="text-slate-400 text-sm">
-                {displayFullDate(selectedSession.startedAt)} at {displayTime(selectedSession.startedAt)}
-              </p>
-            </div>
-            <button onClick={() => { setViewMode('list'); setSelectedSession(null); setSelectedSessionVitals([]); }} className="text-slate-400 hover:text-slate-600">
-              <ICONS.X className="w-6 h-6" />
+            <nav className="flex items-center gap-2 text-sm font-semibold" aria-label="Breadcrumb">
+              <button
+                onClick={() => { setViewMode('list'); setSelectedSession(null); setSelectedSessionVitals([]); }}
+                className="transition-colors hover:underline"
+                style={{ color: '#2F8F87' }}
+              >
+                ← Sessions
+              </button>
+              <span style={{ color: '#9B9A94' }}>/</span>
+              <span style={{ color: '#1F2D2A' }}>{displayShortDate(selectedSession.startedAt)} session</span>
+            </nav>
+            <button onClick={() => { setViewMode('list'); setSelectedSession(null); setSelectedSessionVitals([]); }} className="text-[#7B7A74] hover:text-[#1F2D2A] transition-colors">
+              <ICONS.X className="w-5 h-5" />
             </button>
           </div>
+
+          <div>
+            <h2 className="text-2xl md:text-3xl font-bold text-[#1F2D2A] tracking-tight">Session Details</h2>
+            <p className="text-sm mt-1" style={{ color: '#7B7A74' }}>
+              {displayFullDate(selectedSession.startedAt)} at {displayTime(selectedSession.startedAt)}
+            </p>
+            {/* Trust chips */}
+            <div className="flex flex-wrap gap-2 mt-3">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ backgroundColor: '#EDE9E1', color: '#4A4F5C', border: '1px solid #E6E1D7' }}>🔒 Data securely stored</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ backgroundColor: '#EDE9E1', color: '#4A4F5C', border: '1px solid #E6E1D7' }}>🏥 Informational use only</span>
+            </div>
+          </div>
+
+          {/* Clinical Interpretation */}
+          {interpretation.length > 0 && (
+            <div
+              className="rounded-2xl p-5 transition-all"
+              style={{ background: 'linear-gradient(135deg, #D8E7F8 0%, #E4DAF2 100%)', border: '1px solid rgba(92,143,209,0.22)' }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">🧠</span>
+                <h3 className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: '#5C8FD1' }}>
+                  Clinical interpretation
+                </h3>
+              </div>
+              <ul className="space-y-2">
+                {interpretation.map((item, i) => {
+                  const c = toneColor(item.tone);
+                  return (
+                    <li key={i} className="flex items-start gap-3 px-3 py-2 rounded-xl" style={{ backgroundColor: c.bg }}>
+                      <span className="text-sm shrink-0 mt-0.5">{item.icon}</span>
+                      <span className="text-sm font-medium" style={{ color: '#1F2D2A' }}>{item.text}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="text-[11px] mt-3" style={{ color: '#4A4F5C' }}>
+                Based on the numbers from this session. Always confirm with your care team for clinical decisions.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
@@ -2732,9 +2910,9 @@ const Sessions: React.FC = () => {
               <p className="text-sky-500 text-xs uppercase">UF Removed</p>
               <p className="text-lg font-bold text-sky-600">{selectedSession.actualUfMl ? displayFluid(selectedSession.actualUfMl) : '--'}</p>
             </div>
-            <div className="bg-purple-50 dark:bg-purple-500/10 rounded-2xl p-4">
-              <p className="text-purple-500 text-xs uppercase">Weight Loss</p>
-              <p className="text-lg font-bold text-purple-600">
+            <div className="bg-[#D6EFDD] rounded-2xl p-4">
+              <p className="text-[#2F8F87] text-xs uppercase">Weight Loss</p>
+              <p className="text-lg font-bold text-[#2F8F87]">
                 {selectedSession.preWeightKg && selectedSession.postWeightKg
                   ? displayWeight(selectedSession.preWeightKg - selectedSession.postWeightKg)
                   : '--'}
@@ -2750,21 +2928,21 @@ const Sessions: React.FC = () => {
                   <span className="text-slate-500">Weight</span>
                   <span className="font-bold text-slate-900 dark:text-white">{selectedSession.preWeightKg ? displayWeight(selectedSession.preWeightKg) : '--'}</span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
-                  <span className="text-slate-500">Blood Pressure</span>
-                  <span className="font-bold text-slate-900 dark:text-white">
+                <div className="flex justify-between py-2 border-b border-[#E6E1D7]">
+                  <span style={{ color: '#7B7A74' }}>Blood Pressure</span>
+                  <span className="font-bold text-[#1F2D2A]">
                     {selectedSession.preBpSystolic && selectedSession.preBpDiastolic
                       ? `${selectedSession.preBpSystolic}/${selectedSession.preBpDiastolic}`
                       : '--'} mmHg
                   </span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
-                  <span className="text-slate-500">Heart Rate</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.preHeartRate || '--'} bpm</span>
+                <div className="flex justify-between py-2 border-b border-[#E6E1D7]">
+                  <span style={{ color: '#7B7A74' }}>Heart Rate</span>
+                  <span className="font-bold text-[#1F2D2A]">{selectedSession.preHeartRate || '--'} bpm</span>
                 </div>
                 <div className="flex justify-between py-2">
-                  <span className="text-slate-500">Target UF</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.targetUfMl ? displayFluid(selectedSession.targetUfMl) : '--'}</span>
+                  <span style={{ color: '#7B7A74' }}>Target UF</span>
+                  <span className="font-bold text-[#1F2D2A]">{selectedSession.targetUfMl ? displayFluid(selectedSession.targetUfMl) : '--'}</span>
                 </div>
               </div>
             </div>
@@ -2776,21 +2954,48 @@ const Sessions: React.FC = () => {
                   <span className="text-slate-500">Weight</span>
                   <span className="font-bold text-slate-900 dark:text-white">{selectedSession.postWeightKg ? displayWeight(selectedSession.postWeightKg) : '--'}</span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
-                  <span className="text-slate-500">Blood Pressure</span>
-                  <span className="font-bold text-slate-900 dark:text-white">
-                    {selectedSession.postBpSystolic && selectedSession.postBpDiastolic
-                      ? `${selectedSession.postBpSystolic}/${selectedSession.postBpDiastolic}`
-                      : '--'} mmHg
+                <div className="flex justify-between py-2 border-b border-[#E6E1D7]">
+                  <span style={{ color: '#7B7A74' }}>Blood Pressure</span>
+                  <span className="font-bold flex items-center gap-1.5">
+                    <span className="text-[#1F2D2A]">
+                      {selectedSession.postBpSystolic && selectedSession.postBpDiastolic
+                        ? `${selectedSession.postBpSystolic}/${selectedSession.postBpDiastolic}`
+                        : '--'} mmHg
+                    </span>
+                    {bpDrop !== null && bpDrop >= 20 && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded"
+                        style={{
+                          backgroundColor: bpDrop >= 30 ? '#FFE2D6' : '#FBEBC7',
+                          color: bpDrop >= 30 ? '#E87556' : '#C99638',
+                        }}
+                        title={bpDrop >= 30 ? 'Significant drop detected' : 'Notable drop'}
+                      >
+                        ↓ {bpDrop}
+                      </span>
+                    )}
                   </span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-700">
-                  <span className="text-slate-500">Heart Rate</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.postHeartRate || '--'} bpm</span>
+                <div className="flex justify-between py-2 border-b border-[#E6E1D7]">
+                  <span style={{ color: '#7B7A74' }}>Heart Rate</span>
+                  <span className="font-bold text-[#1F2D2A]">{selectedSession.postHeartRate || '--'} bpm</span>
                 </div>
                 <div className="flex justify-between py-2">
-                  <span className="text-slate-500">Actual UF</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{selectedSession.actualUfMl ? displayFluid(selectedSession.actualUfMl) : '--'}</span>
+                  <span style={{ color: '#7B7A74' }}>Actual UF</span>
+                  <span className="font-bold flex items-center gap-2">
+                    <span className="text-[#1F2D2A]">{selectedSession.actualUfMl ? displayFluid(selectedSession.actualUfMl) : '--'}</span>
+                    {ufPct !== null && (
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                        style={{
+                          backgroundColor: ufPct >= 90 && ufPct <= 110 ? '#D6EFDD' : '#FBEBC7',
+                          color: ufPct >= 90 && ufPct <= 110 ? '#4FA872' : '#C99638',
+                        }}
+                      >
+                        {ufPct >= 90 && ufPct <= 110 ? `✓ Target achieved (${ufPct}%)` : `${ufPct}% of target`}
+                      </span>
+                    )}
+                  </span>
                 </div>
               </div>
             </div>
@@ -2852,20 +3057,36 @@ const Sessions: React.FC = () => {
             <div className="space-y-3">
               <h3 className="text-sm font-bold text-emerald-500 uppercase">Dialysis Adequacy</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {selectedSession.ktV != null && (
-                  <div className={`rounded-2xl p-4 ${selectedSession.ktV >= 1.2 ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-amber-50 dark:bg-amber-500/10'}`}>
-                    <p className={`text-xs uppercase ${selectedSession.ktV >= 1.2 ? 'text-emerald-500' : 'text-amber-500'}`}>Kt/V</p>
-                    <p className={`text-2xl font-black ${selectedSession.ktV >= 1.2 ? 'text-emerald-600' : 'text-amber-600'}`}>{selectedSession.ktV.toFixed(2)}</p>
-                    <p className="text-[10px] text-slate-400">Target: {'\u2265'}1.2</p>
-                  </div>
-                )}
-                {selectedSession.urr != null && (
-                  <div className={`rounded-2xl p-4 ${selectedSession.urr >= 65 ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-amber-50 dark:bg-amber-500/10'}`}>
-                    <p className={`text-xs uppercase ${selectedSession.urr >= 65 ? 'text-emerald-500' : 'text-amber-500'}`}>URR</p>
-                    <p className={`text-2xl font-black ${selectedSession.urr >= 65 ? 'text-emerald-600' : 'text-amber-600'}`}>{selectedSession.urr.toFixed(1)}%</p>
-                    <p className="text-[10px] text-slate-400">Target: {'\u2265'}65%</p>
-                  </div>
-                )}
+                {selectedSession.ktV != null && (() => {
+                  const ok = selectedSession.ktV >= 1.2;
+                  const borderline = selectedSession.ktV >= 1.0 && selectedSession.ktV < 1.2;
+                  const tile = ok ? '#D6EFDD' : borderline ? '#FBEBC7' : '#FFE2D6';
+                  const ink = ok ? '#4FA872' : borderline ? '#C99638' : '#E87556';
+                  const label = ok ? '✅ Within healthy range' : borderline ? '⚠️ Borderline' : '🔴 Below target';
+                  return (
+                    <div className="rounded-2xl p-4" style={{ backgroundColor: tile, border: `1px solid ${ink}22` }}>
+                      <p className="text-xs uppercase font-bold" style={{ color: ink }}>Kt/V</p>
+                      <p className="text-2xl font-black" style={{ color: '#1F2D2A' }}>{selectedSession.ktV.toFixed(2)}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: '#7B7A74' }}>Target ≥ 1.2</p>
+                      <p className="text-[11px] font-bold mt-1" style={{ color: ink }}>{label}</p>
+                    </div>
+                  );
+                })()}
+                {selectedSession.urr != null && (() => {
+                  const ok = selectedSession.urr >= 65;
+                  const borderline = selectedSession.urr >= 55 && selectedSession.urr < 65;
+                  const tile = ok ? '#D6EFDD' : borderline ? '#FBEBC7' : '#FFE2D6';
+                  const ink = ok ? '#4FA872' : borderline ? '#C99638' : '#E87556';
+                  const label = ok ? '✅ Within healthy range' : borderline ? '⚠️ Borderline' : '🔴 Below target';
+                  return (
+                    <div className="rounded-2xl p-4" style={{ backgroundColor: tile, border: `1px solid ${ink}22` }}>
+                      <p className="text-xs uppercase font-bold" style={{ color: ink }}>URR</p>
+                      <p className="text-2xl font-black" style={{ color: '#1F2D2A' }}>{selectedSession.urr.toFixed(1)}%</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: '#7B7A74' }}>Target ≥ 65%</p>
+                      <p className="text-[11px] font-bold mt-1" style={{ color: ink }}>{label}</p>
+                    </div>
+                  );
+                })()}
                 {selectedSession.preDialysisBUN != null && (
                   <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
                     <p className="text-slate-400 text-xs uppercase">Pre BUN</p>
@@ -2938,7 +3159,7 @@ const Sessions: React.FC = () => {
                           )}
                           {vital.temperature && (
                             <div className="flex items-center gap-2">
-                              <span className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center text-sm">🌡️</span>
+                              <span className="w-8 h-8 bg-[#4EC7B8]/12 rounded-lg flex items-center justify-center text-sm">🌡️</span>
                               <div>
                                 <p className="text-[10px] text-slate-400 uppercase">Temp</p>
                                 <p className="font-bold text-slate-900 dark:text-white text-sm">
@@ -2980,20 +3201,60 @@ const Sessions: React.FC = () => {
           )}
 
           {selectedSession.notes && (
-            <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
-              <p className="text-slate-400 text-xs uppercase mb-2">Notes</p>
-              <p className="text-slate-900 dark:text-white">{selectedSession.notes}</p>
+            <div className="rounded-2xl p-4" style={{ backgroundColor: '#EDE9E1', border: '1px solid #E6E1D7' }}>
+              <p className="text-xs uppercase font-bold mb-2" style={{ color: '#2F8F87' }}>Patient notes / symptoms</p>
+              <p style={{ color: '#1F2D2A' }}>{selectedSession.notes}</p>
+              <p className="text-[11px] mt-2 italic" style={{ color: '#7B7A74' }}>
+                e.g. dizziness, cramps, fatigue, low energy — useful context for your care team.
+              </p>
             </div>
           )}
 
+          {/* Next Steps guidance */}
+          <div
+            className="rounded-2xl p-5"
+            style={{ background: 'linear-gradient(135deg, #D6EFDD 0%, #D8E7F8 100%)', border: '1px solid rgba(79,168,114,0.22)' }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-base">🎯</span>
+              <h3 className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: '#2F8F87' }}>
+                What should you do next?
+              </h3>
+            </div>
+            <ul className="space-y-2">
+              {(() => {
+                const steps: { icon: string; text: string; to?: string }[] = [];
+                if (bpDrop !== null && bpDrop >= 30) steps.push({ icon: '🩺', text: 'Continue monitoring blood pressure — log a reading in 30 minutes', to: '/vitals' });
+                else steps.push({ icon: '🩺', text: 'Continue monitoring vitals through the day', to: '/vitals' });
+                steps.push({ icon: '💧', text: 'Maintain fluid intake within your daily limit', to: '/fluid' });
+                steps.push({ icon: '📅', text: 'Schedule or confirm your next session', to: '/appointments' });
+                if (ufPct !== null && (ufPct < 90 || ufPct > 110)) steps.push({ icon: '📝', text: 'Add a quick note about anything unusual for your care team' });
+                return steps.map((s, i) => (
+                  <li key={i} className="flex items-start gap-3 px-3 py-2 rounded-xl bg-white/70">
+                    <span className="text-sm shrink-0 mt-0.5">{s.icon}</span>
+                    {s.to ? (
+                      <Link to={s.to} className="text-sm font-semibold hover:underline" style={{ color: '#2F8F87' }}>
+                        {s.text}
+                      </Link>
+                    ) : (
+                      <span className="text-sm font-medium" style={{ color: '#1F2D2A' }}>{s.text}</span>
+                    )}
+                  </li>
+                ));
+              })()}
+            </ul>
+          </div>
+
           <button
             onClick={() => { setViewMode('list'); setSelectedSession(null); setSelectedSessionVitals([]); }}
-            className="w-full py-4 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
+            className="w-full py-3.5 rounded-xl font-bold transition-all hover:-translate-y-0.5"
+            style={{ backgroundColor: '#EDE9E1', color: '#1F2D2A', border: '1px solid #E6E1D7' }}
           >
-            Back to Sessions
+            ← Back to sessions
           </button>
         </div>
-      )}
+        );
+      })()}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && sessionToDelete && (
@@ -3148,7 +3409,7 @@ const Sessions: React.FC = () => {
               {/* Statistics Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 text-center">
-                  <p className="text-2xl font-bold text-purple-500">{analysisData.statistics.totalSessions}</p>
+                  <p className="text-2xl font-bold text-[#2F8F87]">{analysisData.statistics.totalSessions}</p>
                   <p className="text-xs text-slate-500 mt-1">Sessions</p>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 text-center">
@@ -3308,8 +3569,55 @@ const Sessions: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Floating Quick Actions */}
+      {viewMode === 'list' && !activeSession && (
+        <div className="fixed bottom-20 right-4 sm:bottom-8 sm:right-8 z-40 flex flex-col items-end gap-3">
+          {fabOpen && (
+            <div className="flex flex-col items-end gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              {[
+                { onClick: () => { setFabOpen(false); setViewMode('create'); }, icon: '🩺', label: 'Log Session', tile: '#D8E7F8' },
+                { to: '/weight', icon: '⚖️', label: 'Add Weight', tile: '#FFE2D6' },
+                { to: '/fluid', icon: '💧', label: 'Add Fluid', tile: '#E4DAF2' },
+              ].map((a: any) => {
+                const inner = (
+                  <span className="flex items-center gap-3 pl-4 pr-5 py-2.5 rounded-full shadow-lg transition-all" style={{ backgroundColor: '#FFFFFF', border: '1px solid #E6E1D7' }}>
+                    <span className="w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0" style={{ backgroundColor: a.tile }}>{a.icon}</span>
+                    <span className="text-sm font-bold" style={{ color: '#1F2D2A' }}>{a.label}</span>
+                  </span>
+                );
+                return a.to ? (
+                  <Link key={a.label} to={a.to} onClick={() => setFabOpen(false)}>{inner}</Link>
+                ) : (
+                  <button key={a.label} type="button" onClick={a.onClick}>{inner}</button>
+                );
+              })}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setFabOpen((v) => !v)}
+            aria-label={fabOpen ? 'Close quick actions' : 'Open quick actions'}
+            className="w-14 h-14 rounded-full flex items-center justify-center transition-all hover:-translate-y-0.5 hover:shadow-2xl active:scale-95"
+            style={{ background: 'linear-gradient(135deg, #4EC7B8 0%, #7ED6A7 100%)', boxShadow: '0 12px 30px -8px rgba(47,143,135,0.55)', color: '#fff' }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className={`transition-transform ${fabOpen ? 'rotate-45' : ''}`}>
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
+
+const SectionBand: React.FC<{ label: string; sub?: string }> = ({ label, sub }) => (
+  <div className="flex items-baseline gap-3 pt-2">
+    <h3 className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: '#2F8F87' }}>{label}</h3>
+    <div className="flex-1 h-px" style={{ backgroundColor: '#E6E1D7' }} />
+    {sub && <span className="text-xs font-medium" style={{ color: '#9B9A94' }}>{sub}</span>}
+  </div>
+);
 
 export default Sessions;

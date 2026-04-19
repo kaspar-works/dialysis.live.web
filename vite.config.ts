@@ -41,6 +41,22 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: mode === 'production',
           timeout: 60000,
+          // When proxying HTTPS prod API cookies onto plain-HTTP localhost,
+          // strip `Secure` and loosen SameSite so the browser actually stores
+          // and returns the CSRF/session cookies. Dev-only.
+          configure: (proxy) => {
+            proxy.on('proxyRes', (proxyRes) => {
+              const setCookie = proxyRes.headers['set-cookie'];
+              if (setCookie) {
+                proxyRes.headers['set-cookie'] = setCookie.map((c) =>
+                  c
+                    .replace(/;\s*Secure/gi, '')
+                    .replace(/;\s*SameSite=Strict/gi, '; SameSite=Lax')
+                    .replace(/;\s*SameSite=None/gi, '; SameSite=Lax')
+                );
+              }
+            });
+          },
         },
       },
     },
